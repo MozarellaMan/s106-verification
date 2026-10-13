@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 
 use s106::document::{self, OcrModels, Snapshot};
 use s106::extract::{self, Mode};
-use s106::{eval, llm, ocrbench, report, verify};
+use s106::{eval, llm, ocrbench, pld, reconcile, report, verify};
 
 #[derive(Parser)]
 #[command(
@@ -93,6 +93,41 @@ enum Cmd {
         /// print every gold line with its best match
         #[arg(long)]
         detail: bool,
+    },
+    /// Fetch Planning London Datahub records and save them verbatim under <data>/snapshots/pld/.
+    Pld {
+        #[command(subcommand)]
+        cmd: PldCmd,
+    },
+    /// Set a development's deeds (oldest first, replayed from recorded extractions) against PLD
+    /// delivery. Writes <data>/processed/<development>.reconcile.{json,md}.
+    Reconcile {
+        /// the executed deeds, original first, then any variations in date order
+        #[arg(required = true)]
+        pdfs: Vec<PathBuf>,
+        /// PLD record id (`<borough>-<reference>`); must match the snapshot's record
+        #[arg(long)]
+        development: String,
+        /// a saved PLD application snapshot, relative to <data>
+        /// (snapshots/pld/applications/<id>/<time>.json)
+        #[arg(long)]
+        pld: Option<PathBuf>,
+        #[arg(long, default_value = llm::DEFAULT_MODEL)]
+        model: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum PldCmd {
+    /// GET <index>/_source/<id>, e.g. `applications <borough>-<reference>`
+    Get { index: String, id: String },
+    /// POST <index>/_search with an Elasticsearch query from a JSON file
+    Search {
+        index: String,
+        query: PathBuf,
+        /// names the snapshot directory, e.g. `<reference>-units`
+        #[arg(long)]
+        subject: String,
     },
 }
 
@@ -270,6 +305,63 @@ fn main() -> Result<()> {
                     }
                 }
             }
+            Ok(())
+        }
+        Cmd::Pld { cmd } => {
+            let root = s106::data::root();
+            let (index, subject, snap) = match cmd {
+                PldCmd::Get { index, id } => {
+                    let snap = pld::get_source(&index, &id)?;
+                    (index, id, snap)
+                }
+                PldCmd::Search {
+                    index,
+                    query,
+                    subject,
+                } => {
+                    let body = serde_json::from_slice(&std::fs::read(&query)?)?;
+                    let snap = pld::search(&index, body)?;
+                    (index, subject, snap)
+                }
+            };
+            let r = pld::save(&root, &index, &subject, &snap)?;
+            println!("{} (sha256 {})", r.path, r.sha256);
+            Ok(())
+        }
+        Cmd::Reconcile {
+            pdfs,
+            development,
+            pld: pld_snapshot,
+            model,
+        } => {
+            let cfg = document::Config::from_env(&repo_root());
+            let mut instruments = vec![];
+            for pdf in &pdfs {
+                let doc = document::load(pdf, &cfg, true)?;
+                let (agreement, _) = extract::extract(&doc, &model, Mode::Replay, None)?;
+                instruments.push(reconcile::instrument_obligations(
+                    &agreement,
+                    Some(&doc.pages()),
+                ));
+            }
+            let delivery = match pld_snapshot {
+                Some(p) => {
+                    let (snap, at) = pld::load(&s106::data::root(), &p)?;
+                    Some(reconcile::delivery_from_pld(&snap, at)?)
+                }
+                None => None,
+            };
+            let r = reconcile::reconcile(&development, instruments, delivery)?;
+            let md = reconcile::markdown(&r);
+            println!("{md}");
+            let dir = s106::data::processed();
+            std::fs::create_dir_all(&dir)?;
+            let name = pld::safe(&development);
+            std::fs::write(
+                dir.join(format!("{name}.reconcile.json")),
+                serde_json::to_string_pretty(&r)?,
+            )?;
+            std::fs::write(dir.join(format!("{name}.reconcile.md")), md)?;
             Ok(())
         }
     }

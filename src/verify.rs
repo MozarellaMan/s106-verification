@@ -31,7 +31,7 @@ use crate::text::{Value, ocr_digits, percentage_errors, squash, value_in_scan, v
 use crate::triggers::{classify, classify_cited, imposes_payment};
 
 /// Percentage points; deeds quote 2 dp.
-const PCT_TOLERANCE: Decimal = Decimal::from_parts(5, 0, 0, false, 2);
+pub const PCT_TOLERANCE: Decimal = Decimal::from_parts(5, 0, 0, false, 2);
 
 const VARIATION_SKIP: &str = "variation/supplemental deed: restates only what it changes";
 

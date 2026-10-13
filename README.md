@@ -14,6 +14,8 @@ application. The data, and the research notes about specific deeds (the roadmap,
 schema v2, how the Rust harness was accepted against the former Python one), are in the private
 [s106-data](https://github.com/MozarellaMan/s106-data) repository's `docs/`.
 
+Obligations against delivery: [docs/reconciliation.md](docs/reconciliation.md).
+
 ```
 src/
   document.rs   PDF pages -> text with boxes: PDFium text layer, or PP-OCRv5 OCR; cached by content hash
@@ -27,6 +29,8 @@ src/
   text.rs       number and words-to-amount reading
   report.rs     terminal report and JSON
   eval.rs       evaluation against the national S106 register (planning.data.gov.uk)
+  pld.rs        read-only Planning London Datahub client; saves raw snapshots under <data>/snapshots/pld/
+  reconcile.rs  obligation events vs PLD delivery, one row per measure, with a status per row
   ocrbench.rs   OCR scored against hand-transcribed gold (`gold/*.json` in the data repository)
 ```
 
