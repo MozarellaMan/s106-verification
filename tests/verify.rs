@@ -954,3 +954,28 @@ fn dwelling_numbers_do_not_ground_instalment_percentages() {
     let rs = check_contribution(&c, &pages(&[(30, PAGE_30)]), 3);
     assert_eq!(by_id(&rs)["F3.inst"].status, Status::Review);
 }
+
+#[test]
+fn unparseable_amount_does_not_suppress_instalment_checks() {
+    let mut c = instalment_contribution(["40", "40"], [E::PreOccupation, E::PreOccupation]);
+    c.amount.structure = AmountStructure::Rate;
+    c.amount.value_gbp = observe("banana", quantity::decimal);
+    c.payment.instalments[0]
+        .trigger_phrase
+        .as_mut()
+        .unwrap()
+        .snippet = "40% prior to Occupation of the 1st Dwelling".into();
+    c.payment.instalments[1]
+        .trigger_phrase
+        .as_mut()
+        .unwrap()
+        .snippet = "40% prior to Occupation of the 50th Dwelling".into();
+    let source = PAGE_30.replace("50%", "40%");
+    let rs = check_contribution(&c, &pages(&[(30, &source)]), 3);
+    let m = by_id(&rs);
+    assert_eq!(m["F3.amt"].status, Status::Fail);
+    assert!(!m.contains_key("F3.words"));
+    let r = m["F3.inst"];
+    assert_eq!(r.status, Status::Fail, "{}", r.detail);
+    assert_eq!(r.error_class, Some(ErrorClass::DocumentDiscrepancy));
+}

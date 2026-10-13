@@ -904,14 +904,18 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
                     &id,
                     &format!("{}: amount extracted", c.name),
                     "figure not parseable",
-                    pg,
+                    pg.clone(),
                 )
                 .with_findings(vec![finding]),
             );
-            return out;
+            // keep going: conditionality and payment checks don't need the parsed figure
+            None
         }
     };
+    // a figure was stated, even if it didn't parse
+    let figure_stated = c.amount.value_gbp.is_some();
     match value {
+        None if figure_stated => {}
         None => {
             let figureless_ok = matches!(
                 c.amount.structure,
@@ -1010,7 +1014,7 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
         || c.payment.trigger_phrase.is_some()
         || c.payment.trigger_event.is_some()
         || !c.payment.instalments.is_empty();
-    if value.is_some() || has_payment {
+    if figure_stated || has_payment {
         if c.payment.instalments.is_empty() {
             out.extend(check_trigger(c, pages, &cid, &pg));
         } else {
