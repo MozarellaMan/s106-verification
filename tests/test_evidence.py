@@ -91,6 +91,18 @@ class StrictnessTest(unittest.TestCase):
         ev = Evidence(page=1, snippet="£10,010 (ten thousand and pounds) Index Linked")
         self.assertFalse(evidence_found(ev, page))
 
+    def test_short_number_words_joined_to_column_fragment_are_not_absorbed(self):
+        # review repro: OCR joins the left-column term to "and ten"; the snippet leaves it out
+        ev = Evidence(page=1, snippet="£10,010 (ten thousand pounds) Index Linked")
+        page = {1: "means the sumoff10,010(ten thousand\nContributionandten pounds)Index Linked\n"}
+        self.assertFalse(evidence_found(ev, page))
+        page = {1: "means the sumoff10,010(ten thousand\nContributionten pounds)Index Linked\n"}
+        self.assertFalse(evidence_found(ev, page))
+        # the same split with no amount words re-locates, as do terms with "ten" mid-word
+        ev = Evidence(page=1, snippet="£10,000 (ten thousand pounds) Index Linked")
+        page = {1: "means the sumoff10,000(ten thousand\nMaintenanceContribution\" pounds)Index Linked\n"}
+        self.assertTrue(evidence_found(ev, page))
+
     def test_digits_at_line_wrap_are_not_absorbed(self):
         page = {1: "means the sum of f12,650\nClause 4.2 Index Linked to be paid by the Owner\n"}
         ev = Evidence(page=1, snippet="means the sum of £12,650 Index Linked to be paid")

@@ -81,16 +81,20 @@ def _is_number(tok: str) -> bool:
     return tok.isdigit() or tok in _UNITS or tok in _TENS or tok in _SCALES or tok == "hundred"
 
 
-_SHORT_NUMS = ("one", "two", "ten")  # also inside common words: zone, network, maintenance
+# "one", "two", "ten" also sit inside common words (network, maintenance), so they
+# count at a word's start or end or after "and". A skipped gap stops where matching
+# resumes, so an amount word OCR joined to a column fragment ("Contributionandten
+# pounds") ends its gap word; this rejects some terms ending in them ("Zone").
+_SHORT_NUMS = ("one", "two", "ten")
 _NUM_WORD = re.compile("|".join(sorted(
     (w for w in [*_UNITS, *_TENS, *_SCALES, "hundred"] if w not in _SHORT_NUMS), key=len, reverse=True)))
-_SHORT_NUM_START = re.compile(r"(?:and)*(?:%s)" % "|".join(_SHORT_NUMS))
+_SHORT_NUM_EDGE = re.compile(r"(?:^|and)(?:{0})|(?:{0})$".format("|".join(_SHORT_NUMS)))
 
 
 def _numeric_gap(text: str) -> bool:
     """Could this skipped OCR text carry part of an amount the snippet left out?"""
     return (any(c.isdigit() for c in text)
-            or any(_NUM_WORD.search(w) or _SHORT_NUM_START.match(w) for w in re.findall(r"[a-z]+", text)))
+            or any(_NUM_WORD.search(w) or _SHORT_NUM_EDGE.search(w) for w in re.findall(r"[a-z]+", text)))
 
 
 def _layout_match(tokens: list[str], page: str) -> bool:
