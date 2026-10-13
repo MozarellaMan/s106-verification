@@ -406,7 +406,7 @@ pub fn contribution_v1(w: &WireContributionV1, pm: &PageMap) -> Contribution {
             evidence: pm.ev(&w.evidence),
         },
         conditionality: Conditionality {
-            // v1 "contingent" meant "no fixed figure", not "conditional" (docs/schema-v2.md)
+            // v1 "contingent" meant "no fixed figure", not "conditional" (schema-v2 notes, s106-data docs/)
             kind: ConditionalityKind::Unknown,
             condition: None,
             evidence: None,

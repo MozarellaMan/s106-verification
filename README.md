@@ -9,9 +9,10 @@ cites, and that passage must be found on the cited page. Nothing in the gate is 
 
 Architecture and contributor reading path: [docs/architecture.md](docs/architecture.md).
 
-Scope, roadmap and open research questions: [docs/research-plan.md](docs/research-plan.md).
-Schema v2 and the real deeds behind it: [docs/schema-v2.md](docs/schema-v2.md).
-How the Rust harness was accepted against the former Python one: [docs/migration.md](docs/migration.md).
+This repository holds code and invented test deeds only; it describes no real planning
+application. The data, and the research notes about specific deeds (the roadmap, the deeds behind
+schema v2, how the Rust harness was accepted against the former Python one), are in the private
+[s106-data](https://github.com/MozarellaMan/s106-data) repository's `docs/`.
 
 ```
 src/
@@ -59,23 +60,53 @@ git clone git@github.com:MozarellaMan/s106-data.git data
 scripts/fetch-corpus.sh
 ```
 
-`scripts/fetch-corpus.sh` reads `corpus/manifest.tsv` from the data checkout, downloads all ten
-deeds into `data/raw/<id>.pdf`, and refuses a file with a different SHA-256, as do the recorded
+`scripts/fetch-corpus.sh` reads `corpus/manifest.tsv` from the data checkout, downloads every
+deed into `data/raw/<id>.pdf`, and refuses a file with a different SHA-256, as do the recorded
 responses (`data/extractions/<id>/`). The evaluation's candidate list and the register rows for
 those deeds are in the data repository's `eval/`.
+
+### Starting without the data repository
+
+Any folder with the same layout works as a data checkout (`src/data.rs` names every path). To
+start one, find the executed deed for a planning application on the council's register, then:
+
+1. Add it to `corpus/manifest.tsv` (id, `raw/<id>.pdf`, SHA-256, URL, session page or `-`) and
+   run `scripts/fetch-corpus.sh <id>`.
+2. Write its page text with `s106 pages data/raw/<id>.pdf --write data/pages` (needs
+   `scripts/fetch-models.sh`).
+3. Record one extraction with `s106 audit data/raw/<id>.pdf --llm-mode record` (costs money; see
+   below). From then on, `s106 audit data/pages/<id>.pages.json` replays it offline.
+4. To compare with the national register, list it in `eval/candidates.tsv`, download the register
+   files (see the `eval/` README in s106-data) and run `s106 eval --replay --register <dir>`.
+
+These are the applications the current corpus was built from, a mix of agreements, a unilateral
+undertaking and deeds of variation:
+
+| Council | Planning reference | Instrument |
+|---|---|---|
+| Southwark | 19/AP/1773 | S106 agreement |
+| Salford | 19/73971/FUL | S106 agreement (counterpart) |
+| Salford | 20/75239/FUL | S106 agreement |
+| Dover | DOV/18/00681/FULL | deed of variation (redacted) |
+| Dover | DOV/19/00403/OUTLINE | deed of variation (redacted) |
+| Sunderland | 21/01544/FU4 | S106 (redacted) |
+| North Tyneside | 19/01280/FUL | S106 agreement |
+| Bolton | 01373/17 | supplemental S106 |
+| Tonbridge & Malling | 20/02239/FL | unilateral undertaking |
+| Tonbridge & Malling | 24/00842/PA | deed of variation |
 
 ## Run
 
 ```bash
-s106 audit data/raw/southwark_s106_sample.pdf                      # replay if no credentials, else live
-s106 audit data/raw/southwark_s106_sample.pdf --llm-mode record    # call the API and save the fixture
+s106 audit data/raw/<id>.pdf                                       # replay if no credentials, else live
+s106 audit data/raw/<id>.pdf --llm-mode record                     # call the API and save the fixture
 s106 audit <pdf> --escalate                                        # re-read Parser-Error fields with Opus 5.5
-s106 audit data/pages/southwark_s106_sample.pages.json            # replay from committed page text, no PDF
+s106 audit data/pages/<id>.pages.json                             # replay from committed page text, no PDF
 s106 eval --replay                                                 # all candidate deeds vs the register, offline
 s106 eval --replay --pages data/pages                              # the same from committed page text, no PDFs
 s106 pages <pdf>... --check data/pages                             # read PDFs afresh and compare with the snapshots
 s106 eval --runs 3                                                 # live, three runs per deed (run-to-run agreement)
-s106 bench-ocr data/gold/southwark_19_AP_1773.json data/raw/southwark_s106_sample.pdf --models ppocrv5-en-mobile,ppocrv4-mobile
+s106 bench-ocr data/gold/<gold>.json data/raw/<id>.pdf --models ppocrv5-en-mobile,ppocrv4-mobile
 ```
 
 (`cargo run --release --` instead of `s106` without installing.)
@@ -85,8 +116,8 @@ clean, `1` Parser Errors or REVIEW flags, and `2` Document Discrepancies.
 
 **What a run costs.** Extraction is three structured-output calls over the whole PDF. A single
 schema for everything compiles to a grammar the API rejects, and the PDF can't be cached across
-calls whose schemas differ. With Haiku 5.5 a 30-page deed costs a few cents; the 109-page
-Southwark scan costs about $0.30. Escalation to Opus 5.5 costs more and only runs with
+calls whose schemas differ. With Haiku 5.5 a 30-page deed costs a few cents; a 109-page scan
+costs about $0.30. Escalation to Opus 5.5 costs more and only runs with
 `--escalate`.
 
 ## Outcomes

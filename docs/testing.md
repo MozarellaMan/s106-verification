@@ -1,6 +1,6 @@
 # Testing and evaluation tiers
 
-The expensive stages are reading PDFs (PDFium, and OCR for scans: the 109-page Southwark deed
+The expensive stages are reading PDFs (PDFium, and OCR for scans: the corpus's 109-page deed
 takes about four minutes) and calling the model. Each stage's output is kept as a reproducible
 artifact with its provenance, so everything after it can be tested without re-running it:
 
@@ -17,7 +17,7 @@ directories named by their verified archive's SHA-256, so the library loaded is 
 names. The cache manifest is validated on read, and cache files are written through a temporary
 file unique to each writer. Snapshot comparison is exact: every page, its source, dimensions
 (page width decides which margin specks are dropped from the evidence text), lines and boxes. Each image-only page is OCR'd on its own: oar-ocr pads a batch to a common size, and pages
-recognised in batches of six read differently from the same pages read alone (5 of 9 TMBC pages,
+recognised in batches of six read differently from the same pages read alone (5 of 9 pages of one scanned deed,
 106 of 260 corpus pages). Page text is now a function of the page alone, so a partly warm cache, a
 partial load and a full cold run all agree.
 
@@ -44,7 +44,7 @@ fails, after writing its summary, unless every selected deed completed every req
 Tiers 3 and 4 are what make tier 2 trustworthy. Everything after page text is deterministic, so
 "every snapshot reproduces from its PDF" (tier 4) plus "replay from snapshots gives these
 outcomes" (tier 2) covers what the old replay-from-PDF tests covered. It was checked directly:
-the Southwark audit and the nine-deed register evaluation give identical results from the PDFs
+the 109-page audit and the nine-deed register evaluation give identical results from the PDFs
 and from the snapshots.
 
 What these tiers establish is repeatability: the same inputs give the same page text and the same
@@ -66,8 +66,8 @@ lets ONNX Runtime load at run time (the container cannot reach its build-time do
 | Every deed read from its PDF and checked | no such test | | 494 s (tier 4) | 0.6 s |
 | `s106 eval --replay` (9 deeds, on PDFs) | 274 s | 0.4 s | 275 s | 0.2 s |
 | `s106 eval --replay --pages data/pages` | not available | | 0.08 s, no cache involved | same |
-| `s106 audit` Southwark, replay | 230 s | 0.08 s | 235 s | 0.07 s |
-| `s106 audit data/pages/southwark_s106_sample.pages.json` | not available | | 0.05 s | same |
+| `s106 audit` on the 109-page deed, replay | 230 s | 0.08 s | 235 s | 0.07 s |
+| `s106 audit data/pages/<id>.pages.json` (same deed) | not available | | 0.05 s | same |
 | Writing all ten snapshots (`s106 pages --write`) | | | 504 s (484 s with batches of six) | |
 
 Default `cargo test` (debug), tiers 1-2: 131 s from an empty `target/` (almost all compiling
@@ -78,7 +78,7 @@ A warm page-text load no longer opens the PDF in PDFium: it hashes the file and 
 pages. OCR of one page at a time costs about 4% more than batches of six.
 
 Live tier 5 was not run for this change (it needs a key and costs money). Recorded costs are in
-[migration.md](migration.md): about $1.03 for one run over all ten deeds.
+[migration.md](https://github.com/MozarellaMan/s106-data/blob/main/docs/migration.md) (s106-data): about $1.03 for one run over all ten deeds.
 
 ### Scaling
 
@@ -97,7 +97,7 @@ needing OCR (about 2 s each here), so tier 4 is the one to schedule rather than 
   the diff of `expected/` in the data repository.
 - **Line logic, OCR settings or a runtime artifact**: bump `PAGE_TEXT_LOGIC` (line logic) or the
   pins, then regenerate the snapshots from the PDFs with
-  `s106 pages data/raw/southwark_s106_sample.pdf data/raw/*.pdf --write data/pages`,
+  `s106 pages data/raw/*.pdf --write data/pages`,
   bless the expected outcomes, and review both diffs (one page per line).
 - **Prompt or schema**: re-record the fixtures (`--llm-mode record`, tier 5), then bless.
 - **New deed**: add it to `corpus/manifest.tsv` (data repository), fetch it, record its fixture, write its

@@ -172,8 +172,8 @@ Use the exact PDF SHA-256 from the audit and its original filename (fixture look
 uses the stem), the recorded model fixture, the code revision and OCR configuration:
 
 ```sh
-cargo run --release -- audit data/raw/southwark_s106_sample.pdf --llm-mode replay
-cargo run --release -- audit data/pages/southwark_s106_sample.pages.json   # no PDF needed
+cargo run --release -- audit data/raw/<id>.pdf --llm-mode replay
+cargo run --release -- audit data/pages/<id>.pages.json   # no PDF needed
 cargo run --release -- eval --replay
 cargo test                    # tier 1, no data needed; see docs/testing.md
 cargo test-data               # tier 2, needs the data checkout
