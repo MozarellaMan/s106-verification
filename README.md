@@ -10,7 +10,7 @@ classified as either a **Parser Error** (our extraction is wrong) or a **Documen
 s106-audit/
   schema.py     Pydantic v2 model: Section106Agreement (metadata, housing/tenure, contributions + triggers)
   ocr.py        pdfplumber text layer -> parallel RapidOCR fallback for scanned deeds, cached per page
-  extractor.py  definitions-clause + schedule parser (rules), Claude over OCR text (llm), or Claude over the page images (llm-pdf)
+  extractor.py  definitions-clause + schedule parser (rules) or Claude over the page images (llm-pdf)
   fixtures/     recorded Claude responses so --backend llm-pdf runs offline
   verifier.py   hard assertions + Parser Error / Document Discrepancy classification
   run_audit.py  CLI: terminal report + JSON
@@ -43,7 +43,6 @@ with `--cacert`.
 .venv/bin/python s106-audit/run_audit.py                      # rules backend
 .venv/bin/python s106-audit/run_audit.py --backend llm-pdf            # Claude reads the scans (offline: replays fixture)
 .venv/bin/python s106-audit/run_audit.py --backend llm-pdf --cascade  # + re-read Parser Error fields on Opus
-ANTHROPIC_API_KEY=... .venv/bin/python s106-audit/run_audit.py --backend llm --model claude-haiku-5-5
 .venv/bin/python -m unittest discover -s tests                        # offline tests, mocked client
 ```
 
@@ -102,7 +101,7 @@ A deed of over ~58 targeted pages crosses Haiku's 100k-token price step.
 right-column sentence wherever a line wraps. A clean snippet that the model read off the image then
 won't re-locate in the OCR text. In the live sample run, 7 of 31 cited snippets fail to re-locate, all of
 them figures-and-words snippets that wrap a line. Every check still passes, but if one of those fields failed it would be classed as a Parser Error, never a Document
-Discrepancy. That errs on the safe side, but it weakens the classification for the LLM backends.
+Discrepancy. That errs on the safe side, but it weakens the classification for the llm-pdf backend.
 
 ## Checks
 

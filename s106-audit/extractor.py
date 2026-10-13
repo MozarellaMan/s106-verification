@@ -1,19 +1,17 @@
 """Extract a Section106Agreement from a deed PDF.
 
-Three backends fill the same Pydantic schema:
+Two backends fill the same Pydantic schema:
 
   * rules  (default) deterministic regexes over the definitions clause and schedules.
            Tolerant of OCR space-dropping: every pattern matches with optional
            whitespace between characters.
-  * llm    Claude structured outputs (`client.messages.parse`) over the targeted
-           pages. Needs Anthropic credentials. Values still go through the same
-           evidence-backed verifier, so the model is never trusted on its own.
   * llm-pdf Claude reads the scanned page images directly: the definitions and the
            payment/mix pages are split out with pypdfium2 and sent as a base64 PDF
            document block (default claude-haiku-5-5). The model cites evidence by
            page; the verifier re-locates it in the independent RapidOCR text.
            `cascade_llm_pdf` re-reads only the Parser Error fields on claude-opus-5-5.
-           Offline, responses replay from s106-audit/fixtures/.
+           Offline, responses replay from s106-audit/fixtures/. Values still go through
+           the same evidence-backed verifier, so the model is never trusted on its own.
 """
 from __future__ import annotations
 
@@ -360,47 +358,6 @@ def extract_metadata(pdf_path: Path, pages: dict[int, str], page_count: int, tex
         page_count=page_count,
         text_source=text_source,
     )
-
-
-# --------------------------------------------------------------------------- LLM backend
-
-def extract_llm(pdf_path: Path, pages: dict[int, str], target_pages: list[int], base: Section106Agreement,
-                model: str = "claude-opus-5-5") -> Section106Agreement:
-    """Re-extract housing + contributions with Claude structured outputs.
-
-    Metadata comes from the rules pass. The model sees only the targeted pages,
-    each tagged with its page number so it can cite evidence the verifier re-checks.
-    """
-    import anthropic
-    from pydantic import BaseModel
-
-    class LLMOutput(BaseModel):
-        housing: HousingProvision
-        contributions: list[FinancialContribution]
-
-    corpus = "\n\n".join(f"<page n={n}>\n{pages[n]}\n</page>" for n in target_pages)
-    client = anthropic.Anthropic()
-    resp = client.messages.parse(
-        model=model,
-        max_tokens=16000,
-        output_config={"effort": "medium"},
-        messages=[{"role": "user", "content": (
-            "Below is OCR text (spaces often missing; '£' often read as 'f') from the definitions and "
-            "schedules of a UK Section 106 agreement. Extract the residential unit counts, affordable tenure "
-            "breakdown, any stated affordable percentage and its basis, and every financial contribution "
-            "with its amount in figures, its amount in words exactly as written, whether it is Index Linked, "
-            "and the clause that triggers payment. For every value give evidence: the page number and a short "
-            "verbatim snippet copied from that page. Use null where the deed does not state a value; do not "
-            "compute or infer numbers.\n\n" + corpus)}],
-        output_format=LLMOutput,
-    )
-    if resp.stop_reason == "refusal" or resp.parsed_output is None:
-        raise RuntimeError(f"LLM extraction returned no structured output (stop_reason={resp.stop_reason})")
-    out = base.model_copy(deep=True)
-    out.housing = resp.parsed_output.housing
-    out.contributions = resp.parsed_output.contributions
-    out.extraction_backend = f"llm:{model}"
-    return out
 
 
 # --------------------------------------------------------------------------- LLM native-PDF backend
@@ -790,9 +747,7 @@ def extract(pdf_path: str | Path, backend: str = "rules", model: str | None = No
         contributions=extract_contributions(defs, pages, [n for n in pages if n > def_pages[-1]]),
         warnings=warnings,
     )
-    if backend == "llm":
-        agreement = extract_llm(pdf_path, pages, def_pages + sched_pages, agreement, model=model or "claude-opus-5-5")
-    elif backend == "llm-pdf":
+    if backend == "llm-pdf":
         agreement = extract_llm_pdf(pdf_path, pages, agreement, model=model or PDF_DEFAULT_MODEL, mode=llm_mode,
                                     client=client, verbose=verbose)
     if verbose:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Audit a Section 106 deed: extract -> verify -> terminal report + JSON.
 
-    python s106-audit/run_audit.py [PDF] [--backend rules|llm|llm-pdf] [--model M] [--cascade]
+    python s106-audit/run_audit.py [PDF] [--backend rules|llm-pdf] [--model M] [--cascade]
                                    [--llm-mode auto|live|replay|record] [--out data/processed/<stem>.audit.json]
 
 Exit code: 0 all checks pass/skip, 1 parser errors present, 2 document discrepancies present.
@@ -92,8 +92,8 @@ def report(a, results) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("pdf", nargs="?", default=DEFAULT_PDF)
-    ap.add_argument("--backend", choices=["rules", "llm", "llm-pdf"], default="rules")
-    ap.add_argument("--model", help="Claude model (default: claude-opus-5-5 for llm, claude-haiku-5-5 for llm-pdf)")
+    ap.add_argument("--backend", choices=["rules", "llm-pdf"], default="rules")
+    ap.add_argument("--model", help="Claude model for llm-pdf (default claude-haiku-5-5)")
     ap.add_argument("--cascade", action="store_true",
                     help="llm-pdf: re-read fields with Parser Errors on --cascade-model, keep only verified improvements")
     ap.add_argument("--cascade-model", default=CASCADE_MODEL)
