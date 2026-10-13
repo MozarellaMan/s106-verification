@@ -5,6 +5,7 @@
 //! → `verify` (deterministic, evidence-grounded checks) → `report` / JSON.
 
 pub mod audit;
+pub mod data;
 pub mod document;
 pub mod eval;
 pub mod evidence;

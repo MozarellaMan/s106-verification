@@ -1,17 +1,19 @@
-//! Tier 2: offline replay. Page text comes from committed snapshots (`fixtures/pages/`) and model
-//! output from recorded responses (`fixtures/llm/`), so these run in the default `cargo test`
-//! without a PDF, PDFium, ONNX Runtime, OCR models, credentials or network.
+//! Data tier: offline replay of the real corpus. Page text comes from the snapshots and model
+//! output from the recorded responses in the data repository (`s106::data`), so these need no
+//! PDF, PDFium, ONNX Runtime, OCR models, credentials or network, only the data checkout. They
+//! are ignored by the default `cargo test` (which replays the invented deeds in
+//! `tests/synthetic.rs`); run them with `cargo test-data`.
 //!
 //! The snapshots are only as good as their agreement with the real pipeline; the real-PDF tiers
 //! check that (`tests/pdf_regression.rs` on difficult pages, `tests/corpus.rs` on whole deeds).
-//! Expected outcomes live in `fixtures/expected/`; after an intended change, regenerate them with
-//! `S106_BLESS=1 cargo test --test replay` and review the diff.
+//! Expected outcomes live in the data repository's `expected/`; after an intended change, regenerate them with
+//! `S106_BLESS=1 cargo test-data` and review the diff.
 
 mod common;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use common::{bless, corpus, root, snapshot};
+use common::{bless, corpus, data, root, snapshot};
 use s106::document::Config;
 use s106::eval::{self, EvalArgs};
 use s106::extract::{self, Fixture, Mode};
@@ -20,6 +22,7 @@ use s106::verify::verify;
 use serde_json::{Value, json};
 
 #[test]
+#[ignore = "data tier: needs the s106-data checkout; cargo test-data"]
 fn every_deed_has_a_current_snapshot() {
     let producer = Config::from_env(&root()).producer();
     for deed in corpus() {
@@ -33,14 +36,15 @@ fn every_deed_has_a_current_snapshot() {
         assert_eq!(
             snap.producer, producer,
             "{}: snapshot was produced by different page-text settings or runtime artifacts; \
-             regenerate with `s106 pages --write fixtures/pages <pdf>` and review the diff",
+             regenerate with `s106 pages --write data/pages <pdf>` and review the diff",
             deed.id
         );
         let fx: Fixture = serde_json::from_str(
-            &std::fs::read_to_string(root().join(format!(
-                "fixtures/llm/{}/claude-haiku-5-5.extract.v2.json",
-                deed.id
-            )))
+            &std::fs::read_to_string(
+                s106::data::extractions()
+                    .join(&deed.id)
+                    .join("claude-haiku-5-5.extract.v2.json"),
+            )
             .unwrap(),
         )
         .unwrap();
@@ -84,8 +88,9 @@ fn lines(values: &[Value]) -> String {
 }
 
 #[test]
+#[ignore = "data tier: needs the s106-data checkout; cargo test-data"]
 fn replay_reproduces_expected_outcomes() {
-    let dir = root().join("fixtures/expected");
+    let dir = s106::data::expected();
     let mut problems = vec![];
     for deed in corpus() {
         let got = lines(&outcomes(&deed.id));
@@ -113,12 +118,13 @@ fn replay_reproduces_expected_outcomes() {
     }
     assert!(
         problems.is_empty(),
-        "replayed outcomes changed (if intended: S106_BLESS=1 cargo test --test replay):\n{}",
+        "replayed outcomes changed (if intended: S106_BLESS=1 cargo test-data):\n{}",
         problems.join("\n")
     );
 }
 
 #[test]
+#[ignore = "data tier: needs the s106-data checkout; cargo test-data"]
 fn snapshot_ocr_meets_the_gold_thresholds() {
     for (gold, id, check) in [
         (
@@ -132,7 +138,7 @@ fn snapshot_ocr_meets_the_gold_thresholds() {
             common::assert_salford_gold,
         ),
     ] {
-        let g = Gold::load(&root().join(gold)).unwrap();
+        let g = Gold::load(&data().join(gold)).unwrap();
         let doc = snapshot(id).document();
         assert_eq!(doc.sha256, g.sha256, "{gold} describes another document");
         check(&ocrbench::score(&g, &doc));
@@ -142,13 +148,15 @@ fn snapshot_ocr_meets_the_gold_thresholds() {
 /// The register evaluation in replay mode, from snapshots: gate counts, register matches and
 /// misses for every candidate deed (run times removed).
 #[test]
+#[ignore = "data tier: needs the s106-data checkout; cargo test-data"]
 fn eval_replay_matches_expected_summary() {
+    data();
     let out = tempfile::tempdir().unwrap();
     let args = EvalArgs {
         replay: true,
         pages: Some(common::snapshot_dir()),
         out: out.path().to_path_buf(),
-        ..EvalArgs::defaults(&root())
+        ..EvalArgs::defaults()
     };
     let summary = eval::evaluate_all(&args, &root()).unwrap();
     assert!(eval::incomplete(&summary, &args).is_empty());
@@ -166,7 +174,7 @@ fn eval_replay_matches_expected_summary() {
         .map(|d| (d["id"].as_str().unwrap().to_string(), d.clone()))
         .collect();
     let got = serde_json::to_string_pretty(&by_id).unwrap() + "\n";
-    let path = root().join("fixtures/expected/eval-replay.json");
+    let path = s106::data::expected().join("eval-replay.json");
     if bless() {
         std::fs::write(&path, &got).unwrap();
         return;
@@ -174,19 +182,22 @@ fn eval_replay_matches_expected_summary() {
     let want = std::fs::read_to_string(&path).unwrap_or_default();
     assert!(
         got == want,
-        "eval --replay summary changed (if intended: S106_BLESS=1 cargo test --test replay)\n\
+        "eval --replay summary changed (if intended: S106_BLESS=1 cargo test-data)\n\
          got:\n{got}"
     );
 }
 
 #[test]
+#[ignore = "data tier: needs the s106-data checkout; cargo test-data"]
 fn eval_fails_unless_every_selected_deed_completes() {
     // a root with no PDFs: every deed is "corpus missing", so the command must not succeed
+    data();
     let empty = tempfile::tempdir().unwrap();
     let args = EvalArgs {
         replay: true,
         out: empty.path().join("out"),
-        ..EvalArgs::defaults(&root())
+        pdfs: empty.path().to_path_buf(),
+        ..EvalArgs::defaults()
     };
     let summary = eval::evaluate_all(&args, empty.path()).unwrap();
     assert_eq!(eval::incomplete(&summary, &args).len(), summary.len());
@@ -208,4 +219,94 @@ fn eval_fails_unless_every_selected_deed_completes() {
     };
     let err = eval::evaluate_all(&none, empty.path()).unwrap_err();
     assert!(err.to_string().contains("lists no candidates"), "{err}");
+}
+
+/// What the number parser does on every string the recorded responses cite: the data-tier
+/// counterpart of `tests/numeric_snapshot.rs`, whose probes are invented. A change shows up as a
+/// diff of `expected/parser-on-extractions.txt`.
+#[test]
+#[ignore = "data tier: needs the s106-data checkout; cargo test-data"]
+fn parser_behaviour_on_recorded_strings() {
+    const KEYS: [&str; 5] = [
+        "snippet",
+        "amount_in_words",
+        "amount_gbp",
+        "share_pct",
+        "claimed_affordable_pct",
+    ];
+    fn collect(v: &Value, key: Option<&str>, out: &mut BTreeSet<String>) {
+        match v {
+            Value::Object(m) => m.iter().for_each(|(k, v)| collect(v, Some(k), out)),
+            Value::Array(a) => a.iter().for_each(|v| collect(v, key, out)),
+            Value::String(s) if !s.is_empty() && key.is_some_and(|k| KEYS.contains(&k)) => {
+                out.insert(s106::audit::escape_probe(s));
+            }
+            _ => {}
+        }
+    }
+    data();
+    let mut strings = BTreeSet::new();
+    for dir in [s106::data::extractions(), s106::data::extractions_v1()] {
+        for deed in std::fs::read_dir(dir).unwrap() {
+            for f in std::fs::read_dir(deed.unwrap().path()).unwrap() {
+                let v: Value =
+                    serde_json::from_str(&std::fs::read_to_string(f.unwrap().path()).unwrap())
+                        .unwrap();
+                collect(&v["output"], None, &mut strings);
+            }
+        }
+    }
+    let probes: String = strings.iter().map(|s| format!("{s}\n")).collect();
+    let got = s106::audit::render_probes(&probes);
+    let path = s106::data::expected().join("parser-on-extractions.txt");
+    if bless() {
+        std::fs::write(&path, &got).unwrap();
+        return;
+    }
+    let want = std::fs::read_to_string(&path).unwrap_or_default();
+    assert!(
+        got == want,
+        "parser results on recorded strings changed (if intended: S106_BLESS=1 cargo test-data, \
+         then review the diff in the data repository)"
+    );
+}
+
+#[test]
+#[ignore = "data tier: needs the s106-data checkout; cargo test-data"]
+fn recorded_words_replay_with_negative_twins() {
+    // Recorded figures are compatibility references, not independently verified legal truth.
+    data();
+    let mut checked = 0;
+    for dir in [s106::data::extractions(), s106::data::extractions_v1()] {
+        for deed in std::fs::read_dir(dir).unwrap() {
+            for fixture in std::fs::read_dir(deed.unwrap().path()).unwrap() {
+                let path = fixture.unwrap().path();
+                let raw: serde_json::Value =
+                    serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+                for c in raw["output"]["contributions"].as_array().unwrap() {
+                    let Some(words) = c["amount_in_words"].as_str().filter(|s| !s.is_empty())
+                    else {
+                        continue;
+                    };
+                    let figure =
+                        rust_decimal::Decimal::from_str_exact(c["amount_gbp"].as_str().unwrap())
+                            .unwrap();
+                    assert_eq!(
+                        s106::quantity::amount(words).unwrap(),
+                        figure,
+                        "{}: {words}",
+                        path.display()
+                    );
+                    assert!(
+                        s106::quantity::amount(&format!("{words} banana")).is_err(),
+                        "{}: corrupted {words}",
+                        path.display()
+                    );
+                    checked += 1;
+                }
+            }
+        }
+    }
+    assert!(checked > 0, "no recorded words fields found");
+    eprintln!("{checked} recorded words fields reparsed; {checked} corrupted twins rejected");
 }

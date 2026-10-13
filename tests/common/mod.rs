@@ -1,4 +1,5 @@
-//! Shared by the tiered tests: the corpus list, committed page-text snapshots and thresholds.
+//! Shared by the tiered tests: the corpus list and page-text snapshots from the data repository
+//! (`s106::data`), the invented deeds, and OCR thresholds.
 #![allow(dead_code)]
 
 pub mod synthetic;
@@ -12,7 +13,18 @@ pub fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-/// One row of fixtures/corpus.tsv.
+/// The data checkout; the data tiers fail (never skip) without it.
+pub fn data() -> PathBuf {
+    let root = s106::data::root();
+    assert!(
+        s106::data::manifest().exists(),
+        "data missing: no {} (clone https://github.com/MozarellaMan/s106-data into data/, or set S106_DATA)",
+        s106::data::manifest().display()
+    );
+    root
+}
+
+/// One row of the data repository's corpus/manifest.tsv.
 pub struct Deed {
     pub id: String,
     pub pdf: PathBuf,
@@ -20,7 +32,8 @@ pub struct Deed {
 }
 
 pub fn corpus() -> Vec<Deed> {
-    std::fs::read_to_string(root().join("fixtures/corpus.tsv"))
+    let data = data();
+    std::fs::read_to_string(s106::data::manifest())
         .unwrap()
         .lines()
         .filter(|l| !l.starts_with('#') && !l.starts_with("id\t"))
@@ -28,7 +41,7 @@ pub fn corpus() -> Vec<Deed> {
             let f: Vec<&str> = l.split('\t').collect();
             Deed {
                 id: f[0].into(),
-                pdf: root().join(f[1]),
+                pdf: data.join(f[1]),
                 sha256: f[2].into(),
             }
         })
@@ -36,7 +49,7 @@ pub fn corpus() -> Vec<Deed> {
 }
 
 pub fn snapshot_dir() -> PathBuf {
-    root().join("fixtures/pages")
+    data().join("pages")
 }
 
 pub fn snapshot(id: &str) -> Snapshot {

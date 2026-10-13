@@ -1,4 +1,4 @@
-//! Tier 4: full documents. Every deed in fixtures/corpus.tsv is read through the real pipeline
+//! Tier 4: full documents. Every deed in the data repository's corpus/manifest.tsv is read through the real pipeline
 //! (PDFium and OCR, via the page-text cache) and must reproduce its committed snapshot exactly:
 //! every page, with the same source, dimensions, lines and boxes. Since everything downstream of page text is deterministic,
 //! this is what licenses the replay tiers to stand in for the PDFs.

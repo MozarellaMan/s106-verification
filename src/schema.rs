@@ -57,7 +57,7 @@ pub struct Provenance {
     /// "text-layer", "ocr" or "mixed"
     pub text_source: String,
     pub ocr_version: Option<String>,
-    /// e.g. "claude-haiku-5-5 (replay of fixtures/…)"
+    /// e.g. "claude-haiku-5-5 (replay of data/extractions/…)"
     pub extracted_by: String,
 }
 

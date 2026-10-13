@@ -20,7 +20,7 @@ fn cite(page: u32, s: &str) -> Cite {
 
 fn doc(pages: usize) -> Document {
     Document {
-        path: PathBuf::from("data/raw/southwark_s106_sample.pdf"),
+        path: PathBuf::from("example.pdf"),
         sha256: "0baed481b09feeb4".into(),
         ocr_version: "test".into(),
         pages: (1..=pages)
@@ -299,7 +299,7 @@ fn v1_fixture_replays_through_the_adapter() {
 fn replay_refuses_a_fixture_from_a_different_pdf() {
     let dir = tempfile::tempdir().unwrap();
     // SAFETY: this test binary sets the variable before any other test reads it
-    unsafe { std::env::set_var("S106_FIXTURES", dir.path()) };
+    unsafe { std::env::set_var("S106_DATA", dir.path()) };
     let d = doc(3);
     let fx = extract::Fixture {
         format: extract::FIXTURE_FORMAT.into(),
