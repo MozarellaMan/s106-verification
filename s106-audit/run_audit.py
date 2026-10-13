@@ -4,7 +4,8 @@
     python s106-audit/run_audit.py [PDF] [--backend rules|llm-pdf] [--model M] [--cascade]
                                    [--llm-mode auto|live|replay|record] [--out data/processed/<stem>.audit.json]
 
-Exit code: 0 all checks pass/skip, 1 parser errors present, 2 document discrepancies present.
+Exit code: 0 all checks pass/skip; 1 parser errors or REVIEW flags (unproven values) present;
+2 document discrepancies present (each still needs confirming against the original deed).
 """
 from __future__ import annotations
 
@@ -22,7 +23,7 @@ from verifier import ErrorClass, Status, verify
 DEFAULT_PDF = "./data/raw/southwark_s106_sample.pdf"
 KEY_FILE = Path(os.environ.get("S106_KEY_FILE", "~/.config/s106/anthropic_key")).expanduser()
 
-C = {"PASS": "\033[32m", "FAIL": "\033[31m", "SKIP": "\033[33m", "dim": "\033[2m", "b": "\033[1m", "0": "\033[0m"}
+C = {"PASS": "\033[32m", "REVIEW": "\033[35m", "FAIL": "\033[31m", "SKIP": "\033[33m", "dim": "\033[2m", "b": "\033[1m", "0": "\033[0m"}
 
 
 def color(s: str, k: str) -> str:
@@ -83,7 +84,8 @@ def report(a, results) -> None:
     counts = Counter(r.status for r in results)
     classes = Counter(r.error_class for r in results if r.error_class)
     print("\n" + "-" * w)
-    print(f" {counts[Status.PASS]} pass · {counts[Status.FAIL]} fail · {counts[Status.SKIP]} skip   |   "
+    print(f" {counts[Status.PASS]} pass · {counts[Status.REVIEW]} review · {counts[Status.FAIL]} fail · "
+          f"{counts[Status.SKIP]} skip   |   "
           f"{classes[ErrorClass.PARSER_ERROR]} parser error(s) · "
           f"{classes[ErrorClass.DOCUMENT_DISCREPANCY]} document discrepanc(ies)")
     for wmsg in a.warnings:
@@ -146,7 +148,8 @@ def main() -> int:
     classes = {r.error_class for r in results if r.error_class}
     if ErrorClass.DOCUMENT_DISCREPANCY in classes:
         return 2
-    return 1 if ErrorClass.PARSER_ERROR in classes else 0
+    review = any(r.status == Status.REVIEW for r in results)
+    return 1 if ErrorClass.PARSER_ERROR in classes or review else 0
 
 
 if __name__ == "__main__":

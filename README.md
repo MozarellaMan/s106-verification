@@ -2,9 +2,11 @@
 
 A verification harness for UK Section 106 planning agreements, in the spirit of BootLoops-style
 exact quantitative checking. It extracts housing and financial obligations from an executed
-deed, then runs them through a programmatic gate of hard numeric assertions. Every failure is
-classified as either a **Parser Error** (our extraction is wrong) or a **Document Discrepancy**
-(the deed disagrees with itself).
+deed, then runs them through a programmatic gate of hard numeric assertions. Every input must also
+be *grounded*: stated in its cited snippet, with that snippet found in the deed's text. Checks that
+hold but can't be grounded are flagged **REVIEW**. Failures are classed as **Parser Error** (suspect
+the extraction) or **Document Discrepancy** (the deed appears inconsistent; confirm against the
+original). See [docs/research-plan.md](docs/research-plan.md) for scope and roadmap.
 
 ```
 s106-audit/
@@ -47,7 +49,11 @@ with `--cacert`.
 ```
 
 The JSON output goes to `data/processed/<stem>.audit.json`. Exit codes are `0` clean,
-`1` parser errors, and `2` document discrepancies.
+`1` parser errors or REVIEW flags, and `2` document discrepancies.
+
+Page text is cached under `data/interim/ocr/<sha256[:16]>-<OCR_VERSION>/` (override with
+`S106_OCR_CACHE`). It is keyed by document content and OCR settings, so a replaced PDF or changed
+settings never reuse old text. Each cache has a `manifest.json` recording its source and settings.
 
 ## LLM-PDF backend
 
@@ -126,7 +132,15 @@ contribution list with a warning. Truncated structured output is retried up to t
 with no figure can still vary between runs. Phrases outside the vocabulary leave the label
 unverified (`F*.tlabel` SKIP).
 
-**Classification.** When a check fails, each input value's evidence snippet is re-located in the
-cited page, ignoring whitespace (OCR drops spaces). If any input is missing or can't be found,
-the failure is a **Parser Error**. If every input is found verbatim, the failure is a
-**Document Discrepancy**.
+**Outcomes.** An input is *grounded* when its value appears in its cited snippet (as digits, OCR
+`£`→`f` and `5o`→`50` repaired, or as number words) and that snippet re-locates on the cited
+page of the OCR text, ignoring whitespace. Mix-table cells have no snippets of their own, so a
+row is grounded when one line on the table's page states all of its counts.
+
+| outcome | meaning |
+|---|---|
+| PASS | the assertion holds and every input is grounded |
+| REVIEW | the assertion holds, but some input isn't grounded: correctness unproven |
+| FAIL, Parser Error | an input is missing or ungrounded, and the assertion fails |
+| FAIL, Document Discrepancy | the assertion fails although every input is grounded: what the deed *appears* to say through OCR, to be confirmed against the original |
+| SKIP | the deed doesn't state what the check needs, or the % basis is floorspace or unstated (never recomputed by units) |

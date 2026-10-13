@@ -287,6 +287,8 @@ def extract_mix_table(pages) -> MixTable | None:
             elif re.match(r"\s*" + fuzzy("Sub-Total"), ln, re.I) and len(nums) == len(cols):
                 table.subtotals = dict(zip(cols, nums))
             elif re.match(r"\s*Total", ln, re.I):
+                # cite the total line itself, so the totals are grounded in their own snippet
+                table.evidence = Evidence(page=n, snippet=snippet(ln, 0, len(ln)))
                 m = re.search(r"(\d+)\s*\(\s*(\d+)\s*" + fuzzy("habitable rooms"), ln, re.I)
                 if m:
                     table.total_units, table.total_habitable_rooms = int(m.group(1)), int(m.group(2))
