@@ -226,6 +226,16 @@ fn layout_match(tokens: &[String], page: &str) -> bool {
 
 /// Is `ev`'s snippet present on its cited page?
 pub fn evidence_found(ev: Option<&Evidence>, pages: &Pages) -> bool {
+    relocate(ev, pages, true)
+}
+
+/// Same bounded relocation rules, with no digit substitutions. This additional check lets
+/// numeric grounding retain uncertainty when only a repaired page matches. No fuzzy matcher.
+pub fn evidence_found_without_digit_repair(ev: Option<&Evidence>, pages: &Pages) -> bool {
+    relocate(ev, pages, false)
+}
+
+fn relocate(ev: Option<&Evidence>, pages: &Pages, repair_digits: bool) -> bool {
     let Some(ev) = ev else { return false };
     let Some(page) = pages.get(&ev.page) else {
         return false;
@@ -234,7 +244,11 @@ pub fn evidence_found(ev: Option<&Evidence>, pages: &Pages) -> bool {
     if needle.is_empty() {
         return false;
     }
-    let page = ocr_digits(page);
+    let page = if repair_digits {
+        ocr_digits(page)
+    } else {
+        page.clone()
+    };
     let hay = matching_text(&page);
     if hay.match_indices(&needle).any(|(start, _)| {
         let end = start + needle.len();

@@ -9,6 +9,7 @@ pub mod eval;
 pub mod evidence;
 pub mod extract;
 pub mod llm;
+pub mod numeric;
 pub mod ocrbench;
 pub mod report;
 pub mod schema;

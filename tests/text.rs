@@ -46,10 +46,10 @@ fn value_in_snippet_digit_forms() {
         &num("35.75"),
         "35.75%affordablebyhabitable room"
     ));
-    assert!(value_in_snippet(
+    assert!(!value_in_snippet(
         &50u32.into(),
         "Prior to the Occupation of 5o%of theDevelopment"
-    )); // OCR o for 0
+    )); // OCR substitution is a review candidate, not a verified number
     assert!(value_in_snippet(
         &212u32.into(),
         "three bedroom units (212) Habitable Rooms"
@@ -124,7 +124,7 @@ fn words_to_amount_reads_pounds_and_pence() {
     );
     assert_eq!(
         words_to_amount("seventy three thousand one hundred pounds and"),
-        Some(dec("73100"))
+        None // A present "and" requires complete pence; do not silently use zero.
     );
     assert_eq!(words_to_amount("sixty pence"), None);
     assert_eq!(words_to_amount("pounds"), None);
@@ -135,10 +135,10 @@ fn numbers_in_reads_digits_and_words() {
     let n = numbers_in("£10,058.60 (ten thousand and fifty eight pounds) and 5o%");
     assert!(n.contains(&dec("10058.6")));
     assert!(n.contains(&Decimal::from(10058)));
-    assert!(n.contains(&Decimal::from(50)));
-    // a thousands separator is not a decimal point, and a bare "1234,567" splits
+    assert!(!n.contains(&Decimal::from(50))); // Keep the ambiguous OCR input for review.
+    // A thousands separator is not a decimal point; malformed groups never split.
     assert!(numbers_in("1,234,567").contains(&Decimal::from(1_234_567)));
-    assert!(numbers_in("one hundred and").contains(&Decimal::from(100)));
+    assert!(!numbers_in("one hundred and").contains(&Decimal::from(100))); // A truncated conjunction is not a complete expression.
     assert!(numbers_in("twenty-five days").contains(&Decimal::from(25)));
 }
 
@@ -180,7 +180,6 @@ fn percentages_require_a_percentage_suffix() {
     use s106::text::percentage_in_snippet;
     for text in [
         "50% prior to Occupation",
-        "5o%of the sum",
         "50 per cent",
         "fifty per cent",
         "fiftypercent",
@@ -189,6 +188,7 @@ fn percentages_require_a_percentage_suffix() {
     }
     for text in [
         "50th Dwelling",
+        "5o%of the sum",
         "150%",
         "50 pounds",
         "5.0%",

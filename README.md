@@ -144,3 +144,5 @@ cargo test --release -- --ignored                       # also: OCR vs hand-veri
 ```
 
 The ignored tests fail with "corpus missing" if the deeds aren't present; they never skip silently.
+
+Numeric grammar, compatibility changes and the audit diagnostic contract are documented in [docs/numeric-parsing.md](docs/numeric-parsing.md).

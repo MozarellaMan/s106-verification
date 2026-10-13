@@ -70,6 +70,8 @@ fn agreement_with(kind: InstrumentKind, housing: Housing) -> Agreement {
         contributions: vec![],
         variations: vec![],
         warnings: vec![],
+        numeric_diagnostics: vec![],
+        parser_run: None,
     }
 }
 

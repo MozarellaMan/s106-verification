@@ -29,6 +29,10 @@ pub struct Agreement {
     pub variations: Vec<Variation>,
     #[serde(default)]
     pub warnings: Vec<String>,
+    #[serde(default)]
+    pub numeric_diagnostics: Vec<crate::numeric::Diagnostic>,
+    #[serde(default)]
+    pub parser_run: Option<crate::numeric::RunIdentity>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

@@ -291,6 +291,8 @@ pub fn to_agreement(
     info: &Info,
 ) -> Result<Agreement> {
     let mut warnings = vec![];
+    // Record raw numeric failures before converting the wire fields to optional values.
+    let numeric_diagnostics = wire::numeric_diagnostics(output, pm);
     let (instrument, metadata, housing, contributions, variations) = if info.source == "replay-v1" {
         let w: WireExtractionV1 =
             serde_path_to_error::deserialize(output).context("v1 fixture output")?;
@@ -370,6 +372,8 @@ pub fn to_agreement(
         contributions,
         variations,
         warnings,
+        numeric_diagnostics,
+        parser_run: Some(crate::numeric::RunIdentity::new(output, doc, &info.fixture)),
     })
 }
 
@@ -518,6 +522,48 @@ pub fn escalate(
                 }
             },
         };
+        if replace.is_some() {
+            // Retire failures for the replaced group and retain the candidate's raw input facts.
+            let belongs = |a: &Agreement, d: &crate::numeric::Diagnostic| {
+                if let Some(n) = d
+                    .check_id
+                    .strip_prefix('F')
+                    .and_then(|rest| rest.split('.').next())
+                    .and_then(|n| n.parse::<usize>().ok())
+                {
+                    n.checked_sub(1)
+                        .and_then(|n| a.contributions.get(n))
+                        .is_some_and(|c| &c.name == field)
+                } else {
+                    field == "housing" && d.check_id.starts_with('H')
+                }
+            };
+            merged.numeric_diagnostics.retain(|d| !belongs(&current, d));
+            for diagnostic in candidate
+                .numeric_diagnostics
+                .iter()
+                .filter(|d| belongs(&candidate, d))
+            {
+                let mut diagnostic = diagnostic.clone();
+                if diagnostic.check_id.starts_with('F')
+                    && let Some(i) = merged.contributions.iter().position(|c| &c.name == field)
+                    && let Some((_, suffix)) = diagnostic.check_id.split_once('.')
+                {
+                    diagnostic.check_id = format!("F{}.{}", i + 1, suffix);
+                }
+                merged.numeric_diagnostics.push(diagnostic);
+            }
+            if let (Some(run), Some(candidate_run)) =
+                (&mut merged.parser_run, &candidate.parser_run)
+            {
+                run.replacements.push(crate::numeric::ReplacementIdentity {
+                    field_group: field.clone(),
+                    extraction_sha256: candidate_run.extraction_sha256.clone(),
+                    fixture_reference: candidate_run.fixture_reference.clone(),
+                    fixture_sha256: candidate_run.fixture_sha256.clone(),
+                });
+            }
+        }
         log.push(match replace {
             Some(()) => format!("{field}: replaced with {model} ({p0} -> {p1} Parser Errors)"),
             None => format!("{field}: kept ({})", why.join("; ")),

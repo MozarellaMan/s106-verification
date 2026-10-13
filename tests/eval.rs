@@ -46,6 +46,8 @@ fn agreement(contributions: Vec<Contribution>, affordable_units: Option<u32>) ->
         contributions,
         variations: vec![],
         warnings: vec![],
+        numeric_diagnostics: vec![],
+        parser_run: None,
     }
 }
 
@@ -309,6 +311,7 @@ fn check(id: &str, status: Status, class: Option<ErrorClass>) -> CheckResult {
         error_class: class,
         detail: "why".into(),
         pages: vec![],
+        diagnostics: vec![],
     }
 }
 

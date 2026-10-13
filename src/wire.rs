@@ -241,11 +241,7 @@ impl PageMap {
 }
 
 pub fn money(s: Option<&str>) -> Option<Decimal> {
-    let s: String = s?
-        .chars()
-        .filter(|c| !matches!(c, '£' | ',') && !c.is_whitespace())
-        .collect();
-    if s.is_empty() { None } else { s.parse().ok() }
+    crate::numeric::decimal(s?).ok()
 }
 
 fn nonempty(s: &str) -> Option<String> {
@@ -340,7 +336,7 @@ pub fn contribution(w: &WireContribution, pm: &PageMap) -> Contribution {
                 w.amount_structure
             },
             value_gbp: value,
-            words: nonempty(&w.amount_in_words),
+            words: (!w.amount_in_words.trim().is_empty()).then(|| w.amount_in_words.clone()),
             index_linked: w.index_linked,
             evidence: pm.ev(&w.amount_evidence),
         },
@@ -388,7 +384,11 @@ pub fn contribution_v1(w: &WireContributionV1, pm: &PageMap) -> Contribution {
         amount: Amount {
             structure,
             value_gbp: value,
-            words: w.amount_in_words.as_deref().and_then(nonempty),
+            words: w
+                .amount_in_words
+                .as_ref()
+                .filter(|s| !s.trim().is_empty())
+                .cloned(),
             index_linked: w.index_linked,
             evidence: pm.ev(&w.evidence),
         },
@@ -450,4 +450,77 @@ pub fn metadata(w: &WireMetadata) -> Metadata {
         site_address: nonempty(&w.site_address),
         parties: w.parties.iter().filter_map(|s| nonempty(s)).collect(),
     }
+}
+
+/// Preserve conversion failures from raw extraction before invalid nonempty strings become None.
+/// Field coordinates belong to extraction strings; citations are separate claimed locations.
+pub fn numeric_diagnostics(
+    output: &serde_json::Value,
+    pm: &PageMap,
+) -> Vec<crate::numeric::Diagnostic> {
+    let mut out = vec![];
+    let mut check =
+        |value: &serde_json::Value, field: String, check_id: String, cite: &serde_json::Value| {
+            let Some(observed) = value.as_str().filter(|s| !s.trim().is_empty()) else {
+                return;
+            };
+            if let Err(mut diagnostic) = crate::numeric::decimal(observed) {
+                diagnostic.extraction_sha256 = Some(crate::numeric::identity(
+                    &serde_json::to_string(output).expect("serializable extraction"),
+                ));
+                diagnostic.field = field;
+                diagnostic.check_id = check_id;
+                if let Ok(cite) = serde_json::from_value::<Cite>(cite.clone())
+                    && let Some(ev) = pm.ev(&cite)
+                {
+                    diagnostic.original_excerpt = Some(ev.snippet);
+                    diagnostic.claimed_page = Some(ev.page);
+                }
+                out.push(diagnostic);
+            }
+        };
+    let h = &output["housing"];
+    check(
+        &h["claimed_affordable_pct"],
+        "extraction/housing/claimed_affordable_pct".into(),
+        "H4".into(),
+        &h["claimed_affordable_evidence"],
+    );
+    let mut idx = 0;
+    for (raw_idx, c) in output["contributions"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .enumerate()
+    {
+        if is_group_term(c["name"].as_str().unwrap_or_default()) {
+            continue;
+        }
+        idx += 1;
+        let cite = if c.get("amount_evidence").is_some() {
+            &c["amount_evidence"]
+        } else {
+            &c["evidence"]
+        };
+        check(
+            &c["amount_gbp"],
+            format!("extraction/contributions/{raw_idx}/amount_gbp"),
+            format!("F{idx}.amt"),
+            cite,
+        );
+        for (j, i) in c["instalments"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .enumerate()
+        {
+            check(
+                &i["share_pct"],
+                format!("extraction/contributions/{raw_idx}/instalments/{j}/share_pct"),
+                format!("F{idx}.inst"),
+                &i["trigger_phrase"],
+            );
+        }
+    }
+    out
 }

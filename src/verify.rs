@@ -19,14 +19,12 @@ use regex::Regex;
 use rust_decimal::prelude::*;
 use serde::Serialize;
 
-use crate::evidence::{Pages, evidence_found};
+use crate::evidence::{Pages, evidence_found, evidence_found_without_digit_repair};
 use crate::schema::{
     AffordableBasis, Agreement, AmountStructure, ConditionalityKind, Contribution, Evidence,
     Instalment, Tenure, Variation,
 };
-use crate::text::{
-    Value, ocr_digits, percentage_in_snippet, squash, value_in_snippet, words_to_amount,
-};
+use crate::text::{Value, ocr_digits, percentage_in_snippet, squash, value_in_snippet};
 use crate::triggers::{classify, classify_cited, imposes_payment};
 
 /// Percentage points; deeds quote 2 dp.
@@ -61,6 +59,8 @@ pub struct CheckResult {
     pub error_class: Option<ErrorClass>,
     pub detail: String,
     pub pages: Vec<usize>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub diagnostics: Vec<crate::numeric::Diagnostic>,
 }
 
 /// One value a check depends on, with the evidence cited for it.
@@ -114,6 +114,7 @@ fn result(
         error_class,
         detail: detail.into(),
         pages,
+        diagnostics: vec![],
     }
 }
 
@@ -134,11 +135,10 @@ fn parser_fail(id: &str, desc: &str, detail: &str, pages: Vec<usize>) -> CheckRe
     )
 }
 
-/// Pounds with thousands separators and two decimal places: 10058.6 -> "£10,058.60".
+/// Pounds with thousands separators and at least two decimal places, preserving exact value.
 fn gbp(d: Decimal) -> String {
-    let mut r = d.round_dp(2);
-    r.rescale(2);
-    let s = r.abs().to_string();
+    let precision = d.normalize().scale().max(2) as usize;
+    let s = format!("{:.*}", precision, d.abs());
     let (int, frac) = s.split_once('.').unwrap_or((&s, "00"));
     let mut grouped = String::new();
     for (i, ch) in int.chars().enumerate() {
@@ -149,7 +149,7 @@ fn gbp(d: Decimal) -> String {
     }
     format!(
         "{}£{grouped}.{frac}",
-        if r.is_sign_negative() && !r.is_zero() {
+        if d.is_sign_negative() && !d.is_zero() {
             "-"
         } else {
             ""
@@ -183,6 +183,15 @@ pub fn grounding_problem(input: &Input, pages: &Pages) -> Option<String> {
         return Some(format!(
             "{}: {} not stated in its cited snippet",
             input.label, value
+        ));
+    }
+    if matches!(value, Value::Num(_))
+        && evidence_found(Some(ev), pages)
+        && !evidence_found_without_digit_repair(Some(ev), pages)
+    {
+        return Some(format!(
+            "{}: citation relocates only with page-digit substitution; inspect source/OCR",
+            input.label
         ));
     }
     if !evidence_found(Some(ev), pages) {
@@ -248,7 +257,7 @@ pub fn resolve(
              confirm against the original deed before relying on this".to_string(),
         ),
     };
-    result(
+    let mut resolved = result(
         check_id,
         description,
         status,
@@ -257,7 +266,56 @@ pub fn resolve(
         error_class,
         detail,
         pg,
-    )
+    );
+    for input in inputs {
+        if matches!(input.value, Some(Value::Num(_)))
+            && grounding_problem(input, pages).is_some()
+            && let Some(ev) = &input.evidence
+        {
+            let relocated = evidence_found(Some(ev), pages);
+            let (category, cause, expected) =
+                if relocated && !evidence_found_without_digit_repair(Some(ev), pages) {
+                    (
+                        crate::numeric::Category::AmbiguousSource,
+                        crate::numeric::Cause::RelocationRequiresDigitSubstitution,
+                        "citation relocatable without digit substitution",
+                    )
+                } else if !value_in_snippet(input.value.as_ref().unwrap(), &ev.snippet) {
+                    (
+                        crate::numeric::Category::Ungrounded,
+                        crate::numeric::Cause::ValueNotStated {
+                            expected_value: input.value.as_ref().unwrap().to_string(),
+                        },
+                        "extracted value stated in cited snippet",
+                    )
+                } else {
+                    (
+                        crate::numeric::Category::Ungrounded,
+                        crate::numeric::Cause::CitationNotRelocated,
+                        "citation relocatable on claimed page",
+                    )
+                };
+            let mut diagnostics = crate::text::located_numbers(&ev.snippet).diagnostics;
+            diagnostics.push(crate::numeric::Diagnostic::new(
+                &ev.snippet,
+                0..ev.snippet.len(),
+                category,
+                cause,
+                expected,
+            ));
+            for mut diagnostic in diagnostics {
+                if diagnostic.original_excerpt.is_none() {
+                    diagnostic.original_excerpt = Some(ev.snippet.clone());
+                }
+                diagnostic.field = input.label.clone();
+                diagnostic.check_id = check_id.into();
+                diagnostic.claimed_page = Some(ev.page);
+                diagnostic.citation_relocated = Some(evidence_found(Some(ev), pages));
+                resolved.diagnostics.push(diagnostic);
+            }
+        }
+    }
+    resolved
 }
 
 // --------------------------------------------------------------------------- housing checks
@@ -849,12 +907,21 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
                     pg.clone(),
                 ));
             } else {
-                out.push(parser_fail(
-                    &format!("{cid}.amt"),
-                    &desc,
-                    "no figure parsed",
-                    pg,
+                let mut failure = parser_fail(&format!("{cid}.amt"), &desc, "no figure parsed", pg);
+                let mut diagnostic = crate::numeric::Diagnostic::absent(&format!(
+                    "agreement/contributions/{}/amount/value_gbp",
+                    idx - 1
                 ));
+                diagnostic.check_id = format!("{cid}.amt");
+                diagnostic.original_excerpt = c.amount.evidence.as_ref().map(|e| e.snippet.clone());
+                diagnostic.claimed_page = c.amount.evidence.as_ref().map(|e| e.page);
+                diagnostic.citation_relocated = c
+                    .amount
+                    .evidence
+                    .as_ref()
+                    .map(|e| evidence_found(Some(e), pages));
+                failure.diagnostics.push(diagnostic);
+                out.push(failure);
                 return out;
             }
         }
@@ -875,18 +942,33 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
             let wid = format!("{cid}.words");
             match c.amount.words.as_deref().filter(|w| !w.is_empty()) {
                 None => out.push(skip(&wid, &desc, "no words form captured", pg.clone())),
-                Some(words) => match words_to_amount(words) {
-                    None => out.push(result(
-                        &wid,
-                        &desc,
-                        Status::Fail,
-                        Some(gbp(v)),
-                        Some(words.to_string()),
-                        Some(ErrorClass::ParserError),
-                        "words form not parseable",
-                        pg.clone(),
-                    )),
-                    Some(w) => out.push(resolve(
+                Some(words) => match crate::numeric::amount(words) {
+                    Err(mut diagnostic) => {
+                        diagnostic.field =
+                            format!("agreement/contributions/{}/amount/words", idx - 1);
+                        diagnostic.check_id = wid.clone();
+                        diagnostic.original_excerpt =
+                            c.amount.evidence.as_ref().map(|e| e.snippet.clone());
+                        diagnostic.claimed_page = c.amount.evidence.as_ref().map(|e| e.page);
+                        diagnostic.citation_relocated = c
+                            .amount
+                            .evidence
+                            .as_ref()
+                            .map(|e| evidence_found(Some(e), pages));
+                        let mut failure = result(
+                            &wid,
+                            &desc,
+                            Status::Fail,
+                            Some(gbp(v)),
+                            Some(words.to_string()),
+                            Some(ErrorClass::ParserError),
+                            "words form not parseable",
+                            pg.clone(),
+                        );
+                        failure.diagnostics.push(diagnostic);
+                        out.push(failure);
+                    }
+                    Ok(w) => out.push(resolve(
                         &wid,
                         &desc,
                         w == v,
@@ -1145,6 +1227,17 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
             Some(format!("{parts} = {sum}%")),
             &share_problems,
         );
+        for (n, inst) in insts.iter().enumerate() {
+            if let (Some(share), Some(ev)) = (inst.share_pct, &inst.trigger_phrase) {
+                for mut diagnostic in crate::text::percentage_diagnostics(share, &ev.snippet) {
+                    diagnostic.field = format!("instalment {} share", n + 1);
+                    diagnostic.check_id = id.clone();
+                    diagnostic.claimed_page = Some(ev.page);
+                    diagnostic.citation_relocated = Some(evidence_found(Some(ev), pages));
+                    r.diagnostics.push(diagnostic);
+                }
+            }
+        }
         r.pages = all_pg.clone();
         out.push(r);
     } else {
@@ -1271,6 +1364,63 @@ pub fn verify(agreement: &Agreement, pages: &Pages) -> Vec<CheckResult> {
     }
     for (i, c) in agreement.contributions.iter().enumerate() {
         results.extend(check_contribution(c, pages, i + 1));
+    }
+    for diagnostic in &agreement.numeric_diagnostics {
+        let mut diagnostic = diagnostic.clone();
+        if let (Some(page), Some(snippet)) = (
+            diagnostic.claimed_page,
+            diagnostic.original_excerpt.as_ref(),
+        ) {
+            diagnostic.citation_relocated = Some(evidence_found(
+                Some(&Evidence {
+                    page,
+                    snippet: snippet.clone(),
+                }),
+                pages,
+            ));
+        }
+        if let Some(check) = results.iter_mut().find(|r| {
+            r.check_id == diagnostic.check_id
+                && r.status == Status::Fail
+                && r.error_class == Some(ErrorClass::ParserError)
+        }) {
+            check
+                .diagnostics
+                .retain(|d| d.category != crate::numeric::Category::Absent);
+            check.diagnostics.push(diagnostic);
+            continue;
+        }
+        let mut failure = parser_fail(
+            &format!("{}.parse", diagnostic.check_id),
+            &format!("{}: numeric extraction conversion", diagnostic.field),
+            "nonempty numeric extraction did not parse; value retained in diagnostic",
+            diagnostic.claimed_page.into_iter().collect(),
+        );
+        failure.diagnostics.push(diagnostic);
+        results.push(failure);
+    }
+    if let Some(run) = &agreement.parser_run {
+        for check in &mut results {
+            let group = check
+                .check_id
+                .strip_prefix('F')
+                .and_then(|rest| rest.split('.').next())
+                .and_then(|n| n.parse::<usize>().ok())
+                .and_then(|n| n.checked_sub(1))
+                .and_then(|n| agreement.contributions.get(n))
+                .map_or("housing", |c| c.name.as_str());
+            let extraction = run
+                .replacements
+                .iter()
+                .rev()
+                .find(|r| r.field_group == group)
+                .map_or(&run.extraction_sha256, |r| &r.extraction_sha256);
+            for diagnostic in &mut check.diagnostics {
+                if diagnostic.extraction_sha256.is_none() {
+                    diagnostic.extraction_sha256 = Some(extraction.clone());
+                }
+            }
+        }
     }
     results
 }
