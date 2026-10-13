@@ -39,7 +39,7 @@ Delivery                PLD's view of one development, read from one saved snaps
 
 Row                     one per obligation
   agreed                the first deed's figure
-  current               the last figure any deed states (shown, not applied)
+  current               the last figure a verified, whole-scheme deed states (shown, not applied)
   events[]              every deed's statement or deletion, with its citation and grounding
   permitted, delivered  PLD permission figure; count over unit records with a completion date
   status, reason        the status and why, in words
@@ -58,7 +58,9 @@ disagrees with the deeds' dates. Every deed's statement of every obligation is k
 and the first deed's figure is the one compared with delivery. A later event leaves the row
 automatic only when it restates the same figure, or cites the obligation with no figure, from a
 deed that is verified (below), covers the whole scheme, and whose figure is not ungrounded.
-Anything else adds a review reason, and the row becomes "varied: compare by hand":
+Anything else adds a review reason, and the row becomes "varied: compare by hand". An obligation
+that a later deed states first is checked the same way from that first statement, which counts as
+a replacement of nothing (`replaced` with no `from`):
 
 | Later event | Review reason (`reason`) |
 |---|---|

@@ -912,3 +912,68 @@ fn percentages_compare_within_the_verifier_tolerance() {
         RowStatus::DiffersReviewRequired
     );
 }
+
+/// An obligation a later deed introduces is a change from nothing, checked like any later event.
+#[test]
+fn an_obligation_a_later_deed_introduces_goes_to_review() {
+    let library = Measure::contribution("Library Contribution");
+    let introduce = |edit: fn(&mut Agreement)| {
+        let mut d = dov();
+        let mut c = bus_contribution("50000");
+        c.name = "Library Contribution".into();
+        d.contributions.push(c);
+        edit(&mut d);
+        run(&[southwark(), d], full())
+    };
+    let r = introduce(|_| {});
+    let l = row(&r, &library);
+    assert_eq!(codes(l), ["replaced"]);
+    assert!(matches!(
+        l.review[0],
+        ReviewReason::Replaced { from: None, .. }
+    ));
+    assert_eq!(l.status, RowStatus::Varied);
+
+    let r = introduce(|d| d.metadata.planning_references.clear());
+    let l = row(&r, &library);
+    assert_eq!(codes(l), ["unverified", "replaced"]);
+    assert_eq!(l.status, RowStatus::Varied);
+    assert_eq!(
+        l.current,
+        Some(dec("50000")),
+        "falls back to the only figure"
+    );
+
+    let r = introduce(|d| {
+        d.instrument.scope = Some(Quoted {
+            text: "in so far as it relates to Phase 2".into(),
+            evidence: None,
+        })
+    });
+    let l = row(&r, &library);
+    assert_eq!(codes(l), ["scoped", "replaced"]);
+    assert_eq!(l.status, RowStatus::Varied);
+}
+
+#[test]
+fn the_current_figure_skips_scoped_and_unverified_deeds() {
+    let mut d = dov();
+    d.contributions.push(bus_contribution("700000"));
+    d.metadata.planning_references.clear();
+    let r = run(&[southwark(), d], full());
+    assert_eq!(row(&r, &bus()).current, Some(dec("683100")));
+
+    let mut d = dov();
+    d.contributions.push(bus_contribution("700000"));
+    d.instrument.scope = Some(Quoted {
+        text: "in so far as it relates to Phase 2".into(),
+        evidence: None,
+    });
+    let r = run(&[southwark(), d], full());
+    assert_eq!(row(&r, &bus()).current, Some(dec("683100")));
+
+    let mut d = dov();
+    d.contributions.push(bus_contribution("700000"));
+    let r = run(&[southwark(), d], full());
+    assert_eq!(row(&r, &bus()).current, Some(dec("700000")));
+}

@@ -196,6 +196,9 @@ pub struct ObligationEvent {
     /// the instrument's partial scope, when it has one
     #[serde(default)]
     pub scope: Option<String>,
+    /// for a deletion, its target as the deed names it
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
 }
 
 fn yes() -> bool {
@@ -995,7 +998,7 @@ pub struct Row {
     pub label: String,
     /// as the first deed states it
     pub agreed: Option<Decimal>,
-    /// the latest figure any deed states (the agreed one unless a later deed states another)
+    /// the latest figure a verified, whole-scheme deed states (shown, not applied)
     pub current: Option<Decimal>,
     /// every deed's statement or deletion of this obligation, in instrument order
     pub events: Vec<ObligationEvent>,
@@ -1254,6 +1257,7 @@ pub fn events(instruments: &[InstrumentObligations], verified: &[bool]) -> Event
             conflict: None,
             verified: verified[k],
             scope: inst.scope.clone(),
+            target: None,
         };
         for s in &inst.statements {
             if !by.contains_key(&s.measure) {
@@ -1287,6 +1291,7 @@ pub fn events(instruments: &[InstrumentObligations], verified: &[bool]) -> Event
                 let label = by[&m][0].label.clone();
                 by.entry(m.clone()).or_default().push(ObligationEvent {
                     note: Some(format!("deletes \"{}\"", del.target)),
+                    target: Some(del.target.clone()),
                     ..event(&m, &label, Action::Deletes, None, del.evidence.clone())
                 });
             }
@@ -1306,9 +1311,12 @@ pub fn facts(
 ) -> Facts {
     let first = &evs[0];
     let mut review = vec![];
-    let mut prev = first.value;
+    // An obligation the original deed states is checked from its second event. One a later deed
+    // introduces is checked from its first, as a replacement of nothing.
+    let original = first.instrument_no == 1;
+    let mut prev = if original { first.value } else { None };
     let mut latest = None;
-    for e in &evs[1..] {
+    for e in &evs[usize::from(original)..] {
         let n = e.instrument_no;
         if !e.verified {
             review.push(ReviewReason::Unverified { instrument: n });
@@ -1322,13 +1330,7 @@ pub fn facts(
         if e.action == Action::Deletes {
             review.push(ReviewReason::Deleted {
                 instrument: n,
-                target: e
-                    .note
-                    .clone()
-                    .unwrap_or_default()
-                    .trim_start_matches("deletes ")
-                    .trim_matches('"')
-                    .into(),
+                target: e.target.clone().unwrap_or_default(),
             });
             continue;
         }
@@ -1490,7 +1492,12 @@ pub fn reconcile(
             current: evs
                 .iter()
                 .rev()
-                .filter(|e| e.action == Action::States && e.conflict.is_none())
+                .filter(|e| {
+                    e.action == Action::States
+                        && e.conflict.is_none()
+                        && e.verified
+                        && e.scope.is_none()
+                })
                 .find_map(|e| e.value)
                 .or(first.value),
             permitted: delivery.as_ref().and_then(|d| d.permitted(&m)),
