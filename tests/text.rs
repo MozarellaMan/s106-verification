@@ -3,9 +3,8 @@
 //! Ports of `OcrDigitsTest` (former Python test_triggers, see git history) and `ValueInSnippetTest` (former Python test_grounding).
 
 use rust_decimal::Decimal;
-use s106::text::{
-    Value, numbers_in, ocr_digits, squash, value_in_snippet, words_to_amount, words_to_int,
-};
+use s106::quantity;
+use s106::text::{Value, numbers_in, ocr_digits, squash, value_in_snippet};
 
 fn dec(s: &str) -> Decimal {
     s.parse().unwrap()
@@ -46,10 +45,11 @@ fn value_in_snippet_digit_forms() {
         &num("35.75"),
         "35.75%affordablebyhabitable room"
     ));
-    assert!(value_in_snippet(
+    // OCR "o" for "0" is reported as ambiguous (see tests/numeric.rs), never silently repaired
+    assert!(!value_in_snippet(
         &50u32.into(),
         "Prior to the Occupation of 5o%of theDevelopment"
-    )); // OCR o for 0
+    ));
     assert!(value_in_snippet(
         &212u32.into(),
         "three bedroom units (212) Habitable Rooms"
@@ -102,32 +102,33 @@ fn squash_keeps_lowercase_ascii_alphanumerics() {
 #[test]
 fn words_to_int_reads_number_words() {
     assert_eq!(
-        words_to_int("sixteen thousand nine hundred and thirteen"),
+        quantity::integer("sixteen thousand nine hundred and thirteen").ok(),
         Some(16913)
     );
-    assert_eq!(words_to_int("fiftyeight"), Some(58)); // OCR run-togethers
-    assert_eq!(words_to_int("two million"), Some(2_000_000));
-    assert_eq!(words_to_int("hello"), None);
-    assert_eq!(words_to_int(""), None);
-    assert_eq!(words_to_int("and"), None);
+    assert_eq!(quantity::integer("fiftyeight").ok(), Some(58)); // OCR run-togethers
+    assert_eq!(quantity::integer("two million").ok(), Some(2_000_000));
+    assert_eq!(quantity::integer("hello").ok(), None);
+    assert_eq!(quantity::integer("").ok(), None);
+    assert_eq!(quantity::integer("and").ok(), None);
 }
 
 #[test]
 fn words_to_amount_reads_pounds_and_pence() {
     assert_eq!(
-        words_to_amount("ten thousand and fifty eight pounds and sixty pence"),
+        quantity::amount("ten thousand and fifty eight pounds and sixty pence").ok(),
         Some(dec("10058.60"))
     );
     assert_eq!(
-        words_to_amount("twelve thousand pounds"),
+        quantity::amount("twelve thousand pounds").ok(),
         Some(dec("12000"))
     );
+    // a dangling "and" is an incomplete expression, not a whole number of pounds
     assert_eq!(
-        words_to_amount("seventy three thousand one hundred pounds and"),
-        Some(dec("73100"))
+        quantity::amount("seventy three thousand one hundred pounds and").ok(),
+        None
     );
-    assert_eq!(words_to_amount("sixty pence"), None);
-    assert_eq!(words_to_amount("pounds"), None);
+    assert_eq!(quantity::amount("sixty pence").ok(), None);
+    assert_eq!(quantity::amount("pounds").ok(), None);
 }
 
 #[test]
@@ -135,10 +136,10 @@ fn numbers_in_reads_digits_and_words() {
     let n = numbers_in("£10,058.60 (ten thousand and fifty eight pounds) and 5o%");
     assert!(n.contains(&dec("10058.6")));
     assert!(n.contains(&Decimal::from(10058)));
-    assert!(n.contains(&Decimal::from(50)));
+    assert!(!n.contains(&Decimal::from(50))); // "5o" is reported, not repaired
     // a thousands separator is not a decimal point, and a bare "1234,567" splits
     assert!(numbers_in("1,234,567").contains(&Decimal::from(1_234_567)));
-    assert!(numbers_in("one hundred and").contains(&Decimal::from(100)));
+    assert!(numbers_in("one hundred and").is_empty()); // dangling "and": incomplete, no value
     assert!(numbers_in("twenty-five days").contains(&Decimal::from(25)));
 }
 
@@ -149,18 +150,18 @@ fn unknown_pence_is_not_zero() {
         "ten pounds and pence",
         "ten pounds banana",
     ] {
-        assert_eq!(words_to_amount(words), None, "{words}");
+        assert_eq!(quantity::amount(words).ok(), None, "{words}");
     }
     assert_eq!(
-        words_to_amount("ten pounds and zero pence"),
+        quantity::amount("ten pounds and zero pence").ok(),
         Some(dec("10"))
     );
     assert_eq!(
-        words_to_amount("ten pounds and one penny"),
+        quantity::amount("ten pounds and one penny").ok(),
         Some(dec("10.01"))
     );
     assert_eq!(
-        words_to_amount("ten poundsandtwentypence"),
+        quantity::amount("ten poundsandtwentypence").ok(),
         Some(dec("10.20"))
     );
 }
@@ -168,9 +169,10 @@ fn unknown_pence_is_not_zero() {
 #[test]
 fn overflowing_number_words_are_not_clamped() {
     assert_eq!(
-        words_to_int(
+        quantity::integer(
             "ninety hundred hundred hundred hundred hundred hundred hundred hundred hundred hundred"
-        ),
+        )
+        .ok(),
         None
     );
 }
@@ -180,7 +182,6 @@ fn percentages_require_a_percentage_suffix() {
     use s106::text::percentage_in_snippet;
     for text in [
         "50% prior to Occupation",
-        "5o%of the sum",
         "50 per cent",
         "fifty per cent",
         "fiftypercent",
@@ -192,6 +193,7 @@ fn percentages_require_a_percentage_suffix() {
         "150%",
         "50 pounds",
         "5.0%",
+        "5o%of the sum", // OCR o for 0 is reported, not repaired
         "fifteen per cent",
     ] {
         assert!(!percentage_in_snippet(dec("50"), text), "{text}");
