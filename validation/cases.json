@@ -1,0 +1,11 @@
+{
+  "format": "s106-case-registry/1",
+  "cases": [
+    {
+      "id": "southwark-19-ap-1773",
+      "directory": "southwark-19-AP-1773",
+      "pdf": "../data/raw/southwark_s106_sample.pdf",
+      "audit": "../data/processed/validation/southwark-19-AP-1773/rust-audit.json"
+    }
+  ]
+}

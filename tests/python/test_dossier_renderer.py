@@ -2,6 +2,7 @@
 import csv, hashlib, json, shutil, subprocess, sys, tempfile, unittest
 from html.parser import HTMLParser
 from pathlib import Path
+from pdf_fixture import make_pdf
 ROOT=Path(__file__).resolve().parents[2]
 class Links(HTMLParser):
     def __init__(self, root): super().__init__();self.root=root
@@ -14,11 +15,7 @@ class Renderer(unittest.TestCase):
     def test_source_render_and_destructive_controls(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);case=root/'case';case.mkdir();pdf=root/'input.pdf';out=root/'site'
-            stream=b'BT /F1 14 Tf 20 80 Td (Known source: 100 units) Tj ET'
-            objects=[b'<< /Type /Catalog /Pages 2 0 R >>',b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 120] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',b'<< /Length '+str(len(stream)).encode()+b' >>\nstream\n'+stream+b'\nendstream']
-            data=b'%PDF-1.4\n';offsets=[]
-            for n,obj in enumerate(objects,1):offsets.append(len(data));data+=str(n).encode()+b' 0 obj\n'+obj+b'\nendobj\n'
-            xref=len(data);data+=b'xref\n0 6\n0000000000 65535 f \n'+b''.join(f'{n:010} 00000 n \n'.encode() for n in offsets)+f'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n'.encode();pdf.write_bytes(data)
+            data=make_pdf(pdf)
             sha=hashlib.sha256(data).hexdigest()
             provenance=dict(sha256=sha,pdf_pages=1,planning_reference='TEST/1',site_address='Test & site',retrieval_date_europe_london='2026-10-13',source_url='https://example.org/source',register_url='https://example.org/register',identity_evidence_pdf_pages=[1])
             reference=dict(source_sha256=sha,reference_version=1,claims=[dict(id='H1',priority='high',title='<script>unsafe title</script>',interpretation='Known units',ambiguity=None,human_review_status=None,evidence=[dict(pdf_page=1,printed_page='1',clause='Definition',quote='Known source: 100 units',coordinates=None)])])

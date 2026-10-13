@@ -19,9 +19,9 @@ class Controls(unittest.TestCase):
             r=m.compare(ref,a);self.assertGreater(r['agent_labelled']['different']+r['agent_labelled']['missing'],0,kind)
     def test_citation_corruption(self):
         ref,a=self.plant();a['agreement']['housing']['total_units_evidence']={'page':14}
-        self.assertEqual(m.compare(ref,a)['locator_checks'][0]['outcome'],'agree')
+        self.assertEqual(m.compare(ref,a,{'locator_checks':{'housing.total_units_evidence.page':[14,45]}})['locator_checks'][0]['outcome'],'agree')
         a['agreement']['housing']['total_units_evidence']['page']=44
-        self.assertEqual(m.compare(ref,a)['locator_checks'][0]['outcome'],'different')
+        self.assertEqual(m.compare(ref,a,{'locator_checks':{'housing.total_units_evidence.page':[14,45]}})['locator_checks'][0]['outcome'],'different')
     def test_empty_human_denominator_and_invalid_confirmation(self):
         ref,a=self.plant();self.assertIsNone(m.compare(ref,a)['human_confirmed'])
         ref['claims'][0]['human_review_status']='confirmed'

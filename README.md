@@ -9,7 +9,7 @@ cites, and that passage must be found on the cited page. Nothing in the gate is 
 
 Architecture and contributor reading path: [docs/architecture.md](docs/architecture.md).
 
-Generate the Southwark review dossier on demand: [review tool and case inputs](validation/southwark-19-AP-1773/README.md). All annotations await human confirmation; existing OCR benchmarks and model fixtures are agent-produced, not independently human-verified ground truth.
+Register multiple developments, import human corrections and generate review sites/reports on demand: [review workflow](docs/review-workflow.md). Existing [Southwark case inputs](validation/southwark-19-AP-1773/README.md) remain the first registered example. All annotations await human confirmation; existing OCR benchmarks and model fixtures are agent-produced, not independently human-verified ground truth.
 
 Scope, roadmap and open research questions: [docs/research-plan.md](docs/research-plan.md).
 Schema v2 and the real deeds behind it: [docs/schema-v2.md](docs/schema-v2.md).

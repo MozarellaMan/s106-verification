@@ -32,8 +32,8 @@ previous full report and dossier have been preserved locally, outside the commit
 Each card contains proposed meaning, source quotation, PDF/printed locator and
 expandable original page image. Start with high-priority claims. Save your later
 review using **Export human review JSON**, or edit the review CSV. Regeneration
-preserves an existing CSV; it does not ingest exported decisions or change the
-reference automatically. Browser form entries need exporting before closing/rebuilding.
+preserves an existing CSV; it does not change the agent reference. Import exported decisions through
+`manage-validation.py import-review`, then rebuild to update reports. Browser form entries need exporting before closing/rebuilding.
 Keep the exported review record with the source hash/reference version; human
 confirmation must include an actual reviewer and date. Review completeness separately.
 
@@ -55,9 +55,11 @@ across94 selected comparisons;12 of14 structured payment names represented.
 Human-confirmed metrics are unavailable. These counts are not whole-deed accuracy.
 See protocol.md and completeness.md for contamination, unread-page and coverage limits.
 The reference contacts retain the original extraction history; historical snapshots
-and the long narrative report remain local. Neither a generated site nor a verifier
-PASS confers human approval or permission to expand the corpus.
+and the long narrative report remain local. Human review can proceed alongside adding cases. A generated site or verifier
+PASS does not establish human-verified accuracy or document completeness.
 
 Controls: `cargo test --offline --test validation_mutations` and
 `python3 -m unittest discover -s tests/python -v`. The renderer has a synthetic
 page/link/hash-check regression test in the same Python suite.
+
+Multi-case registry, human corrections/additions and dynamic reports: [workflow](../../docs/review-workflow.md).

@@ -44,19 +44,20 @@ def equal(a, b):
         except Exception: pass
     return a == b
 
-def compare(reference, audit):
+def compare(reference, audit, spec=None):
+    spec = spec or {}
     agreement = audit['agreement']
     if agreement['provenance']['sha256'] != reference['source_sha256']:
         raise ValueError('source hash mismatch')
     rows=[]; confirmed=[]
     for c in reference['claims']:
-        human = c['human_review_status'] == 'confirmed'
+        human = c['human_review_status'] in {'confirmed', 'corrected', 'added'}
         if human and not (c.get('human_reviewer') and c.get('human_review_date')):
             raise ValueError('confirmed claim lacks human reviewer/date')
         for field, want in c['expected_fields'].items():
             got = lookup(agreement, field)
             row=dict(claim=c['id'], field=field, expected=want, actual=got,
-                     outcome='missing' if got == MISSING else 'agree' if equal(want,got) else 'different')
+                     outcome='missing' if got == MISSING else 'agree' if equal(want,got) else 'different', human_accepted=human)
             rows.append(row)
             if human: confirmed.append(row)
     if not rows:
@@ -64,17 +65,8 @@ def compare(reference, audit):
     def count(items):
         return {'compared_fields':len(items), **{s:sum(x['outcome']==s for x in items) for s in ['agree','different','missing']}}
     locators=[]
-    # Allowed pages from image-read claims; include actual duplicate restatement PDF45,
-    # not Schedule1 title PDF44. These are source-based locators, not model quotations.
-    for field, pages in {
-        'housing.total_units_evidence.page':[14,45],
-        'housing.market_units_evidence.page':[22],
-        'housing.affordable_units_evidence.page':[5,91],
-        'housing.claimed_affordable_evidence.page':[14,45],
-        'housing.mix_table.evidence.page':[91],
-        'tenure.Social Rent.evidence.page':[30,91],
-        'tenure.Intermediate.evidence.page':[21,91],
-    }.items():
+    # Locators are supplied by each case, never borrowed from Southwark.
+    for field, pages in spec.get('locator_checks', {}).items():
         got=lookup(agreement,field)
         locators.append(dict(field=field,allowed_pdf_pages=pages,actual=got,outcome='agree' if got in pages else 'different'))
     names={f.split('.')[1] for c in reference['claims'] for f in c['expected_fields'] if f.startswith('contribution.')}
@@ -82,7 +74,7 @@ def compare(reference, audit):
     return dict(reference_status=reference['status'],agent_labelled=count(rows),
                 human_confirmed=count(confirmed) if confirmed else None,
                 human_metric_note='No human-confirmed reference fields; accuracy unavailable.' if not confirmed else 'Reviewed subset only; not full-deed completeness.',
-                contribution_coverage={'inventory_names':len(names),'represented':len(present),'missing':sorted(names-set(present)),'scope':'Only structured F01-F14; ancillary obligations and unrepresented qualifiers excluded. Not full-deed recall.'},
+                contribution_coverage={'inventory_names':len(names),'represented':len(present),'missing':sorted(names-set(present)),'scope':spec.get('coverage_scope', 'Selected structured reference fields only; not whole-deed recall.')},
                 rows=rows,locator_checks=locators,
                 verification_counts={s:sum(x['status']==s for x in audit['verification']) for s in ['PASS','REVIEW','FAIL','SKIP']})
 
@@ -93,7 +85,9 @@ def main():
     if hashlib.sha256((a.case/'reference.json').read_bytes()).hexdigest()!=expected:
         raise ValueError('reference changed: retain original and document/version a new human-reviewed reference')
     audit=json.loads((a.audit or a.case/'results/rust-audit.json').read_text())
-    result=compare(reference,audit)
+    spec_path=a.case/'comparison-spec.json'
+    spec=json.loads(spec_path.read_text()) if spec_path.exists() else {}
+    result=compare(reference,audit,spec)
     dest=a.out or a.case/'results/comparison.json';dest.parent.mkdir(parents=True, exist_ok=True);dest.write_text(json.dumps(result,indent=2,ensure_ascii=False)+'\n')
     print(json.dumps({k:v for k,v in result.items() if k not in ['rows','locator_checks']},indent=2))
 if __name__=='__main__': main()

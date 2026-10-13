@@ -13,3 +13,5 @@ Controls fixed before real run: clean synthetic housing and financial covenant; 
 Acceptance: reproducible source identity, page-image inventory with blank human statuses, field-level comparison and control outcomes; case remains awaiting human confirmation until reviewer records identity, date and decision. Recommend expansion only after material ambiguities and human review are addressed.
 
 Compute pilot: Poppler rendered three pages at 1500px in 4.52s. Remaining 106 pages at 1400px projected about 160s using linear page scaling; only a few minutes, retained as readable evidence. Actual elapsed time recorded in run log. Audit uses cached OCR and frozen response; first measure existing offline tests. No overnight work or additional corpus acquisition.
+
+Scope update — 13 October 2026: the user authorised a multi-development workflow, with tooling first and development selection later. Earlier expansion recommendations are historical, not a gate on adding cases or committing tooling. Human-subset and completeness labelling remain required; see docs/review-workflow.md.
