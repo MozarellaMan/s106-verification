@@ -1,0 +1,412 @@
+{
+  "agreement": {
+    "metadata": {
+      "council": "Unknown",
+      "planning_reference": null,
+      "legal_reference": "PB/80741",
+      "agreement_date": null,
+      "site_address": null,
+      "parties": [
+        "THE COUNCILOF THE CITY OF SUNDERLAND"
+      ],
+      "source_pdf": "data/raw/eval/sunderland-2101544.pdf",
+      "page_count": 40,
+      "text_source": "ocr"
+    },
+    "housing": {
+      "total_units": null,
+      "total_units_evidence": null,
+      "market_units": null,
+      "market_units_evidence": {
+        "page": 8,
+        "snippet": "those Dwellings to be provided on the Site aspart of theDevelopment whichare general market housing for sale on the open"
+      },
+      "affordable_units": null,
+      "affordable_units_evidence": {
+        "page": 3,
+        "snippet": "Means. the 6 (six) Dwellings. to be constructedon theSite andprovided as Affordable Housing pursuant to the Planning Per"
+      },
+      "affordable_habitable_rooms": null,
+      "total_habitable_rooms": null,
+      "tenures": [],
+      "mix_table": null,
+      "claimed_affordable_pct": null,
+      "claimed_affordable_basis": null,
+      "claimed_affordable_evidence": null
+    },
+    "contributions": [
+      {
+        "name": "Allotments Contribution",
+        "amount_gbp": "5580.00",
+        "amount_in_words": "five thousand, five hundred and eighty pounds",
+        "index_linked": false,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": null,
+        "trigger_event_model": null,
+        "trigger_clause": null,
+        "trigger_evidence": null,
+        "evidence": {
+          "page": 3,
+          "snippet": "5580.00 (five thousand, five hundred and eighty pounds"
+        }
+      },
+      {
+        "name": "Biodiversity Contribution",
+        "amount_gbp": "20220.00",
+        "amount_in_words": "twenty thousand two hundred and twenty pounds",
+        "index_linked": false,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": null,
+        "trigger_event_model": null,
+        "trigger_clause": null,
+        "trigger_evidence": null,
+        "evidence": {
+          "page": 3,
+          "snippet": "20,220.00 (twenty thousand two hundred and twenty pounds"
+        }
+      },
+      {
+        "name": "Education Contribution",
+        "amount_gbp": "185700.00",
+        "amount_in_words": "one hundred and eighty five thousand seven hundred pounds",
+        "index_linked": false,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": null,
+        "trigger_event_model": null,
+        "trigger_clause": null,
+        "trigger_evidence": null,
+        "evidence": {
+          "page": 6,
+          "snippet": "185,700.00(one hundred and eighty five thousand seven hundred pounds"
+        }
+      },
+      {
+        "name": "Public Transport Contribution",
+        "amount_gbp": "20580.00",
+        "amount_in_words": "twenty thousand five hundred andeighty pounds",
+        "index_linked": false,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": null,
+        "trigger_event_model": null,
+        "trigger_clause": null,
+        "trigger_evidence": null,
+        "evidence": {
+          "page": 12,
+          "snippet": "20,580.00 (twenty thousand five hundred andeighty pounds"
+        }
+      },
+      {
+        "name": "RDLRContribution",
+        "amount_gbp": "120120.00",
+        "amount_in_words": "one hundred and twenty thousand one hundred and twenty pounds",
+        "index_linked": false,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": null,
+        "trigger_event_model": null,
+        "trigger_clause": null,
+        "trigger_evidence": null,
+        "evidence": {
+          "page": 12,
+          "snippet": "120,120.00(one hundred and twenty thousand one hundred and twenty pounds"
+        }
+      },
+      {
+        "name": "Recreation Contribution",
+        "amount_gbp": "55620.00",
+        "amount_in_words": "fifty five thousand, six hundred and twenty pounds",
+        "index_linked": false,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": null,
+        "trigger_event_model": null,
+        "trigger_clause": null,
+        "trigger_evidence": null,
+        "evidence": {
+          "page": 12,
+          "snippet": "55,620.00 (fifty five thousand, six hundred and twenty pounds"
+        }
+      }
+    ],
+    "extraction_backend": "rules",
+    "warnings": [
+      "PDF has no text layer; values come from OCR and evidence matching is whitespace-insensitive"
+    ],
+    "total_contributions_gbp": "407820.00"
+  },
+  "verification": [
+    {
+      "check_id": "H1",
+      "description": "Market units + affordable units == total residential units",
+      "status": "FAIL",
+      "expected": "None",
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "not extracted: total units, market units, affordable units",
+      "pages": [
+        3,
+        8
+      ]
+    },
+    {
+      "check_id": "H2",
+      "description": "Sum of tenure units == affordable units",
+      "status": "FAIL",
+      "expected": null,
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "no tenure breakdown extracted",
+      "pages": []
+    },
+    {
+      "check_id": "H3",
+      "description": "Sum of tenure habitable rooms == affordable habitable rooms",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "habitable-room breakdown not stated",
+      "pages": []
+    },
+    {
+      "check_id": "H4",
+      "description": "Claimed affordable % vs calculated % (basis: not stated)",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no affordable % stated in the deed",
+      "pages": []
+    },
+    {
+      "check_id": "H5",
+      "description": "Approved mix table: rows sum to subtotals",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no mix table found",
+      "pages": []
+    },
+    {
+      "check_id": "F1.amt",
+      "description": "Allotments Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a35,580.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F1.words",
+      "description": "Allotments Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a35,580.00",
+      "actual": "\u00a35,580.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F1.trig",
+      "description": "Allotments Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "no trigger clause matched in the schedules",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F2.amt",
+      "description": "Biodiversity Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a320,220.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F2.words",
+      "description": "Biodiversity Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a320,220.00",
+      "actual": "\u00a320,220.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F2.trig",
+      "description": "Biodiversity Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "no trigger clause matched in the schedules",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F3.amt",
+      "description": "Education Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a3185,700.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        6
+      ]
+    },
+    {
+      "check_id": "F3.words",
+      "description": "Education Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a3185,700.00",
+      "actual": "\u00a3185,700.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        6
+      ]
+    },
+    {
+      "check_id": "F3.trig",
+      "description": "Education Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "no trigger clause matched in the schedules",
+      "pages": [
+        6
+      ]
+    },
+    {
+      "check_id": "F4.amt",
+      "description": "Public Transport Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a320,580.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F4.words",
+      "description": "Public Transport Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a320,580.00",
+      "actual": "\u00a320,580.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F4.trig",
+      "description": "Public Transport Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "no trigger clause matched in the schedules",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F5.amt",
+      "description": "RDLRContribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a3120,120.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F5.words",
+      "description": "RDLRContribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a3120,120.00",
+      "actual": "\u00a3120,120.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F5.trig",
+      "description": "RDLRContribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "no trigger clause matched in the schedules",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F6.amt",
+      "description": "Recreation Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a355,620.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F6.words",
+      "description": "Recreation Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a355,620.00",
+      "actual": "\u00a355,620.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F6.trig",
+      "description": "Recreation Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "no trigger clause matched in the schedules",
+      "pages": [
+        12
+      ]
+    }
+  ]
+}

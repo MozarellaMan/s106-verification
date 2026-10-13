@@ -1,0 +1,618 @@
+{
+  "agreement": {
+    "metadata": {
+      "council": "Unknown",
+      "planning_reference": null,
+      "legal_reference": null,
+      "agreement_date": null,
+      "site_address": null,
+      "parties": [
+        "THE AUTHORITY OF THE BOROUGH OF NORTH TYNESIDE",
+        "BELLWAY HOMES LIMITED"
+      ],
+      "source_pdf": "data/raw/eval/ntyneside-1901280.pdf",
+      "page_count": 45,
+      "text_source": "ocr"
+    },
+    "housing": {
+      "total_units": 75,
+      "total_units_evidence": {
+        "page": 4,
+        "snippet": "for construction of 75 residential dwellings"
+      },
+      "market_units": null,
+      "market_units_evidence": null,
+      "affordable_units": 19,
+      "affordable_units_evidence": {
+        "page": 23,
+        "snippet": "shall make provision for 19 (nineteen) Affordable Housing Units"
+      },
+      "affordable_habitable_rooms": null,
+      "total_habitable_rooms": null,
+      "tenures": [
+        {
+          "tenure": "Intermediate",
+          "units": 6,
+          "habitable_rooms": null,
+          "evidence": {
+            "page": 23,
+            "snippet": "being 6 (six) Intermediate Housing Units and 13 (thirteen) Affordable Rented Units"
+          }
+        },
+        {
+          "tenure": "Other",
+          "units": 13,
+          "habitable_rooms": null,
+          "evidence": {
+            "page": 23,
+            "snippet": "being 6 (six) Intermediate Housing Units and 13 (thirteen) Affordable Rented Units"
+          }
+        }
+      ],
+      "mix_table": null,
+      "claimed_affordable_pct": null,
+      "claimed_affordable_basis": null,
+      "claimed_affordable_evidence": null
+    },
+    "contributions": [
+      {
+        "name": "Allotments Contribution",
+        "amount_gbp": "5400.00",
+        "amount_in_words": "Five thousand four hundred pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "1.1.1. 50% prior to Occupation of the 1st (first) Dwelling; and 1.1.2. the remaining 50% prior to Occupation of the 37th (thirty seventh) Dwelling.",
+        "trigger_evidence": {
+          "page": 14,
+          "snippet": "50% prior to Occupation of the 1st (first) Dwelling"
+        },
+        "evidence": {
+          "page": 3,
+          "snippet": "means \u00a35,400.00 (Five thousand four hundred pounds)"
+        }
+      },
+      {
+        "name": "Coastal Mitigation Contribution",
+        "amount_gbp": "25275.00",
+        "amount_in_words": "Twenty five thousand two hundred and seventy five pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "2.1.1. 50% prior to Occupation of the 1st (first) Dwelling; and 2.1.2. the remaining 50% prior to Occupation of the 37th (thirty seventh) Dwelling.",
+        "trigger_evidence": {
+          "page": 14,
+          "snippet": "50% prior to Occupation of the 1st (first) Dwelling"
+        },
+        "evidence": {
+          "page": 3,
+          "snippet": "means \u00a325,275.00 (Twenty five thousand two hundred and seventy five pounds)"
+        }
+      },
+      {
+        "name": "Children's Equipped Playspace Contribution",
+        "amount_gbp": "52500.00",
+        "amount_in_words": "fifty two thousand five hundred pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "3.1.1. 50% prior to Occupation of the 1st (first) Dwelling; and 3.1.2. the remaining 50% prior to Occupation of the 37th (thirty seventh) Dwelling.",
+        "trigger_evidence": {
+          "page": 14,
+          "snippet": "50% prior to Occupation of the 1st (first) Dwelling"
+        },
+        "evidence": {
+          "page": 3,
+          "snippet": "means the sum of \u00a352,500.00 (fifty two thousand five hundred pounds)"
+        }
+      },
+      {
+        "name": "Ecology and Biodiversity Contribution",
+        "amount_gbp": "14625.00",
+        "amount_in_words": "Fourteen thousand six hundred and twenty five pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "4.1.1. 50% prior to Occupation of the 1st (first) Dwelling; and 4.1.2. the remaining 50% prior to Occupation of the 37th (thirty seventh) Dwelling.",
+        "trigger_evidence": {
+          "page": 14,
+          "snippet": "50% prior to Occupation of the 1st (first) Dwelling"
+        },
+        "evidence": {
+          "page": 4,
+          "snippet": "means \u00a314,625.00 (Fourteen thousand six hundred and twenty five pounds)"
+        }
+      },
+      {
+        "name": "Employment and Training Contribution",
+        "amount_gbp": "14000.00",
+        "amount_in_words": "Fourteen thousand pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "5.1.1. 50% prior to Occupation of the 1st (first) Dwelling; and 5.1.2. the remaining 50% prior to Occupation of the 37th (thirty seventh) Dwelling.",
+        "trigger_evidence": {
+          "page": 14,
+          "snippet": "50% prior to Occupation of the 1st (first) Dwelling"
+        },
+        "evidence": {
+          "page": 4,
+          "snippet": "means \u00a314,000.00 (Fourteen thousand pounds)"
+        }
+      },
+      {
+        "name": "Parks and Green Space Contribution",
+        "amount_gbp": "41062.00",
+        "amount_in_words": "Forty one thousand and sixty two pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "6.1.1. 50% prior to Occupation of the 1st (first) Dwelling; and 6.1.2. the remaining 50% prior to Occupation of the 37th (thirty seventh) Dwelling.",
+        "trigger_evidence": {
+          "page": 14,
+          "snippet": "50% prior to Occupation of the 1st (first) Dwelling"
+        },
+        "evidence": {
+          "page": 5,
+          "snippet": "means \u00a341,062.00 (Forty one thousand and sixty two pounds)"
+        }
+      },
+      {
+        "name": "Playing Pitches Improvements Contribution",
+        "amount_gbp": "48375.00",
+        "amount_in_words": "Forty eight thousand three hundred and seventy five pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "7.1.1. 50% prior to Occupation of the 1st (first) Dwelling; and 7.1.2. the remaining 50% prior to Occupation of the 37th (thirty seventh) Dwelling.",
+        "trigger_evidence": {
+          "page": 14,
+          "snippet": "50% prior to Occupation of the 1st (first) Dwelling"
+        },
+        "evidence": {
+          "page": 5,
+          "snippet": "means \u00a348,375.00 (Forty eight thousand three hundred and seventy five pounds)"
+        }
+      },
+      {
+        "name": "Primary Education Contribution",
+        "amount_gbp": "212500.00",
+        "amount_in_words": "Two hundred and twelve thousand five hundred pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Commencement",
+        "trigger_event_model": null,
+        "trigger_clause": "8.1.1. 25% prior to Commencement of Development;",
+        "trigger_evidence": {
+          "page": 15,
+          "snippet": "25% prior to Commencement of Development"
+        },
+        "evidence": {
+          "page": 5,
+          "snippet": "means: \u00a3212,500.00 (Two hundred and twelve thousand five hundred pounds)"
+        }
+      },
+      {
+        "name": "Sports Facilities Improvements Contribution",
+        "amount_gbp": "56000.00",
+        "amount_in_words": "Fifty six thousand pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "9.1.1. 50% prior to Occupation of the 1st (first) Dwelling; and 9.1.2. the remaining 50% prior to Occupation of the 37th (thirty seventh) Dwelling.",
+        "trigger_evidence": {
+          "page": 15,
+          "snippet": "50% prior to Occupation of the 1st (first) Dwelling"
+        },
+        "evidence": {
+          "page": 5,
+          "snippet": "means \u00a356,000.00 (Fifty six thousand pounds)"
+        }
+      }
+    ],
+    "extraction_backend": "llm-pdf:claude-haiku-5-5 (replay)",
+    "warnings": [
+      "PDF has no text layer; values come from OCR and evidence matching is whitespace-insensitive",
+      "llm-pdf: claude-haiku-5-5 replay (live), 75,074 in / 6,503 out tokens; pages 1-45"
+    ],
+    "total_contributions_gbp": "469737.00"
+  },
+  "verification": [
+    {
+      "check_id": "H1",
+      "description": "Market units + affordable units == total residential units",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "deed does not state market unit count separately",
+      "pages": [
+        4,
+        23
+      ]
+    },
+    {
+      "check_id": "H2",
+      "description": "Sum of tenure units == affordable units",
+      "status": "PASS",
+      "expected": "19",
+      "actual": "6 Intermediate + 13 Other = 19",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "H3",
+      "description": "Sum of tenure habitable rooms == affordable habitable rooms",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "habitable-room breakdown not stated",
+      "pages": []
+    },
+    {
+      "check_id": "H4",
+      "description": "Claimed affordable % vs calculated % (basis: not stated)",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no affordable % stated in the deed",
+      "pages": []
+    },
+    {
+      "check_id": "H5",
+      "description": "Approved mix table: rows sum to subtotals",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no mix table found",
+      "pages": []
+    },
+    {
+      "check_id": "F1.amt",
+      "description": "Allotments Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a35,400.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F1.words",
+      "description": "Allotments Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a35,400.00",
+      "actual": "\u00a35,400.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F1.trig",
+      "description": "Allotments Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited clause does not impose a payment",
+      "pages": [
+        14
+      ]
+    },
+    {
+      "check_id": "F2.amt",
+      "description": "Coastal Mitigation Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a325,275.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F2.words",
+      "description": "Coastal Mitigation Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a325,275.00",
+      "actual": "\u00a325,275.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F2.trig",
+      "description": "Coastal Mitigation Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited clause does not impose a payment",
+      "pages": [
+        14
+      ]
+    },
+    {
+      "check_id": "F3.amt",
+      "description": "Children's Equipped Playspace Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a352,500.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F3.words",
+      "description": "Children's Equipped Playspace Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a352,500.00",
+      "actual": "\u00a352,500.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F3.trig",
+      "description": "Children's Equipped Playspace Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited clause does not impose a payment",
+      "pages": [
+        14
+      ]
+    },
+    {
+      "check_id": "F4.amt",
+      "description": "Ecology and Biodiversity Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a314,625.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F4.words",
+      "description": "Ecology and Biodiversity Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a314,625.00",
+      "actual": "\u00a314,625.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F4.trig",
+      "description": "Ecology and Biodiversity Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited clause does not impose a payment",
+      "pages": [
+        14
+      ]
+    },
+    {
+      "check_id": "F5.amt",
+      "description": "Employment and Training Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a314,000.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F5.words",
+      "description": "Employment and Training Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a314,000.00",
+      "actual": "\u00a314,000.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F5.trig",
+      "description": "Employment and Training Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited clause does not impose a payment",
+      "pages": [
+        14
+      ]
+    },
+    {
+      "check_id": "F6.amt",
+      "description": "Parks and Green Space Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a341,062.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        5
+      ]
+    },
+    {
+      "check_id": "F6.words",
+      "description": "Parks and Green Space Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a341,062.00",
+      "actual": "\u00a341,062.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        5
+      ]
+    },
+    {
+      "check_id": "F6.trig",
+      "description": "Parks and Green Space Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited clause does not impose a payment",
+      "pages": [
+        14
+      ]
+    },
+    {
+      "check_id": "F7.amt",
+      "description": "Playing Pitches Improvements Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a348,375.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        5
+      ]
+    },
+    {
+      "check_id": "F7.words",
+      "description": "Playing Pitches Improvements Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a348,375.00",
+      "actual": "\u00a348,375.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        5
+      ]
+    },
+    {
+      "check_id": "F7.trig",
+      "description": "Playing Pitches Improvements Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited payment clause not re-locatable in source (p14)",
+      "pages": [
+        14
+      ]
+    },
+    {
+      "check_id": "F8.amt",
+      "description": "Primary Education Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a3212,500.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        5
+      ]
+    },
+    {
+      "check_id": "F8.words",
+      "description": "Primary Education Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a3212,500.00",
+      "actual": "\u00a3212,500.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        5
+      ]
+    },
+    {
+      "check_id": "F8.trig",
+      "description": "Primary Education Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Commencement",
+      "error_class": "Parser Error",
+      "detail": "cited clause does not impose a payment",
+      "pages": [
+        15
+      ]
+    },
+    {
+      "check_id": "F9.amt",
+      "description": "Sports Facilities Improvements Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a356,000.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        5
+      ]
+    },
+    {
+      "check_id": "F9.words",
+      "description": "Sports Facilities Improvements Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a356,000.00",
+      "actual": "\u00a356,000.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        5
+      ]
+    },
+    {
+      "check_id": "F9.trig",
+      "description": "Sports Facilities Improvements Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited clause does not impose a payment",
+      "pages": [
+        15
+      ]
+    }
+  ]
+}

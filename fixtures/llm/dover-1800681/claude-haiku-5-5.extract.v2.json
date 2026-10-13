@@ -1,0 +1,255 @@
+{
+  "format": "s106-llm-fixture/2",
+  "model": "claude-haiku-5-5",
+  "served_by": "claude-haiku-5-5",
+  "prompt_sha256": "95c2165ff1afd7eca5beb82e642146edd4001f868779295b9b9b79cfb4b68ae7",
+  "pdf_sha256": "faec9cbf6412da9d0a94aedf9aa3f031043aa4fe2d07b2dc6c78331f12509b40",
+  "pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "usage": {
+    "input_tokens": 66360,
+    "output_tokens": 8412,
+    "attempts": 1,
+    "cache_write_tokens": 0,
+    "cache_read_tokens": 0
+  },
+  "recorded_at": "2026-10-13T17:22:50Z",
+  "output": {
+    "instrument": {
+      "kind": "deed_of_variation",
+      "evidence": {
+        "page": 1,
+        "snippet": "DEED OF VARIATION RELATING TO THE DEVELOPMENT OF"
+      },
+      "parent_description": "Agreement completed pursuant to Section 106 of the Town and Country Planning Act 1990 dated 14 September 2020 and entered into by (1) Dennis Stuart Friend and Pamela Joan Friend (2) Jennifer Carol Willis (3) Chartway Group Limited (4) Sandwich Bay Bird Observatory Trust (5) Dover District Council and (6) Kent County Council (the Original Agreement)",
+      "parent_date": "14 September 2020",
+      "parent_evidence": {
+        "page": 3,
+        "snippet": "Section 106 of the Town and Country Planning Act 1990 dated 14 September 2020"
+      },
+      "scope": "in so far as it relates to the Affordable Housing Land",
+      "scope_evidence": {
+        "page": 3,
+        "snippet": "in so far as it relates to the Affordable Housing Land"
+      }
+    },
+    "metadata": {
+      "council": "Dover District Council",
+      "planning_references": [
+        "DOV/18/00681"
+      ],
+      "legal_reference": "",
+      "agreement_date": "31 May 2022",
+      "site_address": "Land at Former Kumor Nursery and 121 Dover Road, Sandwich, Kent",
+      "parties": [
+        "Dover District Council",
+        "Chartway Group Limited",
+        "Town and Country Housing"
+      ]
+    },
+    "variations": [
+      {
+        "op": "amend",
+        "target": "Clause 1.1.8 and definition of Chargee",
+        "new_text": "or any persons or bodies deriving title through such mortgagee or chargee or Receiver",
+        "evidence": {
+          "page": 5,
+          "snippet": "Clause 1.1.8 and the definition of \"Chargee\" shall be amended to include the words"
+        }
+      },
+      {
+        "op": "amend",
+        "target": "Clause 1.1.9 and definition of Chargee's Duty",
+        "new_text": "reference to paragraph 3.5 replaced with reference to paragraph 3.6",
+        "evidence": {
+          "page": 5,
+          "snippet": "shall be amended so that the reference to paragraph 3.5 shall be replaced with reference to paragraph 3.6."
+        }
+      },
+      {
+        "op": "replace",
+        "target": "Clause 1.1.2 definition of Affordable Housing",
+        "new_text": "1.1.2 \"Affordable Housing\" means Affordable Rented Housing and/or Affordable Social Housing, and Shared Ownership Housing provided to eligible households whose needs are not met by the market, where eligibility is determined with regard to local incomes and local house prices and which remains at an affordable price for future eligible households (including for the avoidance of doubt one Wheelchair Accessible Unit);",
+        "evidence": {
+          "page": 5,
+          "snippet": "Clause 1.1.2 and the definition of \"Affordable Housing\" shall be deleted and"
+        }
+      },
+      {
+        "op": "replace",
+        "target": "Clause 1.1.5 definition of the Affordable Housing Units",
+        "new_text": "1.1.5 \"the Affordable Housing Units\" means that part of the Development comprising 17 Dwellings which shall be constructed for Affordable Housing in accordance with the approved Affordable Housing Scheme, 70% (12 Dwellings) of which shall be Affordable Rented Housing and/or Affordable Social Housing and 30% (5 Dwellings) of which shall be Shared Ownership Housing and \"an Affordable Housing Unit\" shall be construed accordingly;",
+        "evidence": {
+          "page": 5,
+          "snippet": "comprising 17 Dwellings which shall be constructed for Affordable Housing in accordance with the approved Affordable Housing Scheme"
+        }
+      },
+      {
+        "op": "replace",
+        "target": "Clause 1.1.6 definition of Affordable Rented Housing",
+        "new_text": "1.1.6 \"Affordable Rented Housing\" means the Affordable Housing Units that will be let to persons in Housing Need at an Affordable Rent in accordance with the HCA's Tenancy Standard (April 2012) as may be amended updated or replaced from time to time",
+        "evidence": {
+          "page": 5,
+          "snippet": "Clause 1.1.6 and the definition of \"Affordable Rented Housing\" shall be deleted and"
+        }
+      },
+      {
+        "op": "amend",
+        "target": "Clause 1.1.18 definition of HCA",
+        "new_text": "and shall include the Social Housing Regulator where appropriate",
+        "evidence": {
+          "page": 5,
+          "snippet": "Clause 1.1.18 and the definition of \"HCA\" shall be amended to include the words"
+        }
+      },
+      {
+        "op": "replace",
+        "target": "Clause 1.1.38 definition of Shared Ownership Housing",
+        "new_text": "1.1.38 \"Shared Ownership Housing\" means the Affordable Housing Units to be Occupied by persons who are in Housing Need whereby a person granted a Shared Ownership Lease can purchase an initial equity share in a Shared Ownership Housing of not less than 25% and not more than 75% and pay rent on the unsold equity with flexibility for such a person to purchase further equity shares in the Shared Ownership Housing up to 100% or such other equity sharing or retention terms as may from time to time be approved by the Council",
+        "evidence": {
+          "page": 5,
+          "snippet": "Clause 1.1.38 and the definition of \"Shared Ownership Housing\" shall be deleted and"
+        }
+      },
+      {
+        "op": "insert",
+        "target": "New clause 1.1.5A Affordable Rent",
+        "new_text": "1.1.5A \"Affordable Rent\" means chargeable rent that is subject to the HCA's Rent Standard (April 2020) as expanded on by the Rent Standard Guidance (April 2020) as such document and/or associated guidance may be amended updated or replaced from time to time and is required to be offered to eligible householders in Housing Need at an open market rental level which does not exceed 80% of gross local market rent (inclusive of service charges) for an equivalent property of that size and location or the applicable Local Housing Allowance rate for the Borough Council (whichever is the lower)",
+        "evidence": {
+          "page": 6,
+          "snippet": "A new definition of \"Affordable Rent\" shall be included as a new clause"
+        }
+      },
+      {
+        "op": "insert",
+        "target": "New clause 1.1.6A Affordable Social Housing",
+        "new_text": "1.1.6A \"Affordable Social Housing\" means an Affordable Housing Unit owned and managed by the Registered Provider and let to a person in Housing Need for which guideline target rents are determined through the HCA's Rent Standard (April 2020) as expanded on by the Rent Standard Guidance (April 2020) (as such document and/or associated guidance may be amended updated or replaced from time to time) and is required to be offered to eligible householders in Housing Need PROVIDED THAT in all cases the rent levels shall not exceed the maximum amount of Local Housing Allowance applicable for the size of the relevant Dwelling.",
+        "evidence": {
+          "page": 6,
+          "snippet": "A new definition of \"Affordable Social Housing\" shall be included as a new clause"
+        }
+      },
+      {
+        "op": "insert",
+        "target": "New clause 1.1.7A Assured Shorthold Tenancy",
+        "new_text": "1.1.7A \"Assured Shorthold Tenancy\" means a tenancy granted by the Registered Provider under section 19A of the Housing Act 1988 (as amended by the Housing Act 1996).",
+        "evidence": {
+          "page": 6,
+          "snippet": "A new definition of \"Assured Shorthold Tenancy\" shall be included as a new clause"
+        }
+      },
+      {
+        "op": "insert",
+        "target": "New clause 1.1.17A Help to Buy Agent",
+        "new_text": "1.1.17A \"Help to Buy Agent\" means an agent commissioned by the HCA to provide a one stop shop service to qualifying applicants enquiring about and applying for the low cost home ownership schemes including shared ownership schemes.",
+        "evidence": {
+          "page": 6,
+          "snippet": "A new definition of \"Help to Buy Agent\" shall be included as a new clause 1.1.17A as"
+        }
+      },
+      {
+        "op": "insert",
+        "target": "New clause 1.1.19A Housing Need",
+        "new_text": "1.1.19A \"Housing Need\" means a) in relation to the Affordable Rented Housing and/or the Affordable Social Housing (as the case may be) a person in need of social housing allocation in accordance with the Council's allocations scheme and b) in relation to the Shared Ownership Housing a person registered with the Help to Buy Agent and who is to be granted a Shared Ownership Lease or an Assured Shorthold Tenancy because the person's income is insufficient to enable them to rent or buy housing available locally on the open market determined with regard to local incomes and local house prices.",
+        "evidence": {
+          "page": 7,
+          "snippet": "A new definition of \"Housing Need\" shall be included as a new clause 1.1.19A as"
+        }
+      },
+      {
+        "op": "insert",
+        "target": "New clause 1.1.22A Local Housing Allowance",
+        "new_text": "1.1.22A \"Local Housing Allowance\" means the flat rate rental allowance providing financial assistance towards the housing costs of low income households for different rental market areas and property types set out and reviewed by the Valuation Office Agency under a framework introduced by the Department of Works and Pensions or such similar framework that may replace it",
+        "evidence": {
+          "page": 7,
+          "snippet": "A new definition of \"Local Housing Allowance\" shall be included as a new clause"
+        }
+      },
+      {
+        "op": "insert",
+        "target": "New clause 1.1.38A Shared Ownership Lease",
+        "new_text": "1.1.38A \"Shared Ownership Lease\" means a lease which accords with the HCA's model form of lease issued from time to time.",
+        "evidence": {
+          "page": 7,
+          "snippet": "A new definition of \"Shared Ownership Lease\" shall be included as a new clause"
+        }
+      },
+      {
+        "op": "replace",
+        "target": "Clause 3.4.1",
+        "new_text": "3.4.1 This deed shall not be enforceable against the Registered Provider or the owner-occupiers, occupiers or tenants of Dwellings constructed pursuant to the Planning Permission, nor against those deriving title from such owner-occupiers or tenants or their mortgagees nor against any mortgagee of a tenant of an Affordable Housing Unit or any receiver appointed by such mortgagee and any person or persons deriving title from them. Schedule 2 paragraph 3.5 shall remain enforceable against the Registered Provider and the owner-occupiers and/or tenants of Affordable Housing Units and those deriving title from them to the extent permitted by the terms of this deed",
+        "evidence": {
+          "page": 7,
+          "snippet": "Clause 3.4.1 shall be deleted and replaced with:"
+        }
+      }
+    ],
+    "housing": {
+      "total_units": null,
+      "total_units_evidence": {
+        "page": 0,
+        "snippet": ""
+      },
+      "market_units": null,
+      "market_units_evidence": {
+        "page": 0,
+        "snippet": ""
+      },
+      "affordable_units": 17,
+      "affordable_units_evidence": {
+        "page": 5,
+        "snippet": "comprising 17 Dwellings which shall be constructed for Affordable Housing in accordance with the approved Affordable Housing Scheme, 70% (12 Dwellings)"
+      },
+      "affordable_habitable_rooms": null,
+      "total_habitable_rooms": null,
+      "tenures": [
+        {
+          "tenure": "Affordable Rent",
+          "label": "Affordable Rented Housing and/or Affordable Social Housing",
+          "units": 12,
+          "habitable_rooms": null,
+          "evidence": {
+            "page": 5,
+            "snippet": "70% (12 Dwellings) of which shall be Affordable Rented Housing and/or Affordable Social Housing and 30% (5 Dwellings) of which shall be Shared Ownership Housing"
+          }
+        },
+        {
+          "tenure": "Shared Ownership",
+          "label": "Shared Ownership Housing",
+          "units": 5,
+          "habitable_rooms": null,
+          "evidence": {
+            "page": 5,
+            "snippet": "70% (12 Dwellings) of which shall be Affordable Rented Housing and/or Affordable Social Housing and 30% (5 Dwellings) of which shall be Shared Ownership Housing"
+          }
+        }
+      ],
+      "mix_table": {
+        "rows": [],
+        "subtotals": [],
+        "total_units": null,
+        "total_habitable_rooms": null,
+        "evidence": {
+          "page": 0,
+          "snippet": ""
+        }
+      },
+      "claimed_affordable_pct": "",
+      "claimed_affordable_basis": null,
+      "claimed_affordable_evidence": {
+        "page": 0,
+        "snippet": ""
+      }
+    },
+    "contributions": []
+  }
+}

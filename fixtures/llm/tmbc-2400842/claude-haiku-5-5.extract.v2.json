@@ -1,0 +1,168 @@
+{
+  "format": "s106-llm-fixture/2",
+  "model": "claude-haiku-5-5",
+  "served_by": "claude-haiku-5-5",
+  "prompt_sha256": "95c2165ff1afd7eca5beb82e642146edd4001f868779295b9b9b79cfb4b68ae7",
+  "pdf_sha256": "bcc3c42be41cffec41fdb9b783ee5aa5d8d0948aea760f0518443cbe51488105",
+  "pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "usage": {
+    "input_tokens": 50580,
+    "output_tokens": 3794,
+    "attempts": 1,
+    "cache_write_tokens": 0,
+    "cache_read_tokens": 0
+  },
+  "recorded_at": "2026-10-13T17:28:05Z",
+  "output": {
+    "instrument": {
+      "kind": "deed_of_variation",
+      "evidence": {
+        "page": 1,
+        "snippet": "DEED OF VARIATION under Section 106A of the Town and Country Planning Act 1990"
+      },
+      "parent_description": "Section 106 Agreement for the development of land south of Brampton Field between Bradbourne Lane and Kiln Barn Road, Ditton, Aylesford, Kent",
+      "parent_date": "13 April 2021",
+      "parent_evidence": {
+        "page": 2,
+        "snippet": "An agreement pursuant to section 106 of the Act dated 13 April 2021 supporting the Planning Permission was made by"
+      },
+      "scope": "",
+      "scope_evidence": {
+        "page": 0,
+        "snippet": ""
+      }
+    },
+    "metadata": {
+      "council": "Tonbridge and Malling Borough Council",
+      "planning_references": [],
+      "legal_reference": "Legal02#110318995v1[RJT03]",
+      "agreement_date": "30th October 2024",
+      "site_address": "land south of Brampton Field between Bradbourne Lane and Kiln Barn Road, Ditton, Aylesford, Kent",
+      "parties": [
+        "St Modwen Homes Limited",
+        "Tonbridge and Malling Borough Council"
+      ]
+    },
+    "variations": [
+      {
+        "op": "replace",
+        "target": "definition \"Affordable Housing Dwellings\"",
+        "new_text": "means the Dwellings constructed on the Affordable Housing Land to be used for Affordable Housing being 25% (twenty five percent) of the total number of Dwellings of which 50% (fifty percent) shall be Affordable Rented Units and 50% (fifty percent) shall be either Shared Ownership Units or Intermediate Housing Units, such definition to be ascribed the same meaning as contained in the Glossary to the National Planning Policy Framework, or such other mix as otherwise approved by the Council in writing (such approval not to be unreasonably withheld or delayed)",
+        "evidence": {
+          "page": 6,
+          "snippet": "The definition of \"Affordable Housing Dwellings\" in the Original Obligation shall be deleted and replaced with the following wording"
+        }
+      },
+      {
+        "op": "replace",
+        "target": "definition \"Affordable Rented Units\"",
+        "new_text": "means the Affordable Housing Dwellings for rent provided at a rent of no more than 80% (Eighty Per Cent) of the local market rent (including service charges where applicable)",
+        "evidence": {
+          "page": 6,
+          "snippet": "The definition of \"Affordable Rented Units\" in the Original Obligation shall be deleted and replaced with the following wording"
+        }
+      },
+      {
+        "op": "amend",
+        "target": "definition \"Chargee\"",
+        "new_text": "inserting the word \"Dwellings\" after \"Affordable Housing\" so that the definition refers to \"Affordable Housing Dwellings\"",
+        "evidence": {
+          "page": 6,
+          "snippet": "The definition of \"Chargee\" in the Original Obligation shall be amended by inserting the word \"Dwellings\" after \"Affordable Housing\""
+        }
+      },
+      {
+        "op": "insert",
+        "target": "new clause 7.15",
+        "new_text": "The Approved Housing Provider or Registered Provider (as applicable) or their successors in title or mortgagees or Chargees shall have no liability under this Deed SAVE FOR compliance with the Affordable Housing obligations in the Third Schedule Part 1 Paragraph 1 of this Deed.",
+        "evidence": {
+          "page": 6,
+          "snippet": "A new clause 7.15 shall be inserted into the Original Obligation as follows"
+        }
+      },
+      {
+        "op": "insert",
+        "target": "new clause 7.16",
+        "new_text": "The obligations contained in this Deed shall not be binding upon or enforceable against a mortgagee or a chargee of the Site (in whole or part, including mortgagees of a Dwelling) until it takes possession of the Site (in whole or part) in which case it too will be bound by the obligations as if it were a party deriving title from the Owner.",
+        "evidence": {
+          "page": 7,
+          "snippet": "A new clause 7.16 shall be inserted in to the Original Obligation as follows"
+        }
+      },
+      {
+        "op": "amend",
+        "target": "Paragraph 1.5.1 of Part 1 of the Third Schedule (Affordable Housing)",
+        "new_text": "not be binding on a Chargee of an occupant or leaseholder in the event that such a Chargee seeks to dispose of an Affordable Housing Dwelling pursuant to its power of sale exercised pursuant to default of the terms of the mortgage PROVIDED THAT: (a) such Chargee shall have first given written notice to the Council of its intention to dispose of the relevant Affordable Housing Dwelling(s) (such notice to include evidence and written confirmation of the default) and shall have used reasonable endeavours over a period of three months from the date of the written notice to complete a disposal of the relevant Affordable Housing Dwelling(s) to another registered provider or to the Council for a consideration not less than the amount due and outstanding under the terms of the relevant security documentation including all accrued principal monies, interest due and reasonable costs ; and (b) if such disposal has not completed within the three month period above, the Chargee shall be entitled to dispose of the relevant Affordable Housing Dwelling(s) free from the affordable housing provisions in this Deed which provisions shall determine absolutely",
+        "evidence": {
+          "page": 7,
+          "snippet": "Paragraph 1.5.1 of Part 1 of the Third Schedule (Affordable Housing) to the Original Obligation shall be amended to read as follows"
+        }
+      },
+      {
+        "op": "replace",
+        "target": "Paragraphs 1.5.2 to 1.5.4 of Part 1 of the Third Schedule (Affordable Housing)",
+        "new_text": "1.5.2 not be binding on any occupant of an Affordable Housing Dwelling who has exercised a statutory right to acquire under the Housing Act 1996 or such other statutory right to buy or acquire (including exercising any equivalent contractual right) or any mortgagee or successor in title to that occupant; and 1.5.3 not be binding on a freeholder who was previously a leaseholder of an Affordable Housing Dwelling who has exercised their right to staircase ownership up to 100% ownership or any mortgagee or successor in title to that freeholder.",
+        "evidence": {
+          "page": 7,
+          "snippet": "Paragraph 1.5.2 to 1.5.4 of Part 1 of the Third Schedule (Affordable Housing) to the Original Obligation shall be deleted and replaced with the following"
+        }
+      },
+      {
+        "op": "delete",
+        "target": "Paragraph 1.10 of Part 1 of the Third Schedule (Affordable Housing)",
+        "new_text": "",
+        "evidence": {
+          "page": 8,
+          "snippet": "Paragraph 1.10 of Part 1 of the Third Schedule (Affordable Housing) to the Original Obligation shall be deleted in its entirety."
+        }
+      }
+    ],
+    "housing": {
+      "total_units": null,
+      "total_units_evidence": {
+        "page": 0,
+        "snippet": ""
+      },
+      "market_units": null,
+      "market_units_evidence": {
+        "page": 0,
+        "snippet": ""
+      },
+      "affordable_units": null,
+      "affordable_units_evidence": {
+        "page": 0,
+        "snippet": ""
+      },
+      "affordable_habitable_rooms": null,
+      "total_habitable_rooms": null,
+      "tenures": [],
+      "mix_table": {
+        "rows": [],
+        "subtotals": [],
+        "total_units": null,
+        "total_habitable_rooms": null,
+        "evidence": {
+          "page": 0,
+          "snippet": ""
+        }
+      },
+      "claimed_affordable_pct": "25",
+      "claimed_affordable_basis": "units",
+      "claimed_affordable_evidence": {
+        "page": 6,
+        "snippet": "being 25% (twenty five percent) of the total number of Dwellings of which 50% (fifty percent) shall be Affordable Rented Units"
+      }
+    },
+    "contributions": []
+  }
+}

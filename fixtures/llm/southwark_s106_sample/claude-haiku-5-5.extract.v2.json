@@ -1,0 +1,581 @@
+{
+  "format": "s106-llm-fixture/2",
+  "model": "claude-haiku-5-5",
+  "served_by": "claude-haiku-5-5",
+  "prompt_sha256": "95c2165ff1afd7eca5beb82e642146edd4001f868779295b9b9b79cfb4b68ae7",
+  "pdf_sha256": "0baed481b09feeb4e515d3752439448fee7e5993103d2085116da7854cb5f85b",
+  "pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "usage": {
+    "input_tokens": 521652,
+    "output_tokens": 13998,
+    "attempts": 1,
+    "cache_write_tokens": 0,
+    "cache_read_tokens": 0
+  },
+  "recorded_at": "2026-10-13T17:21:14Z",
+  "output": {
+    "instrument": {
+      "kind": "agreement",
+      "evidence": {
+        "page": 1,
+        "snippet": "Agreement pursuant to Section 106 of the Town and Country Planning Act 1990"
+      },
+      "parent_description": "",
+      "parent_date": "",
+      "parent_evidence": {
+        "page": 0,
+        "snippet": ""
+      },
+      "scope": "",
+      "scope_evidence": {
+        "page": 0,
+        "snippet": ""
+      }
+    },
+    "metadata": {
+      "council": "London Borough of Southwark",
+      "planning_references": [
+        "19/AP/1773"
+      ],
+      "legal_reference": "LEG/RP/PL/S106/RR020/80",
+      "agreement_date": "28 January 2021",
+      "site_address": "227-255 Ilderton Road, London, SE15 1NS",
+      "parties": [
+        "The Mayor and Burgesses of the London Borough of Southwark",
+        "Leathams Property Development Limited",
+        "HSBC UK Bank PLC"
+      ]
+    },
+    "variations": [],
+    "housing": {
+      "total_units": 253,
+      "total_units_evidence": {
+        "page": 44,
+        "snippet": "erection of a part 2/3, 9 and 28 storey (up to 94.65m AOD) mixed-use development comprising of 3,581 sqm including 2,538 sqm of industrial floorspace"
+      },
+      "market_units": 177,
+      "market_units_evidence": {
+        "page": 22,
+        "snippet": "means the 177 Residential Units of Market Housing comprised within the Development;"
+      },
+      "affordable_units": 76,
+      "affordable_units_evidence": {
+        "page": 5,
+        "snippet": "means the 76 Residential Units (271 Habitable Rooms) to be constructed upon the Site in accordance with the Approved Affordable Housing Mix"
+      },
+      "affordable_habitable_rooms": 271,
+      "total_habitable_rooms": null,
+      "tenures": [
+        {
+          "tenure": "Social Rent",
+          "label": "Social Rented Housing Units",
+          "units": 58,
+          "habitable_rooms": 212,
+          "evidence": {
+            "page": 30,
+            "snippet": "means the 58 Residential Units (made up of 10 one bedroom units, 24 two bedroom units and 24 three bedroom units (212) Habitable Rooms)) to be provided in the Southern Block as Social Rented Housing;"
+          }
+        },
+        {
+          "tenure": "Intermediate",
+          "label": "Intermediate Housing Units",
+          "units": 18,
+          "habitable_rooms": 59,
+          "evidence": {
+            "page": 21,
+            "snippet": "means the 18 Residential Units (provided as 7 one bedroom units, 5 two bedroom units and 6 three bedroom units (59 Habitable Rooms)) to be provided in the Tower Block as Intermediate Housing;"
+          }
+        }
+      ],
+      "mix_table": {
+        "rows": [
+          {
+            "unit_type": "1 bed",
+            "counts": [
+              {
+                "tenure": "Social Rent",
+                "units": 10
+              },
+              {
+                "tenure": "Intermediate",
+                "units": 7
+              }
+            ]
+          },
+          {
+            "unit_type": "2 bed",
+            "counts": [
+              {
+                "tenure": "Social Rent",
+                "units": 24
+              },
+              {
+                "tenure": "Intermediate",
+                "units": 5
+              }
+            ]
+          },
+          {
+            "unit_type": "3 bed",
+            "counts": [
+              {
+                "tenure": "Social Rent",
+                "units": 24
+              },
+              {
+                "tenure": "Intermediate",
+                "units": 6
+              }
+            ]
+          }
+        ],
+        "subtotals": [
+          {
+            "tenure": "Social Rent",
+            "units": 58
+          },
+          {
+            "tenure": "Intermediate",
+            "units": 18
+          }
+        ],
+        "total_units": 76,
+        "total_habitable_rooms": 271,
+        "evidence": {
+          "page": 91,
+          "snippet": "Total 76 (271 habitable rooms)"
+        }
+      },
+      "claimed_affordable_pct": "35.75",
+      "claimed_affordable_basis": "habitable_rooms",
+      "claimed_affordable_evidence": {
+        "page": 5,
+        "snippet": "253 residential apartments (C3), 35.75% affordable by habitable room, and other associated infrastructure;"
+      }
+    },
+    "contributions": [
+      {
+        "name": "Administration Cost",
+        "amount_structure": "fixed",
+        "amount_gbp": "16913.26",
+        "amount_in_words": "sixteen thousand nine hundred and thirteen pounds and twenty six pence",
+        "index_linked": true,
+        "amount_evidence": {
+          "page": 4,
+          "snippet": "means the sum of £16,913.26 (sixteen thousand nine hundred and thirteen pounds and twenty six pence) Index Linked to be paid by the Owner"
+        },
+        "conditionality": "unconditional",
+        "condition_evidence": {
+          "page": 0,
+          "snippet": ""
+        },
+        "covenant": "The Owner covenants to pay the Administration Cost to the Council within 28 days of receiving written request and separately not to Implement the Development until the Administration Cost has been paid to the Council.",
+        "covenant_evidence": {
+          "page": 39,
+          "snippet": "The Owner covenants to pay the Administration Cost to the Council within 28 days of receiving written request"
+        },
+        "trigger_phrase": {
+          "page": 39,
+          "snippet": "within 28 days of receiving written request"
+        },
+        "instalments": []
+      },
+      {
+        "name": "Affordable Housing Contribution",
+        "amount_structure": "none",
+        "amount_gbp": "",
+        "amount_in_words": "",
+        "index_linked": false,
+        "amount_evidence": {
+          "page": 4,
+          "snippet": "means a financial contribution that may arise pursuant to a Viability Review as referred to in paragraph 5.8 of Schedule 4 to be paid to the Council"
+        },
+        "conditionality": "conditional",
+        "condition_evidence": {
+          "page": 4,
+          "snippet": "means a financial contribution that may arise pursuant to a Viability Review"
+        },
+        "covenant": "The Owner shall not Occupy or permit Occupation of more than 50 per cent of the Market Housing Units comprised within the Development unless and until any Affordable Housing Contribution that may be required to be paid pursuant to paragraph 5.8 of this Schedule has been paid to the Council in full.",
+        "covenant_evidence": {
+          "page": 67,
+          "snippet": "The Owner shall not Occupy or permit Occupation of more than 50 per cent of the Market Housing Units comprised within the Development unless and until any Affordable Housing Contribution"
+        },
+        "trigger_phrase": {
+          "page": 67,
+          "snippet": "unless and until any Affordable Housing Contribution that may be required to be paid pursuant to paragraph 5.8 of this Schedule has been paid to the Council in full"
+        },
+        "instalments": []
+      },
+      {
+        "name": "Affordable Housing Monitoring Contribution",
+        "amount_structure": "fixed",
+        "amount_gbp": "10058.60",
+        "amount_in_words": "ten thousand and fifty eight pounds and sixty pence",
+        "index_linked": true,
+        "amount_evidence": {
+          "page": 4,
+          "snippet": "means the sum of £10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked to be paid by the Owner to the Council"
+        },
+        "conditionality": "unconditional",
+        "condition_evidence": {
+          "page": 0,
+          "snippet": ""
+        },
+        "covenant": "To pay the Site and Development Contributions on or before Implementation.",
+        "covenant_evidence": {
+          "page": 70,
+          "snippet": "To pay the Site and Development Contributions on or before Implementation."
+        },
+        "trigger_phrase": {
+          "page": 70,
+          "snippet": "on or before Implementation"
+        },
+        "instalments": []
+      },
+      {
+        "name": "Bus Contribution",
+        "amount_structure": "fixed",
+        "amount_gbp": "683100.00",
+        "amount_in_words": "six hundred and eighty three thousand and one hundred pounds",
+        "index_linked": true,
+        "amount_evidence": {
+          "page": 7,
+          "snippet": "means the sum of £683,100.00 (six hundred and eighty three thousand and one hundred pounds) (or such lesser amount as may be specified by the Director of Planning"
+        },
+        "conditionality": "unconditional",
+        "condition_evidence": {
+          "page": 0,
+          "snippet": ""
+        },
+        "covenant": "Unless a lesser amount is specified by the Director of Planning in writing following a Bus Contribution Methodology Review, to pay the Bus Contribution on or before first Occupation of any part of the Development or such later date as may be advised to the Owner by the Council and by TfL.",
+        "covenant_evidence": {
+          "page": 70,
+          "snippet": "to pay the Bus Contribution on or before first Occupation of any part of the Development"
+        },
+        "trigger_phrase": {
+          "page": 70,
+          "snippet": "on or before first Occupation of any part of the Development"
+        },
+        "instalments": []
+      },
+      {
+        "name": "Carbon Green Fund Contribution",
+        "amount_structure": "cap",
+        "amount_gbp": "475991.00",
+        "amount_in_words": "four hundred and seventy five thousand nine hundred and ninety one pounds",
+        "index_linked": true,
+        "amount_evidence": {
+          "page": 8,
+          "snippet": "means a sum of up to a maximum £475,991.00 (four hundred and seventy five thousand nine hundred and ninety one pounds) Index Linked"
+        },
+        "conditionality": "unconditional",
+        "condition_evidence": {
+          "page": 0,
+          "snippet": ""
+        },
+        "covenant": "To pay the Carbon Green Fund Contribution in accordance with the procedure outlined in paragraph 3 of Schedule 11.",
+        "covenant_evidence": {
+          "page": 70,
+          "snippet": "To pay the Carbon Green Fund Contribution in accordance with the procedure outlined in paragraph 3 of Schedule 11."
+        },
+        "trigger_phrase": {
+          "page": 89,
+          "snippet": "shall be payable within 20 Working Days of such agreement or determination."
+        },
+        "instalments": []
+      },
+      {
+        "name": "Cycle Hire Docking Station Contribution",
+        "amount_structure": "fixed",
+        "amount_gbp": "12650",
+        "amount_in_words": "twelve thousand and six hundred and fifty pounds",
+        "index_linked": true,
+        "amount_evidence": {
+          "page": 12,
+          "snippet": "means the sum of £12,650 (twelve thousand and six hundred and fifty pounds) Index Linked to be paid by the Owner to the Council"
+        },
+        "conditionality": "unconditional",
+        "condition_evidence": {
+          "page": 0,
+          "snippet": ""
+        },
+        "covenant": "To pay the Cycle Hire Docking Station Contribution on or before Occupation.",
+        "covenant_evidence": {
+          "page": 70,
+          "snippet": "To pay the Cycle Hire Docking Station Contribution on or before Occupation."
+        },
+        "trigger_phrase": {
+          "page": 70,
+          "snippet": "on or before Occupation"
+        },
+        "instalments": []
+      },
+      {
+        "name": "Default Employment in the End Use Contribution",
+        "amount_structure": "fixed",
+        "amount_gbp": "73100",
+        "amount_in_words": "seventy three thousand one hundred pounds",
+        "index_linked": true,
+        "amount_evidence": {
+          "page": 12,
+          "snippet": "means a financial contribution of £73,100 (seventy three thousand one hundred pounds) Index Linked which may be payable by the Owner"
+        },
+        "conditionality": "conditional",
+        "condition_evidence": {
+          "page": 12,
+          "snippet": "which may be payable by the Owner to the Council in accordance with paragraph 3.4 of Part 1 of Schedule 9"
+        },
+        "covenant": "the Owner will pay the Default Employment in the End Use Contribution within 28 days of receiving written notice from the Council.",
+        "covenant_evidence": {
+          "page": 80,
+          "snippet": "the Owner will pay the Default Employment in the End Use Contribution within 28 days of receiving written notice from the Council."
+        },
+        "trigger_phrase": {
+          "page": 80,
+          "snippet": "within 28 days of receiving written notice from the Council"
+        },
+        "instalments": []
+      },
+      {
+        "name": "Environmental Health Officer Contribution",
+        "amount_structure": "fixed",
+        "amount_gbp": "10120",
+        "amount_in_words": "ten thousand and one hundred and twenty pounds",
+        "index_linked": true,
+        "amount_evidence": {
+          "page": 17,
+          "snippet": "means the sum of £10,120 (ten thousand and one hundred and twenty pounds) Index Linked to be paid by the Owner to the Council"
+        },
+        "conditionality": "unconditional",
+        "condition_evidence": {
+          "page": 0,
+          "snippet": ""
+        },
+        "covenant": "To pay the Site and Development Contributions on or before Implementation.",
+        "covenant_evidence": {
+          "page": 70,
+          "snippet": "To pay the Site and Development Contributions on or before Implementation."
+        },
+        "trigger_phrase": {
+          "page": 70,
+          "snippet": "on or before Implementation"
+        },
+        "instalments": []
+      },
+      {
+        "name": "Greenfield Run-off Rate Off-Set Contribution",
+        "amount_structure": "rate",
+        "amount_gbp": "366",
+        "amount_in_words": "",
+        "index_linked": true,
+        "amount_evidence": {
+          "page": 18,
+          "snippet": "means a financial contribution calculated at a rate of £366 per cubic metre of shortfall in surface water attenuation storage"
+        },
+        "conditionality": "conditional",
+        "condition_evidence": {
+          "page": 76,
+          "snippet": "If the results of the Greenfield Run-off Rate Strategy approved pursuant to paragraph 6.1 above show that the Development does not include provisions for attenuation storage"
+        },
+        "covenant": "to pay the Greenfield Run-off Rate Off-Set Contribution and not to Implement the Development until the Green Run-off Rate Off-Set Contribution has been paid to the Council in full.",
+        "covenant_evidence": {
+          "page": 76,
+          "snippet": "and not to Implement the Development until the Green Run-off Rate Off-Set Contribution has been paid to the Council in full."
+        },
+        "trigger_phrase": {
+          "page": 76,
+          "snippet": "not to Implement the Development until the Green Run-off Rate Off-Set Contribution has been paid to the Council in full"
+        },
+        "instalments": []
+      },
+      {
+        "name": "Public Open Space, Children's Play Equipment and Sports Development Contribution",
+        "amount_structure": "fixed",
+        "amount_gbp": "259552.00",
+        "amount_in_words": "Two hundred and fifty nine thousand and five hundred and fifty two pounds",
+        "index_linked": true,
+        "amount_evidence": {
+          "page": 25,
+          "snippet": "means the sum of £259,552.00 (Two hundred and fifty nine thousand and five hundred and fifty two pounds ) Index Linked to be paid by the Owner"
+        },
+        "conditionality": "unconditional",
+        "condition_evidence": {
+          "page": 0,
+          "snippet": ""
+        },
+        "covenant": "To pay the Site and Development Contributions on or before Implementation.",
+        "covenant_evidence": {
+          "page": 70,
+          "snippet": "To pay the Site and Development Contributions on or before Implementation."
+        },
+        "trigger_phrase": {
+          "page": 70,
+          "snippet": "on or before Implementation"
+        },
+        "instalments": []
+      },
+      {
+        "name": "Construction Industry Employment and Training Contribution",
+        "amount_structure": "formula",
+        "amount_gbp": "",
+        "amount_in_words": "",
+        "index_linked": false,
+        "amount_evidence": {
+          "page": 11,
+          "snippet": "means the sums as calculated by the Council in accordance with the formula in paragraph 1.6 of Part 1 of Schedule 9"
+        },
+        "conditionality": "conditional",
+        "condition_evidence": {
+          "page": 78,
+          "snippet": "In the event that the targets in paragraphs 1.4 above have not been achieved to the satisfaction of the Council"
+        },
+        "covenant": "The Owner will pay the Construction Industry Employment and Training Contribution(s) to the Council within 28 Working Days of the notice referred to in paragraph 1.6 above.",
+        "covenant_evidence": {
+          "page": 78,
+          "snippet": "The Owner will pay the Construction Industry Employment and Training Contribution(s) to the Council within 28 Working Days of the notice referred to in paragraph 1.6 above."
+        },
+        "trigger_phrase": {
+          "page": 78,
+          "snippet": "within 28 Working Days of the notice referred to in paragraph 1.6 above"
+        },
+        "instalments": []
+      },
+      {
+        "name": "Employment in the End Use Contribution",
+        "amount_structure": "formula",
+        "amount_gbp": "",
+        "amount_in_words": "",
+        "index_linked": false,
+        "amount_evidence": {
+          "page": 16,
+          "snippet": "means the sum as calculated in accordance with the formula in paragraph 3.6 of Part 1 of Schedule 9"
+        },
+        "conditionality": "conditional",
+        "condition_evidence": {
+          "page": 80,
+          "snippet": "In the event that the targets in the Employment and Skills Plan have not been achieved to the satisfaction of the Council within the Employment and Skills Plan Period"
+        },
+        "covenant": "The Developer will pay the Employment in the End Use Contribution to the Council within 28 days of receipt of the notice referred to in paragraph 3.6.",
+        "covenant_evidence": {
+          "page": 80,
+          "snippet": "The Developer will pay the Employment in the End Use Contribution to the Council within 28 days of receipt of the notice referred to in paragraph 3.6."
+        },
+        "trigger_phrase": {
+          "page": 80,
+          "snippet": "within 28 days of receipt of the notice referred to in paragraph 3.6"
+        },
+        "instalments": []
+      }
+    ]
+  }
+}

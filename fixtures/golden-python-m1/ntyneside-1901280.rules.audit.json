@@ -1,0 +1,91 @@
+{
+  "agreement": {
+    "metadata": {
+      "council": "Unknown",
+      "planning_reference": null,
+      "legal_reference": null,
+      "agreement_date": null,
+      "site_address": null,
+      "parties": [
+        "THE AUTHORITY OF THE BOROUGH OF NORTH TYNESIDE",
+        "BELLWAY HOMES LIMITED"
+      ],
+      "source_pdf": "data/raw/eval/ntyneside-1901280.pdf",
+      "page_count": 45,
+      "text_source": "ocr"
+    },
+    "housing": {
+      "total_units": null,
+      "total_units_evidence": null,
+      "market_units": null,
+      "market_units_evidence": null,
+      "affordable_units": null,
+      "affordable_units_evidence": null,
+      "affordable_habitable_rooms": null,
+      "total_habitable_rooms": null,
+      "tenures": [],
+      "mix_table": null,
+      "claimed_affordable_pct": null,
+      "claimed_affordable_basis": null,
+      "claimed_affordable_evidence": null
+    },
+    "contributions": [],
+    "extraction_backend": "rules",
+    "warnings": [
+      "PDF has no text layer; values come from OCR and evidence matching is whitespace-insensitive"
+    ],
+    "total_contributions_gbp": "0"
+  },
+  "verification": [
+    {
+      "check_id": "H1",
+      "description": "Market units + affordable units == total residential units",
+      "status": "FAIL",
+      "expected": "None",
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "not extracted: total units, market units, affordable units",
+      "pages": []
+    },
+    {
+      "check_id": "H2",
+      "description": "Sum of tenure units == affordable units",
+      "status": "FAIL",
+      "expected": null,
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "no tenure breakdown extracted",
+      "pages": []
+    },
+    {
+      "check_id": "H3",
+      "description": "Sum of tenure habitable rooms == affordable habitable rooms",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "habitable-room breakdown not stated",
+      "pages": []
+    },
+    {
+      "check_id": "H4",
+      "description": "Claimed affordable % vs calculated % (basis: not stated)",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no affordable % stated in the deed",
+      "pages": []
+    },
+    {
+      "check_id": "H5",
+      "description": "Approved mix table: rows sum to subtotals",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no mix table found",
+      "pages": []
+    }
+  ]
+}

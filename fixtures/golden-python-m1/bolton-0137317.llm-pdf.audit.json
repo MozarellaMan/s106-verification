@@ -1,0 +1,365 @@
+{
+  "agreement": {
+    "metadata": {
+      "council": "Unknown",
+      "planning_reference": null,
+      "legal_reference": "052264.684",
+      "agreement_date": null,
+      "site_address": null,
+      "parties": [
+        "ALPHA INVESTMENTS"
+      ],
+      "source_pdf": "data/raw/eval/bolton-0137317.pdf",
+      "page_count": 28,
+      "text_source": "ocr"
+    },
+    "housing": {
+      "total_units": 112,
+      "total_units_evidence": {
+        "page": 8,
+        "snippet": "for the erection of 112 Dwellings"
+      },
+      "market_units": null,
+      "market_units_evidence": null,
+      "affordable_units": null,
+      "affordable_units_evidence": null,
+      "affordable_habitable_rooms": null,
+      "total_habitable_rooms": null,
+      "tenures": [],
+      "mix_table": null,
+      "claimed_affordable_pct": null,
+      "claimed_affordable_basis": null,
+      "claimed_affordable_evidence": null
+    },
+    "contributions": [
+      {
+        "name": "Green Land Management Contribution",
+        "amount_gbp": "6000",
+        "amount_in_words": null,
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "on demand / review",
+        "trigger_event_model": "other",
+        "trigger_clause": "within 5 Working Days of the completion of the laying out of the first phase or first acre (whichever is soonest) of the Green Land in accordance with the Open Space Strategy Alpha shall pay the first annual instalment of the Green Land Management Contribution",
+        "trigger_evidence": {
+          "page": 22,
+          "snippet": "within 5 Working Days of the completion of the laying out of the first phase or first acre"
+        },
+        "evidence": {
+          "page": 3,
+          "snippet": "the sum of \u00a36,000 per annum (being a"
+        }
+      },
+      {
+        "name": "Health Contribution",
+        "amount_gbp": "224",
+        "amount_in_words": null,
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_event_model": null,
+        "trigger_clause": "within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Health Contribution for the preceding 12 month period calculated on the basis of the number of Market Dwellings Completed and first Occupied on the Phase 1 Development Site during that period",
+        "trigger_evidence": {
+          "page": 18,
+          "snippet": "within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Health Contribution"
+        },
+        "evidence": {
+          "page": 5,
+          "snippet": "the sum of \u00a3224 per Market Dwelling to be"
+        }
+      },
+      {
+        "name": "Off-site Highways Contribution",
+        "amount_gbp": "2000",
+        "amount_in_words": "two thousand pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_event_model": null,
+        "trigger_clause": "within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Off-site Highways Contribution for the preceding 12 month period calculated on the basis of the number of Market Dwellings Completed and first Occupied on the Phase 1 Development Site during that period",
+        "trigger_evidence": {
+          "page": 18,
+          "snippet": "within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Off-site Highways Contribution"
+        },
+        "evidence": {
+          "page": 6,
+          "snippet": "the sum of \u00a32,000 (two thousand pounds) per Market Dwelling to be paid to the Council in"
+        }
+      },
+      {
+        "name": "Primary Education Contribution",
+        "amount_gbp": "2572",
+        "amount_in_words": "two thousand five hundred and seventy two pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_event_model": null,
+        "trigger_clause": "within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Primary Education Contribution for the preceding 12 month period calculated on the basis of the number of Market Dwellings Completed and first Occupied on the Phase 1 Development Site during that period",
+        "trigger_evidence": {
+          "page": 18,
+          "snippet": "within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Primary Education Contribution"
+        },
+        "evidence": {
+          "page": 7,
+          "snippet": "the sum of \u00a32,572 (two thousand five hundred and seventy two pounds) per Market Dwelling"
+        }
+      }
+    ],
+    "extraction_backend": "llm-pdf:claude-haiku-5-5 (replay)",
+    "warnings": [
+      "PDF has no text layer; values come from OCR and evidence matching is whitespace-insensitive",
+      "llm-pdf: claude-haiku-5-5 replay (live), 48,316 in / 5,390 out tokens; pages 1-28"
+    ],
+    "total_contributions_gbp": "10796"
+  },
+  "verification": [
+    {
+      "check_id": "H1",
+      "description": "Market units + affordable units == total residential units",
+      "status": "FAIL",
+      "expected": "112",
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "not extracted: market units, affordable units",
+      "pages": [
+        8
+      ]
+    },
+    {
+      "check_id": "H2",
+      "description": "Sum of tenure units == affordable units",
+      "status": "FAIL",
+      "expected": null,
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "no tenure breakdown extracted",
+      "pages": []
+    },
+    {
+      "check_id": "H3",
+      "description": "Sum of tenure habitable rooms == affordable habitable rooms",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "habitable-room breakdown not stated",
+      "pages": []
+    },
+    {
+      "check_id": "H4",
+      "description": "Claimed affordable % vs calculated % (basis: not stated)",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no affordable % stated in the deed",
+      "pages": []
+    },
+    {
+      "check_id": "H5",
+      "description": "Approved mix table: rows sum to subtotals",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no mix table found",
+      "pages": []
+    },
+    {
+      "check_id": "F1.amt",
+      "description": "Green Land Management Contribution: amount stated in cited evidence",
+      "status": "REVIEW",
+      "expected": null,
+      "actual": "\u00a36,000.00",
+      "error_class": null,
+      "detail": "holds, but not grounded: amount: cited snippet not re-locatable on p3",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F1.words",
+      "description": "Green Land Management Contribution: figures == words",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no words form captured",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F1.trig",
+      "description": "Green Land Management Contribution: payment trigger located",
+      "status": "PASS",
+      "expected": null,
+      "actual": "on demand / review",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        22
+      ]
+    },
+    {
+      "check_id": "F1.tlabel",
+      "description": "Green Land Management Contribution: trigger label follows from cited phrase",
+      "status": "PASS",
+      "expected": "on demand / review",
+      "actual": "on demand / review",
+      "error_class": null,
+      "detail": "model proposed 'other'",
+      "pages": [
+        22
+      ]
+    },
+    {
+      "check_id": "F2.amt",
+      "description": "Health Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a3224.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        5
+      ]
+    },
+    {
+      "check_id": "F2.words",
+      "description": "Health Contribution: figures == words",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no words form captured",
+      "pages": [
+        5
+      ]
+    },
+    {
+      "check_id": "F2.trig",
+      "description": "Health Contribution: payment trigger located",
+      "status": "PASS",
+      "expected": null,
+      "actual": "other",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        18
+      ]
+    },
+    {
+      "check_id": "F2.tlabel",
+      "description": "Health Contribution: trigger label follows from cited phrase",
+      "status": "SKIP",
+      "expected": null,
+      "actual": "other",
+      "error_class": null,
+      "detail": "phrase not in the trigger vocabulary; label unverified",
+      "pages": [
+        18
+      ]
+    },
+    {
+      "check_id": "F3.amt",
+      "description": "Off-site Highways Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a32,000.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        6
+      ]
+    },
+    {
+      "check_id": "F3.words",
+      "description": "Off-site Highways Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a32,000.00",
+      "actual": "\u00a32,000.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        6
+      ]
+    },
+    {
+      "check_id": "F3.trig",
+      "description": "Off-site Highways Contribution: payment trigger located",
+      "status": "PASS",
+      "expected": null,
+      "actual": "other",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        18
+      ]
+    },
+    {
+      "check_id": "F3.tlabel",
+      "description": "Off-site Highways Contribution: trigger label follows from cited phrase",
+      "status": "SKIP",
+      "expected": null,
+      "actual": "other",
+      "error_class": null,
+      "detail": "phrase not in the trigger vocabulary; label unverified",
+      "pages": [
+        18
+      ]
+    },
+    {
+      "check_id": "F4.amt",
+      "description": "Primary Education Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a32,572.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        7
+      ]
+    },
+    {
+      "check_id": "F4.words",
+      "description": "Primary Education Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a32,572.00",
+      "actual": "\u00a32,572.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        7
+      ]
+    },
+    {
+      "check_id": "F4.trig",
+      "description": "Primary Education Contribution: payment trigger located",
+      "status": "PASS",
+      "expected": null,
+      "actual": "other",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        18
+      ]
+    },
+    {
+      "check_id": "F4.tlabel",
+      "description": "Primary Education Contribution: trigger label follows from cited phrase",
+      "status": "SKIP",
+      "expected": null,
+      "actual": "other",
+      "error_class": null,
+      "detail": "phrase not in the trigger vocabulary; label unverified",
+      "pages": [
+        18
+      ]
+    }
+  ]
+}

@@ -6,3 +6,5 @@ data/raw/
 data/interim/
 data/processed/
 data/reference/
+/target
+/models
