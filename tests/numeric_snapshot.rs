@@ -29,21 +29,14 @@ fn collect(v: &serde_json::Value, key: Option<&str>, out: &mut BTreeSet<String>)
 }
 
 fn fixture_probes() -> BTreeSet<String> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/synthetic");
     let mut out = BTreeSet::new();
-    for dir in ["llm", "llm-v1"] {
-        let mut stack: Vec<PathBuf> = vec![root.join(dir)];
-        while let Some(p) = stack.pop() {
-            for entry in std::fs::read_dir(&p).unwrap() {
-                let path = entry.unwrap().path();
-                if path.is_dir() {
-                    stack.push(path);
-                } else if path.extension().is_some_and(|e| e == "json") {
-                    let v: serde_json::Value =
-                        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-                    collect(&v["output"], None, &mut out);
-                }
-            }
+    for entry in std::fs::read_dir(&root).unwrap() {
+        let path: PathBuf = entry.unwrap().path().join("extraction.json");
+        if path.exists() {
+            let v: serde_json::Value =
+                serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+            collect(&v, None, &mut out);
         }
     }
     out
@@ -72,7 +65,7 @@ fn probes_cover_fixtures() {
         .collect();
     assert!(
         missing.is_empty(),
-        "fixtures/numeric-probes.txt is missing {} fixture string(s), e.g. {:?}; \
+        "fixtures/numeric-probes.txt is missing {} string(s) from the invented deeds' extractions, e.g. {:?}; \
          add them with `S106_REGENERATE_PROBES=1 cargo test --test numeric_snapshot probes_cover_fixtures`, \
          then rerun `cargo test --test numeric_snapshot` and review the snapshot diff",
         missing.len(),
