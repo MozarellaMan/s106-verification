@@ -1,15 +1,15 @@
 //! Reconciliation: obligation events from the recorded 19/AP/1773 extraction, and status rules
 //! against delivery records.
 //!
-//! The delivery records here are synthetic, built to exercise each rule. They are not PLD data;
-//! the real reconciliation reads saved PLD snapshots.
+//! Most delivery records here are synthetic, built to exercise each rule. The tests named `pld_*`
+//! and `southwark_against_pld_snapshot` read the real saved PLD snapshot.
 
 use std::path::Path;
 
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use s106::evidence::Pages;
-use s106::pld::{self, Request, Snapshot};
+use s106::pld::{self, Request, Snapshot, SnapshotRef};
 use s106::reconcile::*;
 use s106::schema::*;
 use s106::wire::{self, PageMap, WireExtraction};
@@ -25,6 +25,7 @@ fn southwark() -> Agreement {
     let fixture: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     let pm = PageMap(serde_json::from_value(fixture["pages"].clone()).unwrap());
     let w: WireExtraction = serde_json::from_value(fixture["output"].clone()).unwrap();
+    // `..Default::default()` keeps this compiling as `Agreement` gains fields.
     Agreement {
         schema_version: SCHEMA_VERSION.into(),
         provenance: Provenance {
@@ -39,8 +40,7 @@ fn southwark() -> Agreement {
             .iter()
             .map(|c| wire::contribution(c, &pm))
             .collect(),
-        variations: vec![],
-        warnings: vec![],
+        ..Default::default()
     }
 }
 
@@ -64,6 +64,11 @@ fn southwark_pages() -> Pages {
     .collect()
 }
 
+const DEV: &str = "Southwark-19_AP_1773";
+const SR: Tenure = Tenure::SocialRent;
+const INT: Tenure = Tenure::Intermediate;
+const LSO: Tenure = Tenure::LondonSharedOwnership;
+
 fn row<'a>(r: &'a Reconciliation, m: &Measure) -> &'a Row {
     r.rows
         .iter()
@@ -77,7 +82,6 @@ fn unit(id: usize, tenure: UnitTenure, rooms: u32, done: bool) -> DeliveredUnit 
         tenure,
         habitable_rooms: Some(rooms),
         completed_on: done.then(|| NaiveDate::from_ymd_opt(2025, 7, 19).unwrap()),
-        snapshot: 0,
     }
 }
 
@@ -93,8 +97,15 @@ fn delivery(market: usize, affordable: &[(Tenure, usize)], complete: bool) -> De
         }
     }
     Delivery {
-        record_id: "Southwark-19_AP_1773".into(),
-        snapshots: vec![],
+        record_id: DEV.into(),
+        lpa_app_no: Some("19/AP/1773".into()),
+        snapshot: SnapshotRef {
+            path: "synthetic".into(),
+            sha256: "synthetic".into(),
+            retrieved_at: "2026-10-13T00:00:00Z".into(),
+        },
+        as_of: "2026-10-13T00:00:00Z".into(),
+        mapping_version: PLD_MAPPING_VERSION.into(),
         status: Some(if complete { "Completed" } else { "Started" }.into()),
         started_on: None,
         completed_on: None,
@@ -104,16 +115,53 @@ fn delivery(market: usize, affordable: &[(Tenure, usize)], complete: bool) -> De
     }
 }
 
-const SR: Tenure = Tenure::SocialRent;
-const INT: Tenure = Tenure::Intermediate;
+fn run(deeds: &[Agreement], d: Delivery) -> Reconciliation {
+    let instruments = deeds
+        .iter()
+        .map(|a| instrument_obligations(a, None))
+        .collect();
+    reconcile(DEV, instruments, Some(d)).unwrap()
+}
+
+fn full() -> Delivery {
+    delivery(177, &[(SR, 58), (LSO, 18)], true)
+}
+
+/// A deed of variation that states only what the test gives it.
+fn dov() -> Agreement {
+    let mut d = southwark();
+    d.provenance.sha256 = "dov".into();
+    d.instrument.kind = InstrumentKind::DeedOfVariation;
+    d.metadata.agreement_date = Some("1 March 2023".into());
+    d.housing = Housing::default();
+    d.contributions.clear();
+    d
+}
+
+fn sr_tenure(units: Option<u32>) -> TenureAllocation {
+    TenureAllocation {
+        tenure: SR,
+        label: None,
+        units,
+        habitable_rooms: None,
+        evidence: Some(Evidence {
+            page: 3,
+            snippet: "Social Rented Housing Units".into(),
+        }),
+    }
+}
+
+fn bus() -> Measure {
+    Measure::contribution("Bus Contribution")
+}
 
 #[test]
-fn events_carry_the_deed_values_and_citations() {
-    let events = obligation_events(&southwark(), None);
+fn statements_carry_the_deed_values_and_citations() {
+    let inst = instrument_obligations(&southwark(), None);
     let get = |m: Measure| {
-        events
+        inst.statements
             .iter()
-            .find(|e| e.measure == m)
+            .find(|s| s.measure == m)
             .unwrap_or_else(|| panic!("{m:?}"))
     };
     assert_eq!(get(Measure::TotalUnits).value, Some(dec("253")));
@@ -141,27 +189,36 @@ fn events_carry_the_deed_values_and_citations() {
     assert_eq!(pct.value, Some(dec("35.75")));
     assert_eq!(pct.evidence.as_ref().unwrap().page, 5);
 
-    let de = get(Measure::Contribution {
-        name: "Default Employment in the End Use Contribution".into(),
-    });
+    let de = get(Measure::contribution(
+        "Default Employment in the End Use Contribution",
+    ));
     assert_eq!(de.value, Some(dec("73100")));
+    assert_eq!(
+        de.label,
+        "Default Employment in the End Use Contribution (£)"
+    );
     assert!(de.note.as_deref().unwrap().starts_with("conditional"));
     // A formula contribution has no stated sum.
-    let ciet = get(Measure::Contribution {
-        name: "Construction Industry Employment and Training Contribution".into(),
-    });
+    let ciet = get(Measure::contribution(
+        "Construction Industry Employment and Training Contribution",
+    ));
     assert_eq!(ciet.value, None);
-    assert!(events.iter().all(|e| e.kind == EventKind::Original));
-    assert!(events.iter().all(|e| e.grounding == Grounding::NotChecked));
+    assert!(!inst.variation);
+    assert_eq!(inst.planning_references, ["19/AP/1773"]);
+    assert!(
+        inst.statements
+            .iter()
+            .all(|s| s.grounding == Grounding::NotChecked)
+    );
 }
 
 #[test]
 fn grounding_uses_the_verifier_rules() {
-    let events = obligation_events(&southwark(), Some(&southwark_pages()));
+    let inst = instrument_obligations(&southwark(), Some(&southwark_pages()));
     let g = |m: Measure| {
-        events
+        inst.statements
             .iter()
-            .find(|e| e.measure == m)
+            .find(|s| s.measure == m)
             .unwrap()
             .grounding
             .clone()
@@ -174,37 +231,21 @@ fn grounding_uses_the_verifier_rules() {
 
 #[test]
 fn ungrounded_deed_value_is_indeterminate_even_when_delivery_matches() {
-    let events = obligation_events(&southwark(), Some(&southwark_pages()));
-    let r = reconcile(
-        "Southwark-19_AP_1773",
-        events,
-        Some(delivery(
-            177,
-            &[(SR, 58), (Tenure::LondonSharedOwnership, 18)],
-            true,
-        )),
-    );
+    let inst = instrument_obligations(&southwark(), Some(&southwark_pages()));
+    let r = reconcile(DEV, vec![inst], Some(full())).unwrap();
     let total = row(&r, &Measure::TotalUnits);
     assert_eq!(total.delivered.value, Some(dec("253")));
     assert_eq!(total.status, RowStatus::Indeterminate);
     assert!(total.reason.starts_with("deed value unproven"));
     assert_eq!(
         row(&r, &Measure::AffordableUnits).status,
-        RowStatus::Consistent
+        RowStatus::CountsMatch
     );
 }
 
 #[test]
-fn matching_delivery_is_consistent_and_intermediate_covers_london_shared_ownership() {
-    let r = reconcile(
-        "Southwark-19_AP_1773",
-        obligation_events(&southwark(), None),
-        Some(delivery(
-            177,
-            &[(SR, 58), (Tenure::LondonSharedOwnership, 18)],
-            true,
-        )),
-    );
+fn matching_delivery_counts_match_and_intermediate_covers_london_shared_ownership() {
+    let r = run(&[southwark()], full());
     for m in [
         Measure::TotalUnits,
         Measure::MarketUnits,
@@ -212,7 +253,7 @@ fn matching_delivery_is_consistent_and_intermediate_covers_london_shared_ownersh
         Measure::TenureUnits { tenure: SR },
         Measure::TenureUnits { tenure: INT },
     ] {
-        assert_eq!(row(&r, &m).status, RowStatus::Consistent, "{m:?}");
+        assert_eq!(row(&r, &m).status, RowStatus::CountsMatch, "{m:?}");
     }
     assert!(!r.rows.iter().any(|x| x.label.ends_with("(not in deed)")));
     // Synthetic rooms (3 per affordable unit) don't match the deed's 271: a difference to review.
@@ -220,23 +261,15 @@ fn matching_delivery_is_consistent_and_intermediate_covers_london_shared_ownersh
     assert_eq!(rooms.delivered.value, Some(dec("228")));
     assert_eq!(rooms.status, RowStatus::DiffersReviewRequired);
     // Contributions have no PLD delivery source.
-    let bus = row(
-        &r,
-        &Measure::Contribution {
-            name: "Bus Contribution".into(),
-        },
-    );
-    assert_eq!(bus.status, RowStatus::Indeterminate);
-    assert_eq!(bus.delivered.basis, "PLD records no S106 payments");
+    let b = row(&r, &bus());
+    assert_eq!(b.status, RowStatus::Indeterminate);
+    assert_eq!(b.delivered.basis, "PLD records no S106 payments");
+    assert!(r.warnings.is_empty(), "{:?}", r.warnings);
 }
 
 #[test]
 fn shortfall_on_a_complete_scheme_goes_to_review_never_unmet() {
-    let r = reconcile(
-        "dev",
-        obligation_events(&southwark(), None),
-        Some(delivery(187, &[(SR, 48), (INT, 18)], true)),
-    );
+    let r = run(&[southwark()], delivery(187, &[(SR, 48), (INT, 18)], true));
     let sr = row(&r, &Measure::TenureUnits { tenure: SR });
     assert_eq!(sr.delivered.value, Some(dec("48")));
     assert_eq!(sr.status, RowStatus::DiffersReviewRequired);
@@ -250,33 +283,17 @@ fn shortfall_before_completion_is_not_yet_due() {
     for u in d.units.iter_mut().take(100) {
         u.completed_on = Some(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap());
     }
-    let r = reconcile("dev", obligation_events(&southwark(), None), Some(d));
+    let r = run(&[southwark()], d);
     let market = row(&r, &Measure::MarketUnits);
     assert_eq!(market.delivered.value, Some(dec("100")));
     assert_eq!(market.status, RowStatus::NotYetDue);
 }
 
 #[test]
-fn unknown_scheme_status_is_indeterminate() {
-    let mut d = delivery(170, &[(SR, 58), (INT, 18)], true);
-    d.scheme_complete = None;
-    let r = reconcile("dev", obligation_events(&southwark(), None), Some(d));
-    assert_eq!(
-        row(&r, &Measure::MarketUnits).status,
-        RowStatus::Indeterminate
-    );
-}
-
-#[test]
 fn social_rent_does_not_cover_london_affordable_rent() {
-    let r = reconcile(
-        "dev",
-        obligation_events(&southwark(), None),
-        Some(delivery(
-            177,
-            &[(Tenure::LondonAffordableRent, 58), (INT, 18)],
-            true,
-        )),
+    let r = run(
+        &[southwark()],
+        delivery(177, &[(Tenure::LondonAffordableRent, 58), (INT, 18)], true),
     );
     let sr = row(&r, &Measure::TenureUnits { tenure: SR });
     assert_eq!(sr.delivered.value, Some(dec("0")));
@@ -291,7 +308,19 @@ fn social_rent_does_not_cover_london_affordable_rent() {
 }
 
 #[test]
-fn unrecognised_tenure_blocks_tenure_counts_but_not_the_total() {
+fn a_deed_without_a_tenure_split_gets_no_not_in_deed_rows() {
+    let mut a = southwark();
+    a.housing.tenures.clear();
+    let r = run(&[a], full());
+    assert!(!r.rows.iter().any(|x| x.label.ends_with("(not in deed)")));
+    assert_eq!(
+        row(&r, &Measure::AffordableUnits).status,
+        RowStatus::CountsMatch
+    );
+}
+
+#[test]
+fn unrecognised_or_missing_tenure_blocks_tenure_counts_but_not_the_total() {
     let mut d = delivery(177, &[(SR, 57), (INT, 18)], true);
     d.units.push(unit(
         999,
@@ -299,54 +328,44 @@ fn unrecognised_tenure_blocks_tenure_counts_but_not_the_total() {
         2,
         true,
     ));
-    let r = reconcile("dev", obligation_events(&southwark(), None), Some(d));
-    assert_eq!(row(&r, &Measure::TotalUnits).status, RowStatus::Consistent);
+    let r = run(&[southwark()], d.clone());
+    assert_eq!(row(&r, &Measure::TotalUnits).status, RowStatus::CountsMatch);
     let sr = row(&r, &Measure::TenureUnits { tenure: SR });
     assert_eq!(sr.status, RowStatus::Indeterminate);
     assert!(sr.delivered.basis.contains("unrecognised tenure"));
+
+    d.units.last_mut().unwrap().tenure = UnitTenure::Missing;
+    let r = run(&[southwark()], d);
+    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
+    assert_eq!(sr.status, RowStatus::Indeterminate);
+    assert!(sr.delivered.basis.contains("give no tenure"));
 }
 
 #[test]
-fn a_variation_becomes_the_current_obligation() {
-    let original = southwark();
-    let mut dov = southwark();
-    dov.provenance.sha256 = "dov".into();
-    dov.instrument.kind = InstrumentKind::DeedOfVariation;
-    dov.housing = Housing {
-        tenures: vec![TenureAllocation {
-            tenure: SR,
-            label: None,
-            units: Some(50),
-            habitable_rooms: None,
-            evidence: Some(Evidence {
-                page: 3,
-                snippet: "50 Social Rented Housing Units".into(),
-            }),
-        }],
-        ..Default::default()
-    };
-    dov.contributions.clear();
-    let mut events = obligation_events(&original, None);
-    events.extend(obligation_events(&dov, None));
-    let r = reconcile(
-        "dev",
-        events,
-        Some(delivery(177, &[(SR, 50), (INT, 18)], true)),
+fn a_replaced_figure_becomes_the_current_obligation() {
+    let mut v = dov();
+    v.housing.tenures = vec![sr_tenure(Some(50))];
+    let r = run(
+        &[southwark(), v.clone()],
+        delivery(177, &[(SR, 50), (INT, 18)], true),
     );
     assert_eq!(r.instruments.len(), 2);
     let sr = row(&r, &Measure::TenureUnits { tenure: SR });
     assert_eq!((sr.agreed, sr.current), (Some(dec("58")), Some(dec("50"))));
-    assert_eq!(sr.events.len(), 2);
-    assert_eq!(sr.status, RowStatus::Consistent);
+    assert_eq!(
+        sr.events[1].op,
+        Op::Replace {
+            from: Some(dec("58")),
+            to: dec("50")
+        }
+    );
+    assert_eq!(sr.status, RowStatus::CountsMatch);
+    // Other obligations the variation doesn't mention are unchanged.
+    assert_eq!(row(&r, &Measure::MarketUnits).events.len(), 1);
 
-    let r = reconcile(
-        "dev",
-        {
-            let mut e = obligation_events(&original, None);
-            e.extend(obligation_events(&dov, None));
-            e
-        },
-        Some(delivery(177, &[(SR, 45), (INT, 18)], true)),
+    let r = run(
+        &[southwark(), v],
+        delivery(177, &[(SR, 45), (INT, 18)], true),
     );
     assert_eq!(
         row(&r, &Measure::TenureUnits { tenure: SR }).status,
@@ -355,16 +374,286 @@ fn a_variation_becomes_the_current_obligation() {
 }
 
 #[test]
-fn reconciliation_round_trips_as_json() {
-    let r = reconcile(
-        "dev",
-        obligation_events(&southwark(), None),
-        Some(delivery(177, &[(SR, 58), (INT, 18)], true)),
+fn a_restated_figure_is_not_a_variation() {
+    let mut v = dov();
+    v.housing.tenures = vec![sr_tenure(Some(58))];
+    let r = run(
+        &[southwark(), v.clone()],
+        delivery(177, &[(SR, 48), (INT, 18)], true),
     );
+    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
+    assert_eq!(sr.events[1].op, Op::Restate { value: dec("58") });
+    // A restatement doesn't hide a shortfall behind "compare by hand".
+    assert_eq!(sr.status, RowStatus::DiffersReviewRequired);
+
+    // Missing delivery data is indeterminate, restated or not.
+    let mut d = full();
+    d.units.clear();
+    let r = run(&[southwark(), v], d);
+    assert_eq!(
+        row(&r, &Measure::TenureUnits { tenure: SR }).status,
+        RowStatus::Indeterminate
+    );
+}
+
+#[test]
+fn a_variation_citing_an_obligation_without_a_figure_leaves_it_unchanged() {
+    let mut v = dov();
+    v.housing.tenures = vec![sr_tenure(None)];
+    let r = run(&[southwark(), v], full());
+    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
+    assert_eq!(sr.events[1].op, Op::Unchanged);
+    assert_eq!(sr.current, Some(dec("58")));
+    assert_eq!(sr.status, RowStatus::CountsMatch);
+}
+
+#[test]
+fn a_deletion_removes_the_obligation() {
+    let mut v = dov();
+    v.variations = vec![Variation {
+        op: VariationOp::Delete,
+        target: "the definition of \"Bus Contribution\" and paragraph 2 of Schedule 4".into(),
+        new_text: None,
+        evidence: Some(Evidence {
+            page: 2,
+            snippet: "is deleted".into(),
+        }),
+    }];
+    let r = run(&[southwark(), v], full());
+    let b = row(&r, &bus());
+    assert_eq!(b.status, RowStatus::Removed);
+    assert_eq!(b.current, None);
+    assert_eq!(b.events.last().unwrap().op, Op::Delete);
+    // Nothing else is touched.
+    assert_eq!(
+        row(&r, &Measure::MarketUnits).status,
+        RowStatus::CountsMatch
+    );
+    assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+}
+
+#[test]
+fn an_unmatched_deletion_sends_earlier_obligations_to_review() {
+    let mut v = dov();
+    v.variations = vec![Variation {
+        op: VariationOp::Delete,
+        target: "paragraph 4.3 of Schedule 2".into(),
+        new_text: None,
+        evidence: None,
+    }];
+    let r = run(&[southwark(), v], full());
+    let market = row(&r, &Measure::MarketUnits);
+    assert_eq!(market.status, RowStatus::Varied);
+    assert!(market.reason.contains("paragraph 4.3 of Schedule 2"));
+    assert!(r.warnings.iter().any(|w| w.contains("isn't matched")));
+}
+
+#[test]
+fn duplicates_in_one_deed_merge_or_conflict() {
+    let mut a = southwark();
+    let mut again = a
+        .contributions
+        .iter()
+        .find(|c| c.name == "Bus Contribution")
+        .unwrap()
+        .clone();
+    again.name = "the Bus Contribution".into();
+    a.contributions.push(again.clone());
+    let inst = instrument_obligations(&a, None);
+    let b: Vec<&Statement> = inst
+        .statements
+        .iter()
+        .filter(|s| s.measure == bus())
+        .collect();
+    assert_eq!(b.len(), 1);
+    assert_eq!(b[0].value, Some(dec("683100")));
+    assert!(b[0].note.as_deref().unwrap().contains("stated 2 times"));
+
+    again.amount.value_gbp = Some(dec("100000"));
+    a.contributions.push(again);
+    let r = run(&[a], full());
+    let b = row(&r, &bus());
+    assert_eq!(b.status, RowStatus::Indeterminate);
+    assert!(
+        b.reason
+            .contains("different figures: 683100, 683100, 100000")
+    );
+    assert_eq!(b.agreed, None);
+}
+
+#[test]
+fn contribution_names_match_across_instruments_after_normalising() {
+    let mut v = dov();
+    let mut c = southwark()
+        .contributions
+        .into_iter()
+        .find(|c| c.name == "Bus Contribution")
+        .unwrap();
+    c.name = "the BUS contribution".into();
+    c.amount.value_gbp = Some(dec("700000"));
+    v.contributions = vec![c];
+    let r = run(&[southwark(), v], full());
+    let b = row(&r, &bus());
+    assert_eq!(
+        (b.agreed, b.current),
+        (Some(dec("683100")), Some(dec("700000")))
+    );
+    assert_eq!(r.rows.iter().filter(|x| x.measure == bus()).count(), 1);
+}
+
+#[test]
+fn a_pld_record_for_another_scheme_is_refused() {
+    let one = || vec![instrument_obligations(&southwark(), None)];
+    let mut d = full();
+    d.record_id = "Southwark-20_AP_0001".into();
+    let e = reconcile(DEV, one(), Some(d)).unwrap_err().to_string();
+    assert!(e.contains("not Southwark-19_AP_1773"), "{e}");
+
+    let mut d = full();
+    d.lpa_app_no = Some("20/AP/0001".into());
+    let e = reconcile(DEV, one(), Some(d)).unwrap_err().to_string();
+    assert!(e.contains("20/AP/0001"), "{e}");
+
+    // Separators and case don't matter.
+    let mut d = full();
+    d.lpa_app_no = Some("19-ap-1773".into());
+    assert!(reconcile(DEV, one(), Some(d)).is_ok());
+}
+
+#[test]
+fn out_of_order_instruments_are_flagged() {
+    let mut v = dov();
+    v.metadata.agreement_date = Some("1 March 2019".into());
+    let r = run(&[southwark(), v], full());
+    assert!(
+        r.warnings.iter().any(|w| w.contains("before instrument 1")),
+        "{:?}",
+        r.warnings
+    );
+}
+
+#[test]
+fn reconciliation_round_trips_as_json() {
+    let r = run(&[southwark()], full());
     let json = serde_json::to_string(&r).unwrap();
     let back: Reconciliation = serde_json::from_str(&json).unwrap();
     assert_eq!(back.rows.len(), r.rows.len());
     assert_eq!(back.rows[0].measure, r.rows[0].measure);
+}
+
+/// Every combination of the rules for a stated, grounded figure: replaced or not, delivered
+/// missing / short / equal / over, scheme complete / not / unknown.
+#[test]
+fn decision_table() {
+    use RowStatus::*;
+    let current = dec("10");
+    let delivered = |d: &str| match d {
+        "none" => Counted::none("no PLD unit records"),
+        "less" => Counted {
+            value: Some(dec("8")),
+            basis: "x".into(),
+        },
+        "equal" => Counted {
+            value: Some(dec("10")),
+            basis: "x".into(),
+        },
+        "more" => Counted {
+            value: Some(dec("12")),
+            basis: "x".into(),
+        },
+        _ => unreachable!(),
+    };
+    let complete = |c: &str| match c {
+        "yes" => Some(true),
+        "no" => Some(false),
+        _ => None,
+    };
+    #[rustfmt::skip]
+    let table: &[(bool, &str, &str, RowStatus)] = &[
+        // replaced, delivered, complete, expected
+        (false, "none",  "yes", Indeterminate),
+        (false, "none",  "no",  Indeterminate),
+        (false, "none",  "?",   Indeterminate),
+        (false, "less",  "yes", DiffersReviewRequired),
+        (false, "less",  "no",  NotYetDue),
+        (false, "less",  "?",   Indeterminate),
+        (false, "equal", "yes", CountsMatch),
+        (false, "equal", "no",  CountsMatch),
+        (false, "equal", "?",   CountsMatch),
+        (false, "more",  "yes", DiffersReviewRequired),
+        (false, "more",  "no",  DiffersReviewRequired),
+        (false, "more",  "?",   Indeterminate),
+        (true,  "none",  "yes", Indeterminate),
+        (true,  "none",  "no",  Indeterminate),
+        (true,  "none",  "?",   Indeterminate),
+        (true,  "less",  "yes", Varied),
+        (true,  "less",  "no",  Varied),
+        (true,  "less",  "?",   Varied),
+        (true,  "equal", "yes", CountsMatch),
+        (true,  "equal", "no",  CountsMatch),
+        (true,  "equal", "?",   CountsMatch),
+        (true,  "more",  "yes", Varied),
+        (true,  "more",  "no",  Varied),
+        (true,  "more",  "?",   Varied),
+    ];
+    for &(replaced, d, c, want) in table {
+        let mut f = Facts {
+            current: Current::Value(current),
+            grounding: Grounding::Grounded,
+            replaced,
+            unmatched_deletion: None,
+            delivered: delivered(d),
+            percentage: false,
+            scheme_complete: complete(c),
+        };
+        assert_eq!(
+            decide(&f).0,
+            want,
+            "replaced={replaced} delivered={d} complete={c}"
+        );
+        // Not checked against pages: the same as grounded.
+        f.grounding = Grounding::NotChecked;
+        assert_eq!(decide(&f).0, want);
+        // Every other state of the obligation wins over delivery.
+        f.grounding = Grounding::Ungrounded("why".into());
+        assert_eq!(decide(&f).0, Indeterminate);
+        f.grounding = Grounding::Grounded;
+        f.unmatched_deletion = Some("clause 9".into());
+        assert_eq!(decide(&f).0, Varied);
+        f.unmatched_deletion = None;
+        for (state, status) in [
+            (Current::Removed, Removed),
+            (Current::Conflict("two figures".into()), Indeterminate),
+            (Current::NoFigure(None), Indeterminate),
+        ] {
+            f.current = state;
+            assert_eq!(decide(&f).0, status);
+        }
+    }
+}
+
+#[test]
+fn percentages_compare_within_the_verifier_tolerance() {
+    let f = |deed: &str, delivered: &str| Facts {
+        current: Current::Value(dec(deed)),
+        grounding: Grounding::Grounded,
+        replaced: false,
+        unmatched_deletion: None,
+        delivered: Counted {
+            value: Some(dec(delivered)),
+            basis: "x".into(),
+        },
+        percentage: true,
+        scheme_complete: Some(true),
+    };
+    assert_eq!(decide(&f("35.7", "35.75")).0, RowStatus::CountsMatch);
+    assert_eq!(
+        decide(&f("36", "35.75")).0,
+        RowStatus::DiffersReviewRequired
+    );
+    let mut exact = f("35.7", "35.75");
+    exact.percentage = false;
+    assert_eq!(decide(&exact).0, RowStatus::DiffersReviewRequired);
 }
 
 #[test]
@@ -373,16 +662,13 @@ fn snapshots_are_saved_verbatim_and_never_overwritten() {
     let snap = Snapshot {
         request: Request {
             method: "GET".into(),
-            url: format!(
-                "{}/applications/_source/Southwark-19_AP_1773",
-                pld::BASE_URL
-            ),
+            url: format!("{}/applications/_source/{DEV}", pld::BASE_URL),
             body: None,
         },
         retrieved_at: "2026-10-13T20:00:00Z".into(),
-        response: serde_json::json!({"id": "Southwark-19_AP_1773"}),
+        response: serde_json::json!({"id": DEV}),
     };
-    let r = pld::save(dir.path(), "applications", "Southwark-19_AP_1773", &snap).unwrap();
+    let r = pld::save(dir.path(), "applications", DEV, &snap).unwrap();
     assert_eq!(
         r.path,
         "snapshots/pld/applications/Southwark-19_AP_1773/2026-10-13T20_00_00Z.json"
@@ -390,24 +676,32 @@ fn snapshots_are_saved_verbatim_and_never_overwritten() {
     let (back, r2) = pld::load(dir.path(), Path::new(&r.path)).unwrap();
     assert_eq!(r, r2);
     assert_eq!(back.response, snap.response);
-    assert!(pld::save(dir.path(), "applications", "Southwark-19_AP_1773", &snap).is_err());
+    assert!(pld::save(dir.path(), "applications", DEV, &snap).is_err());
 }
 
+fn rd(r: &mut serde_json::Value) -> &mut serde_json::Value {
+    &mut r["application_details"]["residential_details"]
+}
+
+const SNAPSHOT: &str = "snapshots/pld/applications/Southwark-19_AP_1773/2026-10-13T20_51_14Z.json";
+
 /// The saved PLD application snapshot for 19/AP/1773 (real data, retrieved 13 Oct 2026).
+fn pld_snapshot() -> (Snapshot, SnapshotRef) {
+    pld::load(Path::new(env!("CARGO_MANIFEST_DIR")), Path::new(SNAPSHOT)).unwrap()
+}
+
 fn pld_southwark() -> Delivery {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let (snap, at) = pld::load(
-        root,
-        Path::new("snapshots/pld/applications/Southwark-19_AP_1773/2026-10-13T20_51_14Z.json"),
-    )
-    .unwrap();
+    let (snap, at) = pld_snapshot();
     delivery_from_pld(&snap, at).unwrap()
 }
 
 #[test]
 fn pld_snapshot_maps_to_delivery() {
     let d = pld_southwark();
-    assert_eq!(d.record_id, "Southwark-19_AP_1773");
+    assert_eq!(d.record_id, DEV);
+    assert_eq!(d.lpa_app_no.as_deref(), Some("19/AP/1773"));
+    assert_eq!(d.as_of, "2026-10-13T20:51:14Z");
+    assert_eq!(d.snapshot.path, SNAPSHOT);
     assert_eq!(d.status.as_deref(), Some("Completed"));
     assert_eq!(d.scheme_complete, Some(true));
     assert_eq!(d.started_on, NaiveDate::from_ymd_opt(2022, 5, 23));
@@ -416,39 +710,68 @@ fn pld_snapshot_maps_to_delivery() {
     assert_eq!(d.permitted.market_units, Some(177));
     assert_eq!(d.permitted.affordable_units, Some(76));
     assert!(d.permitted.tenure_units.contains(&(SR, 58)));
-    assert!(
-        d.permitted
-            .tenure_units
-            .contains(&(Tenure::LondonSharedOwnership, 18))
-    );
+    assert!(d.permitted.tenure_units.contains(&(LSO, 18)));
     assert_eq!(d.units.len(), 253);
     let n = |t: &UnitTenure| d.units.iter().filter(|u| &u.tenure == t).count();
     assert_eq!(n(&UnitTenure::Market), 177);
     assert_eq!(n(&UnitTenure::Affordable(SR)), 58);
-    assert_eq!(
-        n(&UnitTenure::Affordable(Tenure::LondonSharedOwnership)),
-        18
-    );
+    assert_eq!(n(&UnitTenure::Affordable(LSO)), 18);
     assert!(
         d.units
             .iter()
             .all(|u| u.completed_on.is_some() && u.habitable_rooms.is_none())
     );
+}
+
+#[test]
+fn pld_tenures_and_values_are_read_strictly() {
     assert_eq!(
-        pld_unit_tenure("Shared Equity"),
+        pld_unit_tenure(Some("Shared Equity")),
         UnitTenure::Unrecognised("Shared Equity".into())
     );
+    assert_eq!(
+        pld_unit_tenure(Some("social rent")),
+        UnitTenure::Affordable(SR)
+    );
+    assert_eq!(pld_unit_tenure(None), UnitTenure::Missing);
+    assert_eq!(pld_unit_tenure(Some(" ")), UnitTenure::Missing);
+
+    let (snap, at) = pld_snapshot();
+
+    // Numeric strings and status case are accepted.
+    let mut s = snap.clone();
+    rd(&mut s.response)["total_no_proposed_residential_units"] = "253".into();
+    s.response["status"] = "COMPLETED".into();
+    let d = delivery_from_pld(&s, at.clone()).unwrap();
+    assert_eq!(d.permitted.total_units, Some(253));
+    assert_eq!(d.scheme_complete, Some(true));
+    // A field the mapping needs going missing is an error, not a quiet "indeterminate".
+    let mut s = snap.clone();
+    rd(&mut s.response)
+        .as_object_mut()
+        .unwrap()
+        .remove("total_no_proposed_residential_units_social_rent");
+    let e = format!("{:#}", delivery_from_pld(&s, at.clone()).unwrap_err());
+    assert!(
+        e.contains("total_no_proposed_residential_units_social_rent"),
+        "{e}"
+    );
+    let mut s = snap.clone();
+    rd(&mut s.response)["residential_units"][0]["actual_completion_date"] = "2025-07-19".into();
+    assert!(delivery_from_pld(&s, at.clone()).is_err());
+    let mut s = snap;
+    rd(&mut s.response)["total_no_proposed_residential_units"] = 2.5.into();
+    assert!(delivery_from_pld(&s, at).is_err());
 }
 
 #[test]
 fn southwark_against_pld_snapshot() {
     let r = reconcile(
-        "Southwark-19_AP_1773",
-        obligation_events(&southwark(), None),
+        DEV,
+        vec![instrument_obligations(&southwark(), None)],
         Some(pld_southwark()),
-    );
-    // Not checked against pages here, so every deed value is indeterminate; the delivered
-    // counts are what this test pins.
+    )
+    .unwrap();
     let delivered = |m: Measure| row(&r, &m).delivered.value;
     assert_eq!(delivered(Measure::TotalUnits), Some(dec("253")));
     assert_eq!(delivered(Measure::MarketUnits), Some(dec("177")));
@@ -463,4 +786,5 @@ fn southwark_against_pld_snapshot() {
     );
     assert_eq!(delivered(Measure::AffordableHabitableRooms), None);
     assert!(!r.rows.iter().any(|x| x.label.ends_with("(not in deed)")));
+    assert!(r.warnings.is_empty(), "{:?}", r.warnings);
 }

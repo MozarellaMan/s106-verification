@@ -1,34 +1,45 @@
 //! Layer B, first cut (roadmap M5): what one development's deeds oblige, set against what PLD
 //! says was permitted and delivered.
 //!
-//! * Obligations become `ObligationEvent`s, one per measure per instrument. Nothing is
-//!   overwritten: a deed of variation adds `Varied` events and the current obligation is the last
-//!   event for each measure, in the order the instruments are given.
-//! * Delivery comes from `Delivery`, built from PLD snapshots (application and unit records).
-//!   Every delivered figure cites the snapshot files it was counted from.
-//! * Each row gets a status. A shortfall on a completed scheme is `DiffersReviewRequired`, never
-//!   "unmet": PLD completions are borough-reported and tenure at completion isn't tenure in use.
+//! * Each deed becomes an `InstrumentObligations`: one `Statement` per obligation it states, plus
+//!   the deletions it makes. Duplicates within one deed are merged, or flagged when their figures
+//!   differ.
+//! * `reconcile` replays the instruments in date order as operations on each obligation
+//!   (`Op::Introduce`, `Restate`, `Replace`, `Unchanged`, `Delete`). Nothing is overwritten; the
+//!   current obligation is the fold of its operations, so a restatement is not a change and a
+//!   deletion removes the obligation.
+//! * Delivery comes from `Delivery`, read from one saved PLD application snapshot through a typed
+//!   view that fails when a field the mapping needs is missing. Every delivered figure cites that
+//!   snapshot.
+//! * Each row gets a status from `decide`. A shortfall on a completed scheme is
+//!   `DiffersReviewRequired`, never "unmet": PLD completions are borough-reported and tenure at
+//!   completion isn't tenure in use.
 //!
 //! Every deed value is grounded the same way the verifier grounds it (value in snippet, snippet
 //! on its page); an ungrounded deed value makes its row `Indeterminate`.
 
 use std::collections::BTreeMap;
 
+use anyhow::{Context, Result, bail};
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::evidence::Pages;
-use crate::pld::SnapshotRef;
-use crate::schema::{AffordableBasis, Agreement, ConditionalityKind, Evidence, Tenure};
+use crate::pld::{Snapshot, SnapshotRef};
+use crate::schema::{
+    AffordableBasis, Agreement, ConditionalityKind, Evidence, Tenure, VariationOp,
+};
 use crate::text::Value;
-use crate::verify::{Input, grounding_problem};
+use crate::verify::{Input, PCT_TOLERANCE, grounding_problem};
 
-pub const RECONCILE_VERSION: &str = "1";
+pub const RECONCILE_VERSION: &str = "2";
+/// Version of `delivery_from_pld`'s reading of PLD application records.
+pub const PLD_MAPPING_VERSION: &str = "1";
 
 // --------------------------------------------------------------------------- obligations
 
-/// What is measured. Labels are stable: they key rows across instruments and runs.
+/// What is measured. Keys are stable: they identify an obligation across instruments and runs.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(tag = "measure", rename_all = "snake_case")]
 pub enum Measure {
@@ -45,13 +56,20 @@ pub enum Measure {
     AffordablePct {
         basis: AffordableBasis,
     },
-    /// A stated sum (fixed, or a cap at its maximum); None when the deed states no figure.
+    /// A named contribution. `key` is the name normalised by `contribution_key`, so "the Carbon
+    /// Offset Contribution" and "Carbon Offset Contribution" are one obligation.
     Contribution {
-        name: String,
+        key: String,
     },
 }
 
 impl Measure {
+    pub fn contribution(name: &str) -> Measure {
+        Measure::Contribution {
+            key: contribution_key(name),
+        }
+    }
+
     pub fn label(&self) -> String {
         match self {
             Measure::TotalUnits => "Total units".into(),
@@ -63,9 +81,21 @@ impl Measure {
                 format!("{} habitable rooms", tenure.label())
             }
             Measure::AffordablePct { basis } => format!("Affordable % by {}", basis_label(*basis)),
-            Measure::Contribution { name } => format!("{name} (£)"),
+            Measure::Contribution { key } => format!("{key} (£)"),
         }
     }
+}
+
+/// Lower case, punctuation to spaces, whitespace collapsed, a leading "the" dropped.
+pub fn contribution_key(name: &str) -> String {
+    let words: Vec<String> = name
+        .to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(String::from)
+        .collect();
+    let start = usize::from(words.first().is_some_and(|w| w == "the"));
+    words[start..].join(" ")
 }
 
 fn basis_label(b: AffordableBasis) -> &'static str {
@@ -76,22 +106,13 @@ fn basis_label(b: AffordableBasis) -> &'static str {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EventKind {
-    /// from an agreement or unilateral undertaking
-    Original,
-    /// a replacement value from a deed of variation or supplemental deed
-    Varied,
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "grounding", content = "detail", rename_all = "snake_case")]
 pub enum Grounding {
     /// the value appears in its snippet and the snippet is on its cited page
     Grounded,
     Ungrounded(String),
-    /// no page text was supplied
+    /// no page text was supplied, or there is no figure to ground
     NotChecked,
 }
 
@@ -103,34 +124,76 @@ pub struct InstrumentRef {
     pub legal_reference: Option<String>,
 }
 
+/// One obligation as one deed states it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ObligationEvent {
+pub struct Statement {
     #[serde(flatten)]
     pub measure: Measure,
+    /// the measure as this deed words it (a contribution's own name)
+    pub label: String,
+    /// the deed's figure; None for a formula, a rate or no figure
     pub value: Option<Decimal>,
-    pub kind: EventKind,
-    pub instrument: InstrumentRef,
     pub evidence: Option<Evidence>,
     pub grounding: Grounding,
     /// e.g. the condition of a conditional contribution
     pub note: Option<String>,
+    /// set when this deed states the obligation more than once with different figures
+    pub conflict: Option<String>,
 }
 
-/// One event per extracted measure of one instrument. `pages` grounds each value.
-pub fn obligation_events(a: &Agreement, pages: Option<&Pages>) -> Vec<ObligationEvent> {
-    let kind = if a.instrument.kind.is_variation() {
-        EventKind::Varied
-    } else {
-        EventKind::Original
-    };
-    let instrument = InstrumentRef {
-        sha256: a.provenance.sha256.clone(),
-        kind: format!("{:?}", a.instrument.kind),
-        date: a.metadata.agreement_date.clone(),
-        legal_reference: a.metadata.legal_reference.clone(),
-    };
+/// A deletion a variation makes, as the deed names its target.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Deletion {
+    pub target: String,
+    pub evidence: Option<Evidence>,
+}
+
+/// What one deed says, before it is set against the deeds before it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstrumentObligations {
+    pub instrument: InstrumentRef,
+    /// a deed of variation or supplemental deed
+    pub variation: bool,
+    pub planning_references: Vec<String>,
+    pub statements: Vec<Statement>,
+    pub deletions: Vec<Deletion>,
+}
+
+/// What an instrument does to an obligation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "op", rename_all = "snake_case")]
+pub enum Op {
+    /// first stated; None when it states no figure
+    Introduce { value: Option<Decimal> },
+    /// stated again with the same figure
+    Restate { value: Decimal },
+    /// stated with a different figure
+    Replace { from: Option<Decimal>, to: Decimal },
+    /// cited again without a figure: taken as unchanged
+    Unchanged,
+    /// removed by a variation
+    Delete,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ObligationEvent {
+    #[serde(flatten)]
+    pub measure: Measure,
+    pub label: String,
+    #[serde(flatten)]
+    pub op: Op,
+    pub instrument: InstrumentRef,
+    pub evidence: Option<Evidence>,
+    pub grounding: Grounding,
+    pub note: Option<String>,
+    pub conflict: Option<String>,
+}
+
+/// One statement per extracted measure of one deed. `pages` grounds each value.
+pub fn instrument_obligations(a: &Agreement, pages: Option<&Pages>) -> InstrumentObligations {
     let ground = |label: &str, value: Option<Decimal>, evidence: &Option<Evidence>| match pages {
         None => Grounding::NotChecked,
+        Some(_) if value.is_none() => Grounding::NotChecked,
         Some(p) => {
             let input = Input {
                 label: label.to_string(),
@@ -143,84 +206,83 @@ pub fn obligation_events(a: &Agreement, pages: Option<&Pages>) -> Vec<Obligation
             }
         }
     };
-    let mut out = vec![];
-    let mut push = |measure: Measure, value: Option<Decimal>, evidence: Option<Evidence>| {
+    let mut raw: Vec<Statement> = vec![];
+    let mut push = |measure: Measure,
+                    label: String,
+                    value: Option<Decimal>,
+                    evidence: Option<Evidence>,
+                    note: Option<String>| {
         if value.is_none() && evidence.is_none() {
             return;
         }
-        out.push(ObligationEvent {
-            grounding: ground(&measure.label(), value, &evidence),
+        raw.push(Statement {
+            grounding: ground(&label, value, &evidence),
             measure,
+            label,
             value,
-            kind,
-            instrument: instrument.clone(),
             evidence,
-            note: None,
+            note,
+            conflict: None,
         });
+    };
+    let mut housing = |m: Measure, value: Option<u32>, evidence: Option<Evidence>| {
+        let label = m.label();
+        push(m, label, value.map(Decimal::from), evidence, None)
     };
 
     let h = &a.housing;
-    let dec = |v: Option<u32>| v.map(Decimal::from);
-    // Variations restate only what changes; scheme totals from them are replacement values too.
-    push(
+    housing(
         Measure::TotalUnits,
-        dec(h.total_units),
+        h.total_units,
         h.total_units_evidence.clone(),
     );
-    push(
+    housing(
         Measure::MarketUnits,
-        dec(h.market_units),
+        h.market_units,
         h.market_units_evidence.clone(),
     );
-    push(
+    housing(
         Measure::AffordableUnits,
-        dec(h.affordable_units),
+        h.affordable_units,
         h.affordable_units_evidence.clone(),
     );
-    push(
+    housing(
         Measure::AffordableHabitableRooms,
-        dec(h.affordable_habitable_rooms),
+        h.affordable_habitable_rooms,
         h.affordable_units_evidence.clone(),
     );
     for t in &h.tenures {
-        push(
+        housing(
             Measure::TenureUnits { tenure: t.tenure },
-            dec(t.units),
+            t.units,
             t.evidence.clone(),
         );
         if t.habitable_rooms.is_some() {
-            push(
+            housing(
                 Measure::TenureHabitableRooms { tenure: t.tenure },
-                dec(t.habitable_rooms),
+                t.habitable_rooms,
                 t.evidence.clone(),
             );
         }
     }
     if let Some(basis) = h.claimed_affordable_basis {
+        let m = Measure::AffordablePct { basis };
+        let label = m.label();
         push(
-            Measure::AffordablePct { basis },
+            m,
+            label,
             h.claimed_affordable_pct,
             h.claimed_affordable_evidence.clone(),
+            None,
         );
     }
     for c in &a.contributions {
-        let value = c.amount.stated_sum_gbp();
-        let measure = Measure::Contribution {
-            name: c.name.clone(),
-        };
-        out.push(ObligationEvent {
-            grounding: if value.is_some() {
-                ground(&measure.label(), value, &c.amount.evidence)
-            } else {
-                // nothing numeric to ground; the verifier's own checks cover the wording
-                Grounding::NotChecked
-            },
-            measure,
-            value,
-            kind,
-            instrument: instrument.clone(),
-            evidence: c.amount.evidence.clone(),
-            note: match c.conditionality.kind {
+        push(
+            Measure::contribution(&c.name),
+            format!("{} (£)", c.name),
+            c.amount.stated_sum_gbp(),
+            c.amount.evidence.clone(),
+            match c.conditionality.kind {
                 ConditionalityKind::Conditional => Some(format!(
                     "conditional: {}",
                     c.conditionality
@@ -231,7 +293,64 @@ pub fn obligation_events(a: &Agreement, pages: Option<&Pages>) -> Vec<Obligation
                 ConditionalityKind::Unknown => Some("conditionality unknown".into()),
                 ConditionalityKind::Unconditional => None,
             },
-        });
+        );
+    }
+
+    InstrumentObligations {
+        instrument: InstrumentRef {
+            sha256: a.provenance.sha256.clone(),
+            kind: format!("{:?}", a.instrument.kind),
+            date: a.metadata.agreement_date.clone(),
+            legal_reference: a.metadata.legal_reference.clone(),
+        },
+        variation: a.instrument.kind.is_variation(),
+        planning_references: a.metadata.planning_references.clone(),
+        statements: merge_duplicates(raw),
+        deletions: a
+            .variations
+            .iter()
+            .filter(|v| v.op == VariationOp::Delete)
+            .map(|v| Deletion {
+                target: v.target.clone(),
+                evidence: v.evidence.clone(),
+            })
+            .collect(),
+    }
+}
+
+/// One statement per measure. Repeats with the same figure (a sum defined and then restated in a
+/// schedule) merge into the first; repeats with different figures (phased sums, or a misread)
+/// keep no figure and carry a conflict, so their row goes to a person.
+fn merge_duplicates(raw: Vec<Statement>) -> Vec<Statement> {
+    let mut out: Vec<Statement> = vec![];
+    let mut seen: BTreeMap<Measure, Vec<Option<Decimal>>> = BTreeMap::new();
+    for s in raw {
+        seen.entry(s.measure.clone()).or_default().push(s.value);
+        if !out.iter().any(|o| o.measure == s.measure) {
+            out.push(s);
+        }
+    }
+    for s in &mut out {
+        let values = &seen[&s.measure];
+        if values.len() < 2 {
+            continue;
+        }
+        if values.iter().all(|v| *v == values[0]) {
+            let extra = format!("stated {} times in this deed", values.len());
+            s.note = Some(match s.note.take() {
+                Some(n) => format!("{n}; {extra}"),
+                None => extra,
+            });
+        } else {
+            let figures: Vec<String> = values.iter().map(|v| num(*v)).collect();
+            s.conflict = Some(format!(
+                "stated {} times in one deed with different figures: {}",
+                values.len(),
+                figures.join(", ")
+            ));
+            s.value = None;
+            s.grounding = Grounding::NotChecked;
+        }
     }
     out
 }
@@ -246,17 +365,17 @@ pub enum UnitTenure {
     Affordable(Tenure),
     /// a tenure string the PLD mapping does not recognise; kept verbatim
     Unrecognised(String),
+    /// the unit record gives no tenure
+    Missing,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeliveredUnit {
-    /// PLD's unit identifier
+    /// PLD's unit identifier, or the record's position when it has none
     pub id: String,
     pub tenure: UnitTenure,
     pub habitable_rooms: Option<u32>,
     pub completed_on: Option<NaiveDate>,
-    /// index into `Delivery::snapshots`
-    pub snapshot: usize,
 }
 
 /// Figures PLD records for the permission (proposed), not for delivery.
@@ -267,16 +386,21 @@ pub struct Permitted {
     pub affordable_units: Option<u32>,
     #[serde(default)]
     pub tenure_units: Vec<(Tenure, u32)>,
-    /// index into `Delivery::snapshots`
-    pub snapshot: Option<usize>,
 }
 
-/// PLD's view of one development: permission figures, scheme status and unit records.
+/// PLD's view of one development, read from one saved application snapshot.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Delivery {
     /// PLD record id, e.g. `Southwark-19_AP_1773`
     pub record_id: String,
-    pub snapshots: Vec<SnapshotRef>,
+    /// the borough's planning reference, e.g. `19/AP/1773`
+    pub lpa_app_no: Option<String>,
+    /// the snapshot every figure here was read from
+    pub snapshot: SnapshotRef,
+    /// what PLD said on this date (the snapshot's retrieval date); a later snapshot is a new
+    /// data point, not a correction
+    pub as_of: String,
+    pub mapping_version: String,
     pub status: Option<String>,
     pub started_on: Option<NaiveDate>,
     pub completed_on: Option<NaiveDate>,
@@ -313,31 +437,42 @@ pub struct Counted {
     pub basis: String,
 }
 
+impl Counted {
+    pub fn none(basis: impl Into<String>) -> Counted {
+        Counted {
+            value: None,
+            basis: basis.into(),
+        }
+    }
+}
+
 impl Delivery {
     fn completed(&self) -> impl Iterator<Item = &DeliveredUnit> {
         self.units.iter().filter(|u| u.completed_on.is_some())
     }
 
-    fn unrecognised(&self) -> usize {
-        self.completed()
-            .filter(|u| matches!(u.tenure, UnitTenure::Unrecognised(_)))
-            .count()
-    }
-
     fn count(&self, what: &str, f: impl Fn(&UnitTenure) -> bool, rooms: bool) -> Counted {
         let n_done = self.completed().count();
         if self.units.is_empty() {
-            return Counted {
-                value: None,
-                basis: "no PLD unit records".into(),
-            };
+            return Counted::none("no PLD unit records");
         }
-        let unknown = self.unrecognised();
-        if unknown > 0 && what != "all" {
-            return Counted {
-                value: None,
-                basis: format!("{unknown} completed unit record(s) have an unrecognised tenure"),
-            };
+        if what != "all" {
+            let missing = self
+                .completed()
+                .filter(|u| u.tenure == UnitTenure::Missing)
+                .count();
+            if missing > 0 {
+                return Counted::none(format!("{missing} completed unit record(s) give no tenure"));
+            }
+            let unknown = self
+                .completed()
+                .filter(|u| matches!(u.tenure, UnitTenure::Unrecognised(_)))
+                .count();
+            if unknown > 0 {
+                return Counted::none(format!(
+                    "{unknown} completed unit record(s) have an unrecognised tenure"
+                ));
+            }
         }
         let matching: Vec<&DeliveredUnit> = self.completed().filter(|u| f(&u.tenure)).collect();
         if rooms {
@@ -346,10 +481,9 @@ impl Delivery {
                 .filter(|u| u.habitable_rooms.is_none())
                 .count();
             if missing > 0 {
-                return Counted {
-                    value: None,
-                    basis: format!("{missing} matching unit record(s) lack habitable rooms"),
-                };
+                return Counted::none(format!(
+                    "{missing} matching unit record(s) lack habitable rooms"
+                ));
             }
             let sum: u32 = matching.iter().filter_map(|u| u.habitable_rooms).sum();
             return Counted {
@@ -394,10 +528,7 @@ impl Delivery {
                     AffordableBasis::Units => false,
                     AffordableBasis::HabitableRooms => true,
                     AffordableBasis::Floorspace => {
-                        return Counted {
-                            value: None,
-                            basis: "PLD unit records carry no floorspace basis".into(),
-                        };
+                        return Counted::none("PLD unit records carry no floorspace basis");
                     }
                 };
                 let num = self.count("affordable", affordable, rooms);
@@ -407,20 +538,14 @@ impl Delivery {
                         value: Some((n * Decimal::ONE_HUNDRED / d).round_dp(2)),
                         basis: format!("{} / {}", num.basis, den.basis),
                     },
-                    _ => Counted {
-                        value: None,
-                        basis: if num.value.is_none() {
-                            num.basis
-                        } else {
-                            den.basis
-                        },
-                    },
+                    _ => Counted::none(if num.value.is_none() {
+                        num.basis
+                    } else {
+                        den.basis
+                    }),
                 }
             }
-            Measure::Contribution { .. } => Counted {
-                value: None,
-                basis: "PLD records no S106 payments".into(),
-            },
+            Measure::Contribution { .. } => Counted::none("PLD records no S106 payments"),
         }
     }
 
@@ -460,25 +585,85 @@ impl Delivery {
 
 // --------------------------------------------------------------------------- PLD mapping
 
-/// PLD's proposed-unit counts by tenure (`total_no_proposed_residential_units_<suffix>`) that a
-/// deed tenure can be set against. Shared equity, starter homes and self-build have no deed tenure
-/// here and are left out.
-const PLD_PROPOSED_TENURES: [(&str, Tenure); 8] = [
-    ("social_rent", Tenure::SocialRent),
-    ("london_affordable_rent", Tenure::LondonAffordableRent),
-    ("affordable_rent", Tenure::AffordableRent),
-    ("london_living_rent", Tenure::LondonLivingRent),
-    ("london_shared_ownership", Tenure::LondonSharedOwnership),
-    ("intermediate", Tenure::Intermediate),
-    ("discount_market_rent", Tenure::DiscountMarketRent),
-    ("discount_market_sale", Tenure::DiscountMarketSale),
-];
+/// The part of a PLD application record the mapping reads. Every field here is required unless
+/// it is an `Option`, and those are the ones PLD leaves null (dates and status before a scheme
+/// starts, a unit's number or tenure), so a renamed or retyped field fails the read instead of
+/// turning every row indeterminate.
+#[derive(Debug, Deserialize)]
+struct PldApplication {
+    id: String,
+    lpa_app_no: Option<String>,
+    status: Option<String>,
+    actual_commencement_date: Option<String>,
+    actual_completion_date: Option<String>,
+    application_details: PldDetails,
+}
+
+#[derive(Debug, Deserialize)]
+struct PldDetails {
+    residential_details: PldResidential,
+}
+
+#[derive(Debug, Deserialize)]
+struct PldResidential {
+    #[serde(deserialize_with = "pld_count")]
+    total_no_proposed_residential_units: u32,
+    #[serde(deserialize_with = "pld_count")]
+    total_no_proposed_residential_affordable_units: u32,
+    #[serde(deserialize_with = "pld_count")]
+    total_no_proposed_residential_units_market_for_sale: u32,
+    #[serde(deserialize_with = "pld_count")]
+    total_no_proposed_residential_units_market_for_rent: u32,
+    #[serde(deserialize_with = "pld_count")]
+    total_no_proposed_residential_units_social_rent: u32,
+    #[serde(deserialize_with = "pld_count")]
+    total_no_proposed_residential_units_london_affordable_rent: u32,
+    #[serde(deserialize_with = "pld_count")]
+    total_no_proposed_residential_units_affordable_rent: u32,
+    #[serde(deserialize_with = "pld_count")]
+    total_no_proposed_residential_units_london_living_rent: u32,
+    #[serde(deserialize_with = "pld_count")]
+    total_no_proposed_residential_units_london_shared_ownership: u32,
+    #[serde(deserialize_with = "pld_count")]
+    total_no_proposed_residential_units_intermediate: u32,
+    #[serde(deserialize_with = "pld_count")]
+    total_no_proposed_residential_units_discount_market_rent: u32,
+    #[serde(deserialize_with = "pld_count")]
+    total_no_proposed_residential_units_discount_market_sale: u32,
+    residential_units: Vec<PldUnit>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PldUnit {
+    change_type: String,
+    tenure: Option<String>,
+    actual_completion_date: Option<String>,
+    unit_no: Option<serde_json::Value>,
+}
+
+/// A whole, non-negative count, given as a number or a numeric string.
+fn pld_count<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<u32, D::Error> {
+    use serde::de::Error;
+    let v = serde_json::Value::deserialize(d)?;
+    let n = match &v {
+        serde_json::Value::Number(n) => n.as_f64(),
+        serde_json::Value::String(s) => s.trim().parse::<f64>().ok(),
+        _ => None,
+    };
+    match n {
+        Some(n) if n >= 0.0 && n.fract() == 0.0 && n <= f64::from(u32::MAX) => Ok(n as u32),
+        _ => Err(D::Error::custom(format!("expected a whole count, got {v}"))),
+    }
+}
 
 /// A PLD unit record's `tenure` string. Market tenures are market; an affordable tenure is
 /// recognised only when it is spelled exactly as a deed tenure; anything else is kept verbatim.
-pub fn pld_unit_tenure(raw: &str) -> UnitTenure {
+pub fn pld_unit_tenure(raw: Option<&str>) -> UnitTenure {
     use Tenure::*;
-    if matches!(raw, "Market for sale" | "Market for rent") {
+    let Some(raw) = raw.map(str::trim).filter(|s| !s.is_empty()) else {
+        return UnitTenure::Missing;
+    };
+    if raw.eq_ignore_ascii_case("Market for sale") || raw.eq_ignore_ascii_case("Market for rent") {
         return UnitTenure::Market;
     }
     [
@@ -494,90 +679,119 @@ pub fn pld_unit_tenure(raw: &str) -> UnitTenure {
         FirstHomes,
     ]
     .into_iter()
-    .find(|t| t.label() == raw)
+    .find(|t| t.label().eq_ignore_ascii_case(raw))
     .map_or_else(
         || UnitTenure::Unrecognised(raw.into()),
         UnitTenure::Affordable,
     )
 }
 
-/// PLD dates are dd/mm/yyyy.
-fn pld_date(v: &serde_json::Value) -> Option<NaiveDate> {
-    NaiveDate::parse_from_str(v.as_str()?, "%d/%m/%Y").ok()
-}
-
-fn pld_count(v: &serde_json::Value) -> Option<u32> {
-    v.as_f64()
-        .filter(|n| *n >= 0.0 && n.fract() == 0.0)
-        .map(|n| n as u32)
+/// PLD dates are dd/mm/yyyy. Null is no date; anything else that doesn't parse is an error.
+fn pld_date(field: &str, v: &Option<String>) -> Result<Option<NaiveDate>> {
+    match v.as_deref().map(str::trim) {
+        None | Some("") => Ok(None),
+        Some(s) => NaiveDate::parse_from_str(s, "%d/%m/%Y")
+            .map(Some)
+            .with_context(|| format!("PLD {field} {s:?} is not dd/mm/yyyy")),
+    }
 }
 
 /// Build `Delivery` from one saved `applications/_source/<id>` snapshot.
 ///
 /// * Scheme complete only when `status` is "Completed"; "Started" / "Not started" mean not yet;
-///   any other status leaves it unknown.
+///   any other status leaves it unknown. Case is ignored.
 /// * Permission figures are the `total_no_proposed_*` fields. Market = for sale + for rent.
 /// * Units are `residential_units` with `change_type` "Gain" (losses of existing homes are not
 ///   delivery). PLD unit records carry bedrooms, not habitable rooms, so `habitable_rooms` is
-///   left empty and room-based rows stay indeterminate. Records carry no id; `unit_no` is used
-///   when set, else the record's position.
-pub fn delivery_from_pld(snap: &crate::pld::Snapshot, at: SnapshotRef) -> anyhow::Result<Delivery> {
+///   left empty and room-based rows stay indeterminate.
+pub fn delivery_from_pld(snap: &Snapshot, at: SnapshotRef) -> Result<Delivery> {
     let doc = snap.response.get("_source").unwrap_or(&snap.response);
-    let Some(record_id) = doc["id"].as_str() else {
-        anyhow::bail!("{} is not a PLD application record (no id)", at.path);
-    };
-    let status = doc["status"].as_str().map(String::from);
-    let scheme_complete = match status.as_deref() {
-        Some("Completed") => Some(true),
+    let app: PldApplication = serde_json::from_value(doc.clone()).with_context(|| {
+        format!(
+            "{} does not have the fields the PLD mapping (v{PLD_MAPPING_VERSION}) reads",
+            at.path
+        )
+    })?;
+    let status = app.status.clone();
+    let scheme_complete = match status.as_deref().map(str::trim) {
+        Some(s) if s.eq_ignore_ascii_case("completed") => Some(true),
         Some(s) if s.eq_ignore_ascii_case("started") || s.eq_ignore_ascii_case("not started") => {
             Some(false)
         }
         _ => None,
     };
-    let rd = &doc["application_details"]["residential_details"];
-    let proposed =
-        |suffix: &str| pld_count(&rd[format!("total_no_proposed_residential_units_{suffix}")]);
-    let market_units = match (proposed("market_for_sale"), proposed("market_for_rent")) {
-        (None, None) => None,
-        (a, b) => Some(a.unwrap_or(0) + b.unwrap_or(0)),
-    };
+    let rd = &app.application_details.residential_details;
     let permitted = Permitted {
-        total_units: pld_count(&rd["total_no_proposed_residential_units"]),
-        market_units,
-        affordable_units: pld_count(&rd["total_no_proposed_residential_affordable_units"]),
-        tenure_units: PLD_PROPOSED_TENURES
-            .iter()
-            .filter_map(|(suffix, t)| proposed(suffix).map(|n| (*t, n)))
-            .collect(),
-        snapshot: Some(0),
+        total_units: Some(rd.total_no_proposed_residential_units),
+        market_units: Some(
+            rd.total_no_proposed_residential_units_market_for_sale
+                + rd.total_no_proposed_residential_units_market_for_rent,
+        ),
+        affordable_units: Some(rd.total_no_proposed_residential_affordable_units),
+        // Shared equity, starter homes and self-build have no deed tenure here and are left out.
+        tenure_units: vec![
+            (
+                Tenure::SocialRent,
+                rd.total_no_proposed_residential_units_social_rent,
+            ),
+            (
+                Tenure::LondonAffordableRent,
+                rd.total_no_proposed_residential_units_london_affordable_rent,
+            ),
+            (
+                Tenure::AffordableRent,
+                rd.total_no_proposed_residential_units_affordable_rent,
+            ),
+            (
+                Tenure::LondonLivingRent,
+                rd.total_no_proposed_residential_units_london_living_rent,
+            ),
+            (
+                Tenure::LondonSharedOwnership,
+                rd.total_no_proposed_residential_units_london_shared_ownership,
+            ),
+            (
+                Tenure::Intermediate,
+                rd.total_no_proposed_residential_units_intermediate,
+            ),
+            (
+                Tenure::DiscountMarketRent,
+                rd.total_no_proposed_residential_units_discount_market_rent,
+            ),
+            (
+                Tenure::DiscountMarketSale,
+                rd.total_no_proposed_residential_units_discount_market_sale,
+            ),
+        ],
     };
-    let units = rd["residential_units"]
-        .as_array()
-        .map(Vec::as_slice)
-        .unwrap_or_default()
-        .iter()
-        .enumerate()
-        .filter(|(_, u)| u["change_type"].as_str() == Some("Gain"))
-        .map(|(i, u)| DeliveredUnit {
-            id: match &u["unit_no"] {
-                serde_json::Value::Null => format!("residential_units[{i}]"),
-                serde_json::Value::String(s) => s.clone(),
-                v => v.to_string(),
+    let mut units = vec![];
+    for (i, u) in rd.residential_units.iter().enumerate() {
+        if !u.change_type.trim().eq_ignore_ascii_case("gain") {
+            continue;
+        }
+        units.push(DeliveredUnit {
+            id: match &u.unit_no {
+                None | Some(serde_json::Value::Null) => format!("residential_units[{i}]"),
+                Some(serde_json::Value::String(s)) => s.clone(),
+                Some(v) => v.to_string(),
             },
-            tenure: u["tenure"]
-                .as_str()
-                .map_or_else(|| UnitTenure::Unrecognised(String::new()), pld_unit_tenure),
+            tenure: pld_unit_tenure(u.tenure.as_deref()),
             habitable_rooms: None,
-            completed_on: pld_date(&u["actual_completion_date"]),
-            snapshot: 0,
-        })
-        .collect();
+            completed_on: pld_date(
+                &format!("residential_units[{i}].actual_completion_date"),
+                &u.actual_completion_date,
+            )?,
+        });
+    }
     Ok(Delivery {
-        record_id: record_id.into(),
-        snapshots: vec![at],
+        record_id: app.id,
+        lpa_app_no: app.lpa_app_no,
+        as_of: at.retrieved_at.clone(),
+        snapshot: at,
+        mapping_version: PLD_MAPPING_VERSION.into(),
         status,
-        started_on: pld_date(&doc["actual_commencement_date"]),
-        completed_on: pld_date(&doc["actual_completion_date"]),
+        started_on: pld_date("actual_commencement_date", &app.actual_commencement_date)?,
+        completed_on: pld_date("actual_completion_date", &app.actual_completion_date)?,
         scheme_complete,
         permitted,
         units,
@@ -589,12 +803,16 @@ pub fn delivery_from_pld(snap: &crate::pld::Snapshot, at: SnapshotRef) -> anyhow
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RowStatus {
-    /// delivered equals the current obligation
-    Consistent,
+    /// PLD's completed-unit count equals the current obligation. Counts only: says nothing about
+    /// tenure in use, rents or quality.
+    CountsMatch,
     /// the scheme isn't complete and delivery is still short
     NotYetDue,
-    /// the obligation was varied; compare against the variation by hand
+    /// the obligation was replaced by a later deed, or a later deed deletes something that could
+    /// not be matched; compare by hand
     Varied,
+    /// a variation removed the obligation
+    Removed,
     /// delivery differs from the obligation: a human must check the borough's records.
     /// Never a finding that the obligation was unmet.
     DiffersReviewRequired,
@@ -605,9 +823,10 @@ pub enum RowStatus {
 impl RowStatus {
     pub fn label(self) -> &'static str {
         match self {
-            RowStatus::Consistent => "consistent",
+            RowStatus::CountsMatch => "counts match",
             RowStatus::NotYetDue => "not yet due",
             RowStatus::Varied => "varied",
+            RowStatus::Removed => "removed by variation",
             RowStatus::DiffersReviewRequired => "differs: review",
             RowStatus::Indeterminate => "indeterminate",
         }
@@ -619,11 +838,11 @@ pub struct Row {
     #[serde(flatten)]
     pub measure: Measure,
     pub label: String,
-    /// as first agreed
+    /// as first stated
     pub agreed: Option<Decimal>,
-    /// after every variation given (the last event)
+    /// after every later instrument (the fold of the events); None when removed or unstated
     pub current: Option<Decimal>,
-    /// all events for this measure, in instrument order
+    /// all events for this obligation, in instrument order
     pub events: Vec<ObligationEvent>,
     /// PLD's permission figure
     pub permitted: Option<Decimal>,
@@ -636,49 +855,96 @@ pub struct Row {
 pub struct Reconciliation {
     pub reconcile_version: String,
     pub development: String,
+    /// in the order they were applied
     pub instruments: Vec<InstrumentRef>,
     pub delivery: Option<Delivery>,
     pub rows: Vec<Row>,
+    /// things a reader should know that don't belong to one row
+    #[serde(default)]
+    pub warnings: Vec<String>,
 }
 
-fn decide(row: &Row, delivery: Option<&Delivery>) -> (RowStatus, String) {
-    let Some(last) = row.events.last() else {
-        return (RowStatus::Indeterminate, "no obligation event".into());
+/// The current state of an obligation after folding its events.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Current {
+    Removed,
+    /// the deed states it more than once with different figures
+    Conflict(String),
+    /// no figure (formula, rate, or none stated); the note says why when known
+    NoFigure(Option<String>),
+    Value(Decimal),
+}
+
+/// Everything `decide` looks at. It is a pure function of these.
+#[derive(Debug, Clone)]
+pub struct Facts {
+    pub current: Current,
+    /// the grounding of the event that set the current figure
+    pub grounding: Grounding,
+    /// some later deed replaced the figure
+    pub replaced: bool,
+    /// a later deed deletes something not matched to any obligation
+    pub unmatched_deletion: Option<String>,
+    pub delivered: Counted,
+    /// compare within the verifier's percentage tolerance rather than exactly
+    pub percentage: bool,
+    pub scheme_complete: Option<bool>,
+}
+
+/// The status rules, in order (see docs/reconciliation.md).
+pub fn decide(f: &Facts) -> (RowStatus, String) {
+    let current = match &f.current {
+        Current::Removed => {
+            return (
+                RowStatus::Removed,
+                "a variation removes this obligation".into(),
+            );
+        }
+        Current::Conflict(why) => return (RowStatus::Indeterminate, why.clone()),
+        Current::NoFigure(note) => {
+            return (
+                RowStatus::Indeterminate,
+                match note {
+                    Some(n) => format!("no stated figure ({n})"),
+                    None => "no stated figure in the deed".into(),
+                },
+            );
+        }
+        Current::Value(v) => *v,
     };
-    let Some(current) = row.current else {
-        return (
-            RowStatus::Indeterminate,
-            match &last.note {
-                Some(n) => format!("no stated figure ({n})"),
-                None => "no stated figure in the deed".into(),
-            },
-        );
-    };
-    if let Grounding::Ungrounded(why) = &last.grounding {
+    if let Grounding::Ungrounded(why) = &f.grounding {
         return (
             RowStatus::Indeterminate,
             format!("deed value unproven: {why}"),
         );
     }
-    let varied = row.events.iter().any(|e| e.kind == EventKind::Varied);
-    let Some(delivered) = row.delivered.value else {
-        return if varied {
-            (RowStatus::Varied, row.delivered.basis.clone())
-        } else {
-            (RowStatus::Indeterminate, row.delivered.basis.clone())
-        };
-    };
-    if delivered == current {
-        return (RowStatus::Consistent, row.delivered.basis.clone());
+    if let Some(target) = &f.unmatched_deletion {
+        return (
+            RowStatus::Varied,
+            format!(
+                "a later deed deletes \"{target}\", which isn't matched to any obligation; \
+                 compare by hand"
+            ),
+        );
     }
-    if varied {
+    let Some(delivered) = f.delivered.value else {
+        return (RowStatus::Indeterminate, f.delivered.basis.clone());
+    };
+    let same = if f.percentage {
+        (delivered - current).abs() <= PCT_TOLERANCE
+    } else {
+        delivered == current
+    };
+    if same {
+        return (RowStatus::CountsMatch, f.delivered.basis.clone());
+    }
+    if f.replaced {
         return (
             RowStatus::Varied,
             format!("delivered {delivered} vs varied obligation {current}; compare by hand"),
         );
     }
-    let complete = delivery.and_then(|d| d.scheme_complete);
-    match complete {
+    match f.scheme_complete {
         Some(true) => (
             RowStatus::DiffersReviewRequired,
             format!(
@@ -686,7 +952,7 @@ fn decide(row: &Row, delivery: Option<&Delivery>) -> (RowStatus, String) {
                  check the borough's records before drawing any conclusion"
             ),
         ),
-        _ if delivered < current && complete == Some(false) => (
+        Some(false) if delivered < current => (
             RowStatus::NotYetDue,
             format!("{delivered} of {current} so far; PLD does not report the scheme complete"),
         ),
@@ -701,84 +967,290 @@ fn decide(row: &Row, delivery: Option<&Delivery>) -> (RowStatus, String) {
     }
 }
 
-/// `events`: from `obligation_events`, instruments in chronological order (the original first).
+/// Planning references compared without case, spaces or separators: "19/AP/1773" = "19-ap-1773".
+fn same_reference(a: &str, b: &str) -> bool {
+    let norm = |s: &str| {
+        s.chars()
+            .filter(char::is_ascii_alphanumeric)
+            .map(|c| c.to_ascii_uppercase())
+            .collect::<String>()
+    };
+    !norm(a).is_empty() && norm(a) == norm(b)
+}
+
+fn parse_deed_date(s: &str) -> Option<NaiveDate> {
+    let s = s.trim();
+    ["%d %B %Y", "%e %B %Y", "%Y-%m-%d", "%d/%m/%Y", "%d %b %Y"]
+        .iter()
+        .find_map(|f| NaiveDate::parse_from_str(s, f).ok())
+        .or_else(|| {
+            // "28th January 2021"
+            let cleaned: String = s
+                .split_whitespace()
+                .map(|w| {
+                    w.trim_end_matches(|c: char| c.is_ascii_alphabetic())
+                        .parse::<u32>()
+                        .map_or(w.to_string(), |n| n.to_string())
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+            NaiveDate::parse_from_str(&cleaned, "%d %B %Y").ok()
+        })
+}
+
+/// A key for matching a deletion target against an obligation: the contribution key, or the
+/// measure's label normalised the same way.
+fn deletion_matches(target: &str, m: &Measure) -> bool {
+    let t = contribution_key(target);
+    let k = match m {
+        Measure::Contribution { key } => key.clone(),
+        _ => return false,
+    };
+    !k.is_empty() && format!(" {t} ").contains(&format!(" {k} "))
+}
+
+/// Set a development's deeds against PLD.
+///
+/// `instruments` are applied in the order given, original first; a warning is raised when that
+/// order disagrees with the deeds' dates. Fails when the PLD record is not the development named,
+/// or when the deeds' planning references and PLD's disagree.
 pub fn reconcile(
     development: &str,
-    events: Vec<ObligationEvent>,
+    instruments: Vec<InstrumentObligations>,
     delivery: Option<Delivery>,
-) -> Reconciliation {
-    let mut instruments: Vec<InstrumentRef> = vec![];
-    for e in &events {
-        if !instruments.iter().any(|i| i.sha256 == e.instrument.sha256) {
-            instruments.push(e.instrument.clone());
+) -> Result<Reconciliation> {
+    let mut warnings = vec![];
+    if let Some(d) = &delivery {
+        if d.record_id != development {
+            bail!(
+                "the PLD snapshot is record {}, not {development}",
+                d.record_id
+            );
+        }
+        let deed_refs: Vec<&String> = instruments
+            .iter()
+            .flat_map(|i| &i.planning_references)
+            .collect();
+        match &d.lpa_app_no {
+            Some(pld_ref) if !deed_refs.is_empty() => {
+                if !deed_refs.iter().any(|r| same_reference(r, pld_ref)) {
+                    bail!(
+                        "the deeds cite planning reference(s) {} but the PLD record is for {pld_ref}",
+                        deed_refs
+                            .iter()
+                            .map(|r| r.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    );
+                }
+            }
+            Some(pld_ref) => warnings.push(format!(
+                "no deed states a planning reference, so it could not be checked against PLD's {pld_ref}"
+            )),
+            None => warnings.push(
+                "the PLD record has no planning reference to check the deeds against".into(),
+            ),
         }
     }
-    // Rows in first-seen order, so the table reads like the deed.
+    let dates: Vec<Option<NaiveDate>> = instruments
+        .iter()
+        .map(|i| i.instrument.date.as_deref().and_then(parse_deed_date))
+        .collect();
+    for (k, pair) in dates.windows(2).enumerate() {
+        if let [Some(a), Some(b)] = pair
+            && b < a
+        {
+            warnings.push(format!(
+                "instrument {} is dated {b}, before instrument {} ({a}); instruments are applied \
+                 in the order given",
+                k + 2,
+                k + 1
+            ));
+        }
+    }
+
+    // Replay the instruments as operations on each obligation.
     let mut order: Vec<Measure> = vec![];
-    let mut by_measure: BTreeMap<Measure, Vec<ObligationEvent>> = BTreeMap::new();
-    for e in events {
-        if !by_measure.contains_key(&e.measure) {
-            order.push(e.measure.clone());
+    let mut events: BTreeMap<Measure, Vec<ObligationEvent>> = BTreeMap::new();
+    let mut current: BTreeMap<Measure, Option<Decimal>> = BTreeMap::new();
+    let mut unmatched: Vec<(usize, String)> = vec![];
+    for (k, inst) in instruments.iter().enumerate() {
+        for s in &inst.statements {
+            let op = match current.get(&s.measure) {
+                None => Op::Introduce { value: s.value },
+                Some(prev) => match s.value {
+                    None => Op::Unchanged,
+                    Some(v) if *prev == Some(v) => Op::Restate { value: v },
+                    Some(v) => Op::Replace { from: *prev, to: v },
+                },
+            };
+            match &op {
+                Op::Introduce { value } => {
+                    current.insert(s.measure.clone(), *value);
+                }
+                Op::Restate { value } | Op::Replace { to: value, .. } => {
+                    current.insert(s.measure.clone(), Some(*value));
+                }
+                Op::Unchanged | Op::Delete => {}
+            }
+            if !events.contains_key(&s.measure) {
+                order.push(s.measure.clone());
+            }
+            events
+                .entry(s.measure.clone())
+                .or_default()
+                .push(ObligationEvent {
+                    measure: s.measure.clone(),
+                    label: s.label.clone(),
+                    op,
+                    instrument: inst.instrument.clone(),
+                    evidence: s.evidence.clone(),
+                    grounding: s.grounding.clone(),
+                    note: s.note.clone(),
+                    conflict: s.conflict.clone(),
+                });
         }
-        by_measure.entry(e.measure.clone()).or_default().push(e);
+        for del in &inst.deletions {
+            let hits: Vec<Measure> = order
+                .iter()
+                .filter(|m| deletion_matches(&del.target, m))
+                .cloned()
+                .collect();
+            if hits.is_empty() {
+                unmatched.push((k, del.target.clone()));
+            }
+            for m in hits {
+                current.insert(m.clone(), None);
+                let label = events[&m][0].label.clone();
+                events.entry(m.clone()).or_default().push(ObligationEvent {
+                    measure: m,
+                    label,
+                    op: Op::Delete,
+                    instrument: inst.instrument.clone(),
+                    evidence: del.evidence.clone(),
+                    grounding: Grounding::NotChecked,
+                    note: Some(format!("deletes \"{}\"", del.target)),
+                    conflict: None,
+                });
+            }
+        }
     }
+    for (k, target) in &unmatched {
+        warnings.push(format!(
+            "instrument {} deletes \"{target}\", which isn't matched to any obligation",
+            k + 1
+        ));
+    }
+
     let mut rows = vec![];
     for m in order {
-        let evs = by_measure.remove(&m).unwrap_or_default();
-        let mut row = Row {
-            label: m.label(),
-            agreed: evs.first().and_then(|e| e.value),
-            current: evs.last().and_then(|e| e.value),
-            events: evs,
-            permitted: delivery.as_ref().and_then(|d| d.permitted(&m)),
+        let evs = events.remove(&m).unwrap_or_default();
+        let removed = matches!(evs.last().map(|e| &e.op), Some(Op::Delete));
+        // The event that set the current figure: the last that states one.
+        let setter = evs.iter().rev().find(|e| {
+            matches!(
+                e.op,
+                Op::Introduce { .. } | Op::Restate { .. } | Op::Replace { .. }
+            )
+        });
+        let first_instrument = instruments
+            .iter()
+            .position(|i| {
+                evs.first()
+                    .is_some_and(|e| e.instrument.sha256 == i.instrument.sha256)
+            })
+            .unwrap_or(0);
+        let unmatched_deletion = unmatched
+            .iter()
+            .find(|(k, _)| *k > first_instrument)
+            .map(|(_, t)| t.clone());
+        let value = if removed {
+            None
+        } else {
+            current.get(&m).copied().flatten()
+        };
+        let conflict = evs.iter().find_map(|e| e.conflict.clone());
+        let facts = Facts {
+            current: if removed {
+                Current::Removed
+            } else if let Some(c) = conflict {
+                Current::Conflict(c)
+            } else {
+                match value {
+                    Some(v) => Current::Value(v),
+                    None => Current::NoFigure(setter.and_then(|e| e.note.clone())),
+                }
+            },
+            grounding: setter
+                .map(|e| e.grounding.clone())
+                .unwrap_or(Grounding::NotChecked),
+            replaced: evs.iter().any(|e| matches!(e.op, Op::Replace { .. })),
+            unmatched_deletion,
             delivered: match &delivery {
                 Some(d) => d.delivered(&m),
-                None => Counted {
-                    value: None,
-                    basis: "no PLD delivery data supplied".into(),
-                },
+                None => Counted::none("no PLD delivery data supplied"),
             },
-            measure: m,
-            status: RowStatus::Indeterminate,
-            reason: String::new(),
+            percentage: matches!(m, Measure::AffordablePct { .. }),
+            scheme_complete: delivery.as_ref().and_then(|d| d.scheme_complete),
         };
-        (row.status, row.reason) = decide(&row, delivery.as_ref());
-        rows.push(row);
+        let (status, reason) = decide(&facts);
+        rows.push(Row {
+            label: evs
+                .first()
+                .map(|e| e.label.clone())
+                .unwrap_or_else(|| m.label()),
+            agreed: match evs.first().map(|e| &e.op) {
+                Some(Op::Introduce { value }) => *value,
+                _ => None,
+            },
+            current: value,
+            permitted: delivery.as_ref().and_then(|d| d.permitted(&m)),
+            delivered: facts.delivered,
+            events: evs,
+            measure: m,
+            status,
+            reason,
+        });
     }
     if let Some(d) = &delivery {
         let deed_tenures: Vec<Tenure> = rows
             .iter()
+            .filter(|r| r.status != RowStatus::Removed)
             .filter_map(|r| match r.measure {
                 Measure::TenureUnits { tenure } => Some(tenure),
                 _ => None,
             })
             .collect();
-        for (tenure, n) in d.uncovered(&deed_tenures) {
-            rows.push(Row {
-                measure: Measure::TenureUnits { tenure },
-                label: format!("{} units (not in deed)", tenure.label()),
-                agreed: None,
-                current: None,
-                events: vec![],
-                permitted: d.permitted(&Measure::TenureUnits { tenure }),
-                delivered: Counted {
-                    value: Some(Decimal::from(n as u64)),
-                    basis: format!(
-                        "{n} completed unit record(s) with a tenure no deed tenure covers"
-                    ),
-                },
-                status: RowStatus::DiffersReviewRequired,
-                reason: "delivered in a tenure the deed does not provide for".into(),
-            });
+        // Only a deed that splits tenures can be said not to provide for one.
+        if !deed_tenures.is_empty() {
+            for (tenure, n) in d.uncovered(&deed_tenures) {
+                rows.push(Row {
+                    measure: Measure::TenureUnits { tenure },
+                    label: format!("{} units (not in deed)", tenure.label()),
+                    agreed: None,
+                    current: None,
+                    events: vec![],
+                    permitted: d.permitted(&Measure::TenureUnits { tenure }),
+                    delivered: Counted {
+                        value: Some(Decimal::from(n as u64)),
+                        basis: format!(
+                            "{n} completed unit record(s) with a tenure no deed tenure covers"
+                        ),
+                    },
+                    status: RowStatus::DiffersReviewRequired,
+                    reason: "delivered in a tenure the deed does not provide for".into(),
+                });
+            }
         }
     }
-    Reconciliation {
+    Ok(Reconciliation {
         reconcile_version: RECONCILE_VERSION.into(),
         development: development.into(),
-        instruments,
+        instruments: instruments.into_iter().map(|i| i.instrument).collect(),
         delivery,
         rows,
-    }
+        warnings,
+    })
 }
 
 // --------------------------------------------------------------------------- report
@@ -794,18 +1266,26 @@ fn cite(e: &ObligationEvent) -> String {
         Grounding::Ungrounded(_) => " (unproven)",
         Grounding::NotChecked => " (not checked)",
     };
+    let op = match e.op {
+        Op::Introduce { .. } => "",
+        Op::Restate { .. } => " restated",
+        Op::Replace { .. } => " replaced",
+        Op::Unchanged => " cited",
+        Op::Delete => " deleted",
+    };
     match &e.evidence {
-        Some(ev) => format!("p{}{g}", ev.page),
-        None => format!("no citation{g}"),
+        Some(ev) => format!("p{}{op}{g}", ev.page),
+        None => format!("no citation{op}{g}"),
     }
 }
 
-/// A Markdown table: one row per measure, each cell with its source.
+/// A Markdown table: one row per obligation, each cell with its source.
 pub fn markdown(r: &Reconciliation) -> String {
     let mut s = format!("# Reconciliation: {}\n\n", r.development);
-    for i in &r.instruments {
+    for (k, i) in r.instruments.iter().enumerate() {
         s += &format!(
-            "- Instrument: {} dated {}, {}; sha256 `{}`\n",
+            "- Instrument {}: {} dated {}, {}; sha256 `{}`\n",
+            k + 1,
             i.kind,
             i.date.as_deref().unwrap_or("?"),
             i.legal_reference.as_deref().unwrap_or("no legal reference"),
@@ -815,28 +1295,31 @@ pub fn markdown(r: &Reconciliation) -> String {
     match &r.delivery {
         Some(d) => {
             s += &format!(
-                "- PLD record `{}`: status {}, started {}, completed {}\n",
+                "- PLD record `{}` ({}) as of {}: status {}, started {}, completed {}\n",
                 d.record_id,
+                d.lpa_app_no.as_deref().unwrap_or("no planning reference"),
+                d.as_of,
                 d.status.as_deref().unwrap_or("?"),
                 d.started_on.map(|x| x.to_string()).unwrap_or("?".into()),
                 d.completed_on.map(|x| x.to_string()).unwrap_or("?".into()),
             );
-            for (k, snap) in d.snapshots.iter().enumerate() {
-                s += &format!(
-                    "  - snapshot [{k}] `{}` retrieved {} (sha256 `{}`)\n",
-                    snap.path, snap.retrieved_at, snap.sha256
-                );
-            }
+            s += &format!(
+                "  - snapshot `{}` retrieved {} (sha256 `{}`), PLD mapping v{}\n",
+                d.snapshot.path, d.snapshot.retrieved_at, d.snapshot.sha256, d.mapping_version
+            );
         }
         None => s += "- No PLD delivery data supplied\n",
     }
-    s += "\n| Measure | Agreed | Current | Deed source | PLD permitted | PLD delivered | Status | Why |\n";
+    for w in &r.warnings {
+        s += &format!("- Warning: {w}\n");
+    }
+    s += "\n| Obligation | Agreed | Current | Deed source | PLD permitted | PLD delivered | Status | Why |\n";
     s += "|---|---|---|---|---|---|---|---|\n";
     for row in &r.rows {
         let source = row.events.iter().map(cite).collect::<Vec<_>>().join("; ");
         s += &format!(
             "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
-            row.label,
+            row.label.replace('|', "\\|"),
             num(row.agreed),
             num(row.current),
             if source.is_empty() {
@@ -850,7 +1333,9 @@ pub fn markdown(r: &Reconciliation) -> String {
             row.reason.replace('|', "\\|"),
         );
     }
-    s += "\n\"differs: review\" is never a finding that an obligation was unmet: PLD completions are \
-          borough-reported and unverified on receipt, and tenure at completion is not tenure in use.\n";
+    s += "\n\"Counts match\" compares completed-unit counts only; it says nothing about tenure in \
+          use, rents or quality. \"Differs: review\" is never a finding that an obligation was \
+          unmet: PLD completions are borough-reported and unverified on receipt, and tenure at \
+          completion is not tenure in use.\n";
     s
 }

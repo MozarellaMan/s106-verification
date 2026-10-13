@@ -16,7 +16,7 @@ pub struct Evidence {
     pub snippet: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Agreement {
     pub schema_version: String,
     pub provenance: Provenance,

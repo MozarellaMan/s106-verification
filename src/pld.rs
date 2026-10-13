@@ -13,7 +13,9 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 pub const BASE_URL: &str = "https://planningdata.london.gov.uk/api-guest";
-/// The guest access header published in the GLA's PLD API connection document (v1).
+/// The guest access header the GLA publishes for anyone to use, in its "Planning London Datahub
+/// API" connection document (v1, linked from the PLD pages on the London Datastore). It is a public
+/// guest credential, not a leaked secret: leave it as it is.
 const GUEST_HEADER: (&str, &str) = ("X-API-AllowRequest", "be2rmRnt&");
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,7 +110,7 @@ fn fetch(request: Request) -> Result<Snapshot> {
 }
 
 /// File-system-safe name for a snapshot's subject (an id or a query label).
-fn safe(name: &str) -> String {
+pub fn safe(name: &str) -> String {
     name.chars()
         .map(|c| {
             if c.is_ascii_alphanumeric() || "-_.".contains(c) {

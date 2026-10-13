@@ -2,19 +2,19 @@
 
 # Reconciliation: Southwark-19_AP_1773
 
-- Instrument: Agreement dated 28 January 2021, LEG/RP/PL/S106/RR020/80; sha256 `0baed481b09feeb4e515d3752439448fee7e5993103d2085116da7854cb5f85b`
-- PLD record `Southwark-19_AP_1773`: status Completed, started 2022-05-23, completed 2025-07-19
-  - snapshot [0] `snapshots/pld/applications/Southwark-19_AP_1773/2026-10-13T20_51_14Z.json` retrieved 2026-10-13T20:51:14Z (sha256 `f6e4dcc97574dc89e3bdf366a37ac1f90a51692470a959083b7246965fd19b22`)
+- Instrument 1: Agreement dated 28 January 2021, LEG/RP/PL/S106/RR020/80; sha256 `0baed481b09feeb4e515d3752439448fee7e5993103d2085116da7854cb5f85b`
+- PLD record `Southwark-19_AP_1773` (19/AP/1773) as of 2026-10-13T20:51:14Z: status Completed, started 2022-05-23, completed 2025-07-19
+  - snapshot `snapshots/pld/applications/Southwark-19_AP_1773/2026-10-13T20_51_14Z.json` retrieved 2026-10-13T20:51:14Z (sha256 `f6e4dcc97574dc89e3bdf366a37ac1f90a51692470a959083b7246965fd19b22`), PLD mapping v1
 
-| Measure | Agreed | Current | Deed source | PLD permitted | PLD delivered | Status | Why |
+| Obligation | Agreed | Current | Deed source | PLD permitted | PLD delivered | Status | Why |
 |---|---|---|---|---|---|---|---|
 | Total units | 253 | 253 | p44 (unproven) | 253 | 253 | indeterminate | deed value unproven: Total units: 253 not stated in its cited snippet |
-| Market units | 177 | 177 | p22 | 177 | 177 | consistent | 177 market of 253 unit record(s) with a completion date (253 records in all) |
-| Affordable units | 76 | 76 | p5 | 76 | 76 | consistent | 76 affordable of 253 unit record(s) with a completion date (253 records in all) |
+| Market units | 177 | 177 | p22 | 177 | 177 | counts match | 177 market of 253 unit record(s) with a completion date (253 records in all) |
+| Affordable units | 76 | 76 | p5 | 76 | 76 | counts match | 76 affordable of 253 unit record(s) with a completion date (253 records in all) |
 | Affordable habitable rooms | 271 | 271 | p5 | – | – | indeterminate | 76 matching unit record(s) lack habitable rooms |
-| Social Rent units | 58 | 58 | p30 | 58 | 58 | consistent | 58 Social Rent of 253 unit record(s) with a completion date (253 records in all) |
+| Social Rent units | 58 | 58 | p30 | 58 | 58 | counts match | 58 Social Rent of 253 unit record(s) with a completion date (253 records in all) |
 | Social Rent habitable rooms | 212 | 212 | p30 | – | – | indeterminate | 58 matching unit record(s) lack habitable rooms |
-| Intermediate units | 18 | 18 | p21 | 18 | 18 | consistent | 18 Intermediate of 253 unit record(s) with a completion date (253 records in all) |
+| Intermediate units | 18 | 18 | p21 | 18 | 18 | counts match | 18 Intermediate of 253 unit record(s) with a completion date (253 records in all) |
 | Intermediate habitable rooms | 59 | 59 | p21 | – | – | indeterminate | 18 matching unit record(s) lack habitable rooms |
 | Affordable % by habitable room | 35.75 | 35.75 | p5 (unproven) | – | – | indeterminate | deed value unproven: Affordable % by habitable room: cited snippet not re-locatable on p5 |
 | Administration Cost (£) | 16913.26 | 16913.26 | p4 | – | – | indeterminate | PLD records no S106 payments |
@@ -30,4 +30,4 @@
 | Construction Industry Employment and Training Contribution (£) | – | – | p11 (not checked) | – | – | indeterminate | no stated figure (conditional: In the event that the targets in paragraphs 1.4 above have not been achieved to the satisfaction of the Council) |
 | Employment in the End Use Contribution (£) | – | – | p16 (not checked) | – | – | indeterminate | no stated figure (conditional: In the event that the targets in the Employment and Skills Plan have not been achieved to the satisfaction of the Council within the Employment and Skills Plan Period) |
 
-"differs: review" is never a finding that an obligation was unmet: PLD completions are borough-reported and unverified on receipt, and tenure at completion is not tenure in use.
+"Counts match" compares completed-unit counts only; it says nothing about tenure in use, rents or quality. "Differs: review" is never a finding that an obligation was unmet: PLD completions are borough-reported and unverified on receipt, and tenure at completion is not tenure in use.

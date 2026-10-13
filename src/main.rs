@@ -78,12 +78,9 @@ enum Cmd {
         /// the executed deeds, original first, then any variations in date order
         #[arg(required = true)]
         pdfs: Vec<PathBuf>,
-        /// PLD record id, e.g. Southwark-19_AP_1773
+        /// PLD record id, e.g. Southwark-19_AP_1773; must match the snapshot's record
         #[arg(long)]
         development: String,
-        /// delivery evidence built from PLD snapshots (reconcile::Delivery as JSON)
-        #[arg(long, conflicts_with = "pld")]
-        delivery: Option<PathBuf>,
         /// a saved PLD application snapshot (snapshots/pld/applications/<id>/<time>.json)
         #[arg(long)]
         pld: Option<PathBuf>,
@@ -244,35 +241,37 @@ fn main() -> Result<()> {
         Cmd::Reconcile {
             pdfs,
             development,
-            delivery,
             pld: pld_snapshot,
             model,
         } => {
             let cfg = document::Config::from_env(&repo_root());
-            let mut events = vec![];
+            let mut instruments = vec![];
             for pdf in &pdfs {
                 let doc = document::load(pdf, &cfg, true)?;
                 let (agreement, _) = extract::extract(&doc, &model, Mode::Replay, None)?;
-                events.extend(reconcile::obligation_events(&agreement, Some(&doc.pages())));
+                instruments.push(reconcile::instrument_obligations(
+                    &agreement,
+                    Some(&doc.pages()),
+                ));
             }
-            let delivery = match (delivery, pld_snapshot) {
-                (Some(p), _) => Some(serde_json::from_slice(&std::fs::read(&p)?)?),
-                (None, Some(p)) => {
+            let delivery = match pld_snapshot {
+                Some(p) => {
                     let (snap, at) = pld::load(&repo_root(), &p)?;
                     Some(reconcile::delivery_from_pld(&snap, at)?)
                 }
-                (None, None) => None,
+                None => None,
             };
-            let r = reconcile::reconcile(&development, events, delivery);
+            let r = reconcile::reconcile(&development, instruments, delivery)?;
             let md = reconcile::markdown(&r);
             println!("{md}");
             let dir = repo_root().join("data/processed");
             std::fs::create_dir_all(&dir)?;
+            let name = pld::safe(&development);
             std::fs::write(
-                dir.join(format!("{development}.reconcile.json")),
+                dir.join(format!("{name}.reconcile.json")),
                 serde_json::to_string_pretty(&r)?,
             )?;
-            std::fs::write(dir.join(format!("{development}.reconcile.md")), md)?;
+            std::fs::write(dir.join(format!("{name}.reconcile.md")), md)?;
             Ok(())
         }
     }
