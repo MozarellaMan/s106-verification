@@ -505,3 +505,50 @@ fn review_regressions_from_pr13() {
     }
     assert!(found("fifty%%").is_empty());
 }
+
+#[test]
+fn second_review_regressions_from_pr13() {
+    // an attempted pence clause keeps the amount uncertain
+    assert!(found("ten pounds and unknown pence").is_empty());
+    assert!(
+        !quantity::scan("ten pounds and unknown pence")
+            .errors
+            .is_empty()
+    );
+    assert!(found("ten pounds and fifty").is_empty());
+    // OCR-joined conjunctions remove only the "and"
+    assert_eq!(
+        found("fiftypercentand payable"),
+        vec![(d("50"), Unit::Percent)]
+    );
+    assert_eq!(
+        found("one hundredand payable"),
+        vec![(d("100"), Unit::Count)]
+    );
+    assert_eq!(
+        found("one hundred and the Owner"),
+        vec![(d("100"), Unit::Count)]
+    );
+    // a conjunction between completed quantities splits them
+    assert_eq!(
+        found("fifty per cent and sixty per cent respectively"),
+        vec![(d("50"), Unit::Percent), (d("60"), Unit::Percent)]
+    );
+    // pence alone are not an amount in pounds, so only the first quantity reads
+    assert_eq!(
+        found("ten pounds and twenty pence and five pence"),
+        vec![(d("10.20"), Unit::Gbp)]
+    );
+    // a sign before the currency symbol, and £ ranges
+    assert_eq!(quantity::decimal("-£1,234.50").unwrap(), d("-1234.50"));
+    assert_eq!(quantity::decimal("+£5").unwrap(), d("5"));
+    assert!(quantity::decimal("--£5").is_err());
+    assert_eq!(
+        found("£10,000-£20,000"),
+        vec![(d("10000"), Unit::Gbp), (d("20000"), Unit::Gbp)]
+    );
+    assert_eq!(
+        found("£10,000–£20,000"),
+        vec![(d("10000"), Unit::Gbp), (d("20000"), Unit::Gbp)]
+    );
+}

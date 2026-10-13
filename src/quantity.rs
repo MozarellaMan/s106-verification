@@ -397,7 +397,12 @@ impl<'a> Scanner<'a> {
                 Some(Kind::Sym(c)) => CLOSING.contains(c),
                 _ => false,
             },
-            Some(Kind::Sym('-' | '–')) => digits && self.kind(j + 1) == Some(Kind::Num),
+            Some(Kind::Sym('-' | '–')) => {
+                digits
+                    && (self.kind(j + 1) == Some(Kind::Num)
+                        || (self.kind(j + 1) == Some(Kind::Sym('£'))
+                            && self.kind(j + 2) == Some(Kind::Num)))
+            }
             _ => false,
         }
     }
@@ -475,6 +480,30 @@ impl<'a> Scanner<'a> {
         } else if first > 0 && self.is_alpha(first - 1, &["f"]) {
             (first, currency) = (first - 1, true);
         }
+        // A sign may also precede the currency symbol ("-£1,234.50"), unless the dash joins
+        // a range ("£10,000-£20,000").
+        let mut range = range;
+        let mut sign_before = None;
+        if currency && signs == 0 && first > 0 {
+            match sym(self, first - 1) {
+                Some('-' | '–') if first >= 2 && self.kind(first - 2) == Some(Kind::Num) => {
+                    range = true
+                }
+                Some(c) if is_sign(c) => {
+                    if first >= 2 && sym(self, first - 2).is_some_and(is_sign) {
+                        self.error(
+                            self.toks[first - 2].start..num.end,
+                            self.toks[first - 1].span(),
+                            Cause::UnexpectedToken,
+                            "at most one sign",
+                        );
+                        return i + 1;
+                    }
+                    (first, sign_before) = (first - 1, Some(c));
+                }
+                _ => {}
+            }
+        }
 
         // suffix: ordinal, "%", "percent" or "per cent"
         let mut end = i + 1;
@@ -502,7 +531,8 @@ impl<'a> Scanner<'a> {
             return end;
         }
         let digits = &self.text[num.span()];
-        let neg = signs == 1 && !range && sym(self, start) != Some('+');
+        let neg = (signs == 1 && !range && sym(self, start) != Some('+'))
+            || sign_before.is_some_and(|c| c != '+');
         let value = match digits_grammar.parse(digits) {
             Ok(v) => v,
             Err(e) => {
@@ -578,25 +608,15 @@ impl<'a> Scanner<'a> {
         if self.mixed[i..end].iter().any(|&m| m) {
             return end;
         }
-        // In prose, an "and" followed by more prose ("fifty per cent and payable") is a
-        // conjunction, not a dangling part of the number. At the end of text it stays incomplete.
-        if end - i >= 3
-            && self.kind(end - 1) == Some(Kind::Word("and"))
-            && self.kind(end) == Some(Kind::Space)
-            && matches!(self.kind(end + 1), Some(Kind::Alpha | Kind::Word(_)))
-        {
-            end -= 2;
-        }
         let mut cluster = self.toks[i].start..self.toks[end - 1].end;
         if !self.left_ok(i) {
             self.boundary_error(i, end, true);
             return end;
         }
-        let pieces: Vec<Tok> = self.toks[i..end]
-            .iter()
-            .filter(|t| t.kind != Kind::Space)
-            .copied()
+        let idx: Vec<usize> = (i..end)
+            .filter(|&k| self.toks[k].kind != Kind::Space)
             .collect();
+        let pieces: Vec<Tok> = idx.iter().map(|&k| self.toks[k]).collect();
         match quantity.parse(pieces.as_slice()) {
             Ok((value, mut unit)) => {
                 // "fifty%" and "fifty %": a percent sign after number words
@@ -608,25 +628,65 @@ impl<'a> Scanner<'a> {
                     run_on = matches!(self.kind(end), Some(Kind::Alpha | Kind::Word(_)));
                 }
                 if run_on || self.right_ok(end, false) {
-                    self.hits.push(Hit {
-                        quantity: Quantity {
-                            value,
-                            unit,
-                            span: cluster,
-                        },
-                        digits: false,
-                        suffixed: unit != Unit::Count,
-                    });
+                    self.word_hit(value, unit, cluster);
                 } else {
                     self.boundary_error(i, end, false);
                 }
             }
-            Err(e) => {
-                let err = cluster_error(&pieces, cluster, e.offset());
-                self.errors.push(err);
-            }
+            Err(e) => match self.conjunction_cut(&pieces, end) {
+                // A completed quantity, then "and" as prose: keep the quantity and resume
+                // scanning after the conjunction.
+                Some((cut, value, unit)) => {
+                    self.word_hit(value, unit, cluster.start..pieces[cut - 1].end);
+                    return idx[cut] + 1;
+                }
+                None => {
+                    let err = cluster_error(&pieces, cluster, e.offset());
+                    self.errors.push(err);
+                }
+            },
         }
         end
+    }
+
+    fn word_hit(&mut self, value: Decimal, unit: Unit, span: Range<usize>) {
+        self.hits.push(Hit {
+            quantity: Quantity { value, unit, span },
+            digits: false,
+            suffixed: unit != Unit::Count,
+        });
+    }
+
+    /// Where a cluster that does not parse as a whole splits at a prose "and": the index of
+    /// that "and" in `pieces`, with the value of everything before it.
+    ///
+    /// Mid-cluster, only a quantity that cannot continue splits ("fifty per cent and sixty per
+    /// cent"); "ten pounds and fifty" may be incomplete pence, so it does not. A trailing "and"
+    /// splits when prose follows ("one hundred and the Owner"), but not after pounds when a
+    /// pence clause is attempted ("ten pounds and unknown pence"), and not at the end of text.
+    fn conjunction_cut(&self, pieces: &[Tok], end: usize) -> Option<(usize, Decimal, Unit)> {
+        let trailing_prose = self.kind(end) == Some(Kind::Space)
+            && self.kind(end + 1) == Some(Kind::Alpha)
+            && !self.pence_ahead(end);
+        (1..pieces.len()).rev().find_map(|cut| {
+            if pieces[cut].kind != Kind::Word("and") {
+                return None;
+            }
+            let ok = match pieces[cut - 1].kind {
+                Kind::Word("percent" | "cent" | "pence" | "penny") => true,
+                _ => cut + 1 == pieces.len() && trailing_prose,
+            };
+            let (value, unit) = quantity.parse(&pieces[..cut]).ok().filter(|_| ok)?;
+            Some((cut, value, unit))
+        })
+    }
+
+    /// Does a "pence" or "penny" follow before the end of the clause?
+    fn pence_ahead(&self, from: usize) -> bool {
+        self.toks[from..]
+            .iter()
+            .take_while(|t| !matches!(t.kind, Kind::Sym('.' | ';' | ':' | '(' | ')')))
+            .any(|t| matches!(t.kind, Kind::Word("pence" | "penny")))
     }
 }
 
