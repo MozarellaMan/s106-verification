@@ -10,7 +10,7 @@ use std::ops::Range;
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 use sha2::{Digest, Sha256};
 
-use crate::evidence::{Pages, evidence_found};
+use crate::evidence::{Located, Pages, Repair, locate};
 use crate::quantity::{Category, Cause, ParseError};
 use crate::schema::Evidence;
 
@@ -42,6 +42,22 @@ pub struct CitationRef {
     pub page: usize,
     pub excerpt: String,
     pub relocated: bool,
+    /// Where the excerpt matched in the page text (byte offsets), when it relocated.
+    pub range: Option<Range<usize>>,
+    /// OCR digit substitutions the match relied on; non-empty means the page as printed differs.
+    pub repairs: Vec<Repair>,
+}
+
+impl CitationRef {
+    fn new(ev: &Evidence, located: Option<&Located>) -> CitationRef {
+        CitationRef {
+            page: ev.page,
+            excerpt: ev.snippet.clone(),
+            relocated: located.is_some(),
+            range: located.map(|l| l.range.clone()),
+            repairs: located.map(|l| l.repairs.clone()).unwrap_or_default(),
+        }
+    }
 }
 
 /// A category that serialises as `{"code": "NUM002", "category": "invalid"}`; the code is derived.
@@ -71,8 +87,9 @@ pub struct Finding {
 }
 
 impl Finding {
-    /// The only constructor. `observed` None means the required input was absent
-    /// (`Category::Absent`, no observation, no invented span).
+    /// A numeric field that could not be read. `observed` None means the required input was
+    /// absent (`Category::Absent`, no observation, no invented span). The span is in the
+    /// coordinates of the observed input.
     pub fn new(
         check_id: &str,
         field: String,
@@ -80,9 +97,9 @@ impl Finding {
         citation: Option<&Evidence>,
         pages: &Pages,
     ) -> Finding {
-        let (category, cause, expected, observed) = match observed {
+        let located = citation.and_then(|ev| locate(ev, pages));
+        let (cause, expected, observation) = match observed {
             Some((input, err)) => (
-                err.category(),
                 err.cause.clone(),
                 err.expected.to_string(),
                 Some(Observation {
@@ -92,25 +109,68 @@ impl Finding {
                     coordinates: CoordinateSpace::ObservedInput,
                 }),
             ),
-            None => (
-                Category::Absent,
-                Cause::Empty,
-                "a value stated in the deed".to_string(),
-                None,
+            None => (Cause::Empty, "a value stated in the deed".to_string(), None),
+        };
+        Finding::assemble(
+            check_id,
+            field,
+            cause,
+            expected,
+            observation,
+            citation.map(|ev| CitationRef::new(ev, located.as_ref())),
+        )
+    }
+
+    /// A grounding problem: the cited excerpt does not support the value. `error` is a reason the
+    /// excerpt's numbers were unreadable, with its span in excerpt coordinates; without one the
+    /// finding is about the excerpt as a whole (`cause`, `expected`, no span). `located` is the
+    /// citation's single relocation, computed by the caller.
+    pub fn in_excerpt(
+        check_id: &str,
+        field: &str,
+        reason: Result<(Cause, String), &ParseError>,
+        citation: &Evidence,
+        located: Option<&Located>,
+    ) -> Finding {
+        let (cause, expected, span) = match reason {
+            Ok((cause, expected)) => (cause, expected, None),
+            Err(err) => (
+                err.cause.clone(),
+                err.expected.to_string(),
+                Some(err.span.clone()),
             ),
         };
+        Finding::assemble(
+            check_id,
+            field.to_string(),
+            cause,
+            expected,
+            Some(Observation {
+                input: citation.snippet.clone(),
+                sha256: sha256_hex(&citation.snippet),
+                span,
+                coordinates: CoordinateSpace::Excerpt,
+            }),
+            Some(CitationRef::new(citation, located)),
+        )
+    }
+
+    fn assemble(
+        check_id: &str,
+        field: String,
+        cause: Cause,
+        expected: String,
+        observed: Option<Observation>,
+        citation: Option<CitationRef>,
+    ) -> Finding {
         Finding {
             check_id: check_id.to_string(),
             field,
-            category: Coded(category),
+            category: Coded(cause.category()),
             cause,
             expected,
             observed,
-            citation: citation.map(|ev| CitationRef {
-                page: ev.page,
-                excerpt: ev.snippet.clone(),
-                relocated: evidence_found(Some(ev), pages),
-            }),
+            citation,
         }
     }
 

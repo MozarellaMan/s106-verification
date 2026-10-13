@@ -10,8 +10,8 @@ fn dec(s: &str) -> Decimal {
     s.parse().unwrap()
 }
 
-fn num(s: &str) -> Value {
-    Value::Num(dec(s))
+fn gbp(s: &str) -> Value {
+    Value::Gbp(dec(s))
 }
 
 // ---- OcrDigitsTest
@@ -37,12 +37,12 @@ fn ocr_digits_letters_next_to_words_untouched() {
 #[test]
 fn value_in_snippet_digit_forms() {
     assert!(value_in_snippet(
-        &num("10058.60"),
+        &gbp("10058.60"),
         "the sum of £10,058.60 (ten thousand"
     ));
-    assert!(value_in_snippet(&num("10058.6"), "the sum of f10,058.60")); // OCR reads £ as f
+    assert!(value_in_snippet(&gbp("10058.6"), "the sum of f10,058.60")); // OCR reads £ as f
     assert!(value_in_snippet(
-        &num("35.75"),
+        &Value::Percent(dec("35.75")),
         "35.75%affordablebyhabitable room"
     ));
     // OCR "o" for "0" is reported as ambiguous (see tests/numeric.rs), never silently repaired
@@ -74,7 +74,7 @@ fn value_in_snippet_absent_or_wrong_value() {
         &75u32.into(),
         "the 76 Residential Units (271 Habitable Rooms)"
     ));
-    assert!(!value_in_snippet(&num("10058.00"), "the sum of £10,058.60"));
+    assert!(!value_in_snippet(&gbp("10058.00"), "the sum of £10,058.60"));
     assert!(!value_in_snippet(&7u32.into(), "the 76 Residential Units")); // digits inside a number don't count
 }
 

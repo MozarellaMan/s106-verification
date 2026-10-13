@@ -1,10 +1,11 @@
 //! Text normalisation and number lookup shared by evidence matching, triggers and the verifier.
 
+use std::borrow::Cow;
 use std::collections::BTreeSet;
 
 use rust_decimal::Decimal;
 
-use crate::quantity::{self, Unit};
+use crate::quantity::{self, Cause, ParseError, Scan, Unit};
 
 /// OCR drops and adds spaces arbitrarily: compare on lowercase ASCII alphanumerics only.
 pub fn squash(s: &str) -> String {
@@ -57,21 +58,42 @@ pub fn percentage_in_snippet(value: Decimal, snippet: &str) -> bool {
         .any(|q| q.unit == Unit::Percent && q.value == value)
 }
 
-/// A value a check depends on.
+/// Why `snippet` does not state `value` as a percentage; empty when it does. The scan's own
+/// errors (unreadable numbers) when there are any, else one error spanning the whole snippet.
+pub fn percentage_errors(value: Decimal, snippet: &str) -> Vec<ParseError> {
+    let scan = quantity::scan(snippet);
+    if scan
+        .quantities
+        .iter()
+        .any(|q| q.unit == Unit::Percent && q.value == value)
+    {
+        return Vec::new();
+    }
+    if !scan.errors.is_empty() {
+        return scan.errors;
+    }
+    vec![ParseError {
+        candidate: 0..snippet.len(),
+        span: 0..snippet.len(),
+        cause: Cause::MissingPercentageWording {
+            expected_value: value.normalize().to_string(),
+        },
+        expected: Cow::Borrowed("the share written as a percentage"),
+    }]
+}
+
+/// A value a check depends on. The unit says what kind of figure must be printed to ground it.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
-    Num(Decimal),
+    Count(Decimal),
+    Gbp(Decimal),
+    Percent(Decimal),
     Text(String),
 }
 
 impl From<u32> for Value {
     fn from(v: u32) -> Self {
-        Value::Num(Decimal::from(v))
-    }
-}
-impl From<Decimal> for Value {
-    fn from(v: Decimal) -> Self {
-        Value::Num(v)
+        Value::Count(Decimal::from(v))
     }
 }
 impl From<&str> for Value {
@@ -82,16 +104,39 @@ impl From<&str> for Value {
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::Num(d) => write!(f, "{}", d.normalize()),
+            Value::Count(d) | Value::Gbp(d) | Value::Percent(d) => write!(f, "{}", d.normalize()),
             Value::Text(t) => write!(f, "{t}"),
         }
     }
 }
 
-/// Does the snippet state this value? Numbers compare numerically; text compares squashed.
+impl Value {
+    /// The number, for the three numeric variants.
+    pub fn decimal(&self) -> Option<Decimal> {
+        match self {
+            Value::Count(d) | Value::Gbp(d) | Value::Percent(d) => Some(*d),
+            Value::Text(_) => None,
+        }
+    }
+}
+
+/// Does the snippet state this value? Numbers compare numerically and by unit (an amount may be
+/// printed without a pound sign, a percentage only with percentage wording); text compares squashed.
 pub fn value_in_snippet(value: &Value, snippet: &str) -> bool {
+    value_in_scan(value, snippet, &quantity::scan(snippet))
+}
+
+/// `value_in_snippet` for a caller that already scanned `snippet`.
+pub fn value_in_scan(value: &Value, snippet: &str, scan: &Scan) -> bool {
+    let stated = |units: &[Unit], d: &Decimal| {
+        scan.quantities
+            .iter()
+            .any(|q| q.value == *d && units.contains(&q.unit))
+    };
     match value {
-        Value::Num(d) => numbers_in(snippet).contains(d),
+        Value::Count(d) => stated(&[Unit::Count], d),
+        Value::Gbp(d) => stated(&[Unit::Gbp, Unit::Count], d),
+        Value::Percent(d) => stated(&[Unit::Percent], d),
         Value::Text(t) => {
             let t = squash(t);
             !t.is_empty() && squash(snippet).contains(&t)

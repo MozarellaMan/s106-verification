@@ -20,12 +20,13 @@ use rust_decimal::prelude::*;
 use serde::Serialize;
 
 use crate::audit::Finding;
-use crate::evidence::{Pages, evidence_found};
+use crate::evidence::{Located, Pages, evidence_found, locate};
+use crate::quantity::{self, Cause, ParseError};
 use crate::schema::{
     AffordableBasis, Agreement, AmountStructure, ConditionalityKind, Contribution, Evidence,
     Instalment, Observed, Tenure, Variation,
 };
-use crate::text::{Value, ocr_digits, percentage_in_snippet, squash, value_in_snippet};
+use crate::text::{Value, ocr_digits, percentage_errors, squash, value_in_scan, value_in_snippet};
 use crate::triggers::{classify, classify_cited, imposes_payment};
 
 /// Percentage points; deeds quote 2 dp.
@@ -203,27 +204,112 @@ fn opt_str<T: std::fmt::Display>(v: Option<T>) -> String {
 
 // --------------------------------------------------------------------------- grounding
 
+/// Where an input's citation sits and what it says, computed once per input.
+struct Grounding {
+    located: Option<Located>,
+    stated: bool,
+    /// Numbers in the snippet that could not be read.
+    errors: Vec<ParseError>,
+}
+
+fn ground(input: &Input, pages: &Pages) -> Grounding {
+    let (Some(ev), Some(value)) = (input.evidence.as_ref(), input.value.as_ref()) else {
+        return Grounding {
+            located: None,
+            stated: false,
+            errors: Vec::new(),
+        };
+    };
+    let scan = quantity::scan(&ev.snippet);
+    Grounding {
+        located: locate(ev, pages),
+        stated: value_in_scan(value, &ev.snippet, &scan),
+        errors: scan.errors,
+    }
+}
+
+impl Grounding {
+    /// A numeric value is never verified against a page we had to rewrite.
+    fn repaired(&self, input: &Input) -> bool {
+        input.value.as_ref().is_some_and(|v| v.decimal().is_some())
+            && self.located.as_ref().is_some_and(|l| !l.repairs.is_empty())
+    }
+
+    fn problem(&self, input: &Input) -> Option<String> {
+        let Some(ev) = input.evidence.as_ref() else {
+            return Some(format!("{}: no evidence cited", input.label));
+        };
+        let Some(value) = input.value.as_ref() else {
+            return Some(format!("{}: not extracted", input.label));
+        };
+        if !self.stated {
+            return Some(format!(
+                "{}: {} not stated in its cited snippet",
+                input.label, value
+            ));
+        }
+        if self.repaired(input) {
+            return Some(format!(
+                "{}: citation relocates only with page-digit substitution; inspect source/OCR",
+                input.label
+            ));
+        }
+        if self.located.is_none() {
+            return Some(format!(
+                "{}: cited snippet not re-locatable on p{}",
+                input.label, ev.page
+            ));
+        }
+        None
+    }
+
+    /// Findings for a numeric input with a grounding problem: the reason, then each unreadable
+    /// number in the snippet.
+    fn findings(&self, check_id: &str, input: &Input) -> Vec<Finding> {
+        let (Some(ev), Some(value)) = (input.evidence.as_ref(), input.value.as_ref()) else {
+            return Vec::new();
+        };
+        if value.decimal().is_none() || self.problem(input).is_none() {
+            return Vec::new();
+        }
+        let reason = if self.repaired(input) {
+            (
+                Cause::RelocationRequiresDigitSubstitution,
+                "the excerpt as printed on the page".to_string(),
+            )
+        } else if !self.stated {
+            (
+                Cause::ValueNotStated {
+                    expected_value: value.to_string(),
+                },
+                format!("{value} stated in the cited excerpt"),
+            )
+        } else {
+            (
+                Cause::CitationNotRelocated,
+                format!("the excerpt found on page {}", ev.page),
+            )
+        };
+        let located = self.located.as_ref();
+        let mut out = vec![Finding::in_excerpt(
+            check_id,
+            &input.label,
+            Ok(reason),
+            ev,
+            located,
+        )];
+        out.extend(
+            self.errors
+                .iter()
+                .map(|e| Finding::in_excerpt(check_id, &input.label, Err(e), ev, located)),
+        );
+        out
+    }
+}
+
 /// Why `input` isn't supported by its evidence, or None if it is.
 pub fn grounding_problem(input: &Input, pages: &Pages) -> Option<String> {
-    let Some(ev) = input.evidence.as_ref() else {
-        return Some(format!("{}: no evidence cited", input.label));
-    };
-    let Some(value) = input.value.as_ref() else {
-        return Some(format!("{}: not extracted", input.label));
-    };
-    if !value_in_snippet(value, &ev.snippet) {
-        return Some(format!(
-            "{}: {} not stated in its cited snippet",
-            input.label, value
-        ));
-    }
-    if !evidence_found(Some(ev), pages) {
-        return Some(format!(
-            "{}: cited snippet not re-locatable on p{}",
-            input.label, ev.page
-        ));
-    }
-    None
+    ground(input, pages).problem(input)
 }
 
 /// Turn an assertion result plus its inputs' grounding into a CheckResult.
@@ -256,9 +342,16 @@ pub fn resolve(
             pg,
         );
     }
+    let grounded: Vec<Grounding> = inputs.iter().map(|i| ground(i, pages)).collect();
     let mut problems: Vec<String> = inputs
         .iter()
-        .filter_map(|i| grounding_problem(i, pages))
+        .zip(&grounded)
+        .filter_map(|(i, g)| g.problem(i))
+        .collect();
+    let findings: Vec<Finding> = inputs
+        .iter()
+        .zip(&grounded)
+        .flat_map(|(i, g)| g.findings(check_id, i))
         .collect();
     problems.extend(extra_problems.iter().cloned());
     let (status, error_class, detail) = match (holds, problems.is_empty()) {
@@ -290,6 +383,7 @@ pub fn resolve(
         detail,
         pg,
     )
+    .with_findings(findings)
 }
 
 // --------------------------------------------------------------------------- housing checks
@@ -487,7 +581,7 @@ pub fn check_claimed_pct(a: &Agreement, pages: &Pages) -> CheckResult {
     };
     let claimed = input(
         "claimed %",
-        Some(Value::Num(pct)),
+        Some(Value::Percent(pct)),
         h.claimed_affordable_evidence.as_ref(),
     );
     let (num, den) = match basis {
@@ -532,10 +626,7 @@ pub fn check_claimed_pct(a: &Agreement, pages: &Pages) -> CheckResult {
             );
         }
     };
-    let as_dec = |v: &Option<Value>| match v {
-        Some(Value::Num(d)) => Some(*d),
-        _ => None,
-    };
+    let as_dec = |v: &Option<Value>| v.as_ref().and_then(Value::decimal);
     let (num_d, den_d) = (
         as_dec(&num.value),
         as_dec(&den.value).filter(|d| !d.is_zero()),
@@ -946,7 +1037,7 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
             }
         }
         Some(v) => {
-            let amount = input("amount", Some(Value::Num(v)), c.amount.evidence.as_ref());
+            let amount = input("amount", Some(Value::Gbp(v)), c.amount.evidence.as_ref());
             out.push(resolve(
                 &format!("{cid}.amt"),
                 &format!("{}: amount stated in cited evidence", c.name),
@@ -1253,23 +1344,25 @@ pub fn check_instalments(
             .map(|(n, i)| {
                 input(
                     format!("instalment {} share", n + 1),
-                    share(i).map(Value::Num),
+                    share(i).map(Value::Percent),
                     i.trigger_phrase.as_ref(),
                 )
             })
             .collect();
-        let share_problems: Vec<String> = insts
+        // `resolve` already reports unit-aware grounding and unreadable numbers in the trigger
+        // phrase; a share written without percentage wording gets that specific finding too.
+        let wording: Vec<Finding> = insts
             .iter()
             .enumerate()
-            .filter_map(|(n, inst)| {
-                let share = share(inst)?;
-                let evidence = inst.trigger_phrase.as_ref()?;
-                (!percentage_in_snippet(share, &evidence.snippet)).then(|| {
-                    format!(
-                        "instalment {} share: {share}% not stated as a percentage in its citation",
-                        n + 1
-                    )
-                })
+            .filter_map(|(n, inst)| Some((n, share(inst)?, inst.trigger_phrase.as_ref()?)))
+            .flat_map(|(n, share, ev)| {
+                let located = locate(ev, pages);
+                let label = format!("instalment {} share", n + 1);
+                percentage_errors(share, &ev.snippet)
+                    .into_iter()
+                    .filter(|e| matches!(e.cause, Cause::MissingPercentageWording { .. }))
+                    .map(|e| Finding::in_excerpt(&id, &label, Err(&e), ev, located.as_ref()))
+                    .collect::<Vec<_>>()
             })
             .collect();
         let mut r = resolve(
@@ -1280,8 +1373,9 @@ pub fn check_instalments(
             pages,
             Some("100%".to_string()),
             Some(format!("{parts} = {sum}%")),
-            &share_problems,
+            &[],
         );
+        r.findings.extend(wording);
         r.pages = all_pg.clone();
         out.push(r);
     } else {
