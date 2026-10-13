@@ -2,6 +2,8 @@
 # PDFs (PDFium + OCR, empty page-text cache) and compared with the committed snapshots, then the
 # register evaluation on the PDFs. Deeds are fetched from the council registers and checked
 # against fixtures/corpus.tsv; the downloads are cached by that file's hash, page text never is.
+# Council websites are third parties: if they can't be reached the PDF tiers are skipped with a
+# warning, never failed. This workflow is not a pull-request check (ci.yml is).
 name: corpus
 on:
   schedule:
@@ -24,13 +26,21 @@ jobs:
           path: data/raw
           key: corpus-${{ hashFiles('fixtures/corpus.tsv') }}
       - run: scripts/fetch-models.sh
-      - run: scripts/fetch-corpus.sh
-      - run: cargo build --release --tests
+      - id: corpus
+        continue-on-error: true
+        run: scripts/fetch-corpus.sh
+      - if: steps.corpus.outcome != 'success'
+        run: echo "::warning::council registers unreachable or a deed changed; real-PDF tiers skipped"
+      - if: steps.corpus.outcome == 'success'
+        run: cargo build --release --tests
       - name: tier 3, difficult pages and OCR gold (fresh)
+        if: steps.corpus.outcome == 'success'
         run: cargo test --release --test pdf_regression -- --ignored --nocapture
       - name: tier 4, every deed from its PDF (cold page-text cache)
+        if: steps.corpus.outcome == 'success'
         run: S106_OCR_CACHE=$(mktemp -d) cargo test --release --test corpus -- --ignored --nocapture
       - name: register evaluation on the PDFs (replayed responses)
+        if: steps.corpus.outcome == 'success'
         run: cargo run --release -- eval --replay
       - uses: actions/upload-artifact@v4
         if: always()

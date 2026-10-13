@@ -24,7 +24,10 @@ jobs:
           path: data/raw
           key: corpus-${{ hashFiles('fixtures/corpus.tsv') }}
       - run: scripts/fetch-models.sh
+      # third-party downloads: a deed that can't be fetched is reported as "corpus missing" in the
+      # summary rather than failing the run
       - run: scripts/fetch-corpus.sh
+        continue-on-error: true
       - run: cargo run --release -- eval --runs "$RUNS" ${ONLY:+--only "$ONLY"}
         env:
           RUNS: ${{ inputs.runs }}
