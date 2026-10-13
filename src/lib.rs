@@ -10,6 +10,7 @@ pub mod evidence;
 pub mod extract;
 pub mod llm;
 pub mod ocrbench;
+pub mod quantity;
 pub mod report;
 pub mod schema;
 pub mod text;

@@ -6,8 +6,9 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+use crate::quantity::NUMBER_WORDS;
 use crate::schema::Evidence;
-use crate::text::{NUMBER_WORDS, ocr_digits, squash};
+use crate::text::{ocr_digits, squash};
 
 /// 1-based PDF page index -> page text (lines separated by '\n').
 pub type Pages = BTreeMap<usize, String>;

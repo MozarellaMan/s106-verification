@@ -24,9 +24,7 @@ use crate::schema::{
     AffordableBasis, Agreement, AmountStructure, ConditionalityKind, Contribution, Evidence,
     Instalment, Tenure, Variation,
 };
-use crate::text::{
-    Value, ocr_digits, percentage_in_snippet, squash, value_in_snippet, words_to_amount,
-};
+use crate::text::{Value, ocr_digits, percentage_in_snippet, squash, value_in_snippet};
 use crate::triggers::{classify, classify_cited, imposes_payment};
 
 /// Percentage points; deeds quote 2 dp.
@@ -875,7 +873,7 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
             let wid = format!("{cid}.words");
             match c.amount.words.as_deref().filter(|w| !w.is_empty()) {
                 None => out.push(skip(&wid, &desc, "no words form captured", pg.clone())),
-                Some(words) => match words_to_amount(words) {
+                Some(words) => match crate::quantity::amount(words).ok() {
                     None => out.push(result(
                         &wid,
                         &desc,

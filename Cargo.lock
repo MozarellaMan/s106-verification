@@ -2749,6 +2749,7 @@ dependencies = [
  "sha2",
  "tempfile",
  "tokio",
+ "winnow",
 ]
 
 [[package]]

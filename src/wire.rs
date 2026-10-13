@@ -241,11 +241,7 @@ impl PageMap {
 }
 
 pub fn money(s: Option<&str>) -> Option<Decimal> {
-    let s: String = s?
-        .chars()
-        .filter(|c| !matches!(c, '£' | ',') && !c.is_whitespace())
-        .collect();
-    if s.is_empty() { None } else { s.parse().ok() }
+    crate::quantity::decimal(s?).ok()
 }
 
 fn nonempty(s: &str) -> Option<String> {
