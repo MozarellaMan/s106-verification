@@ -6,12 +6,13 @@
 
 use std::fmt::Write;
 use std::ops::Range;
+use std::sync::LazyLock;
 
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 use sha2::{Digest, Sha256};
 
 use crate::evidence::{Located, Pages, Repair, locate};
-use crate::quantity::{Category, Cause, ParseError};
+use crate::quantity::{self, Category, Cause, ParseError};
 use crate::schema::Evidence;
 
 pub fn sha256_hex(s: &str) -> String {
@@ -84,6 +85,8 @@ pub struct Finding {
     pub expected: String,
     pub observed: Option<Observation>,
     pub citation: Option<CitationRef>,
+    /// SHA-256 of the extraction output this finding's field came from; set by `verify`.
+    pub extraction_sha256: Option<String>,
 }
 
 impl Finding {
@@ -171,6 +174,7 @@ impl Finding {
             expected,
             observed,
             citation,
+            extraction_sha256: None,
         }
     }
 
@@ -205,4 +209,147 @@ impl Finding {
         }
         o
     }
+}
+
+// ------------------------------------------------------------------------------- provenance
+
+/// Names the number-reading policy; bump it when the contract (not just the code) changes.
+pub const PARSER_POLICY: &str = "s106-quantity/1";
+
+/// Which extraction produced which parts of an audit, and what the parser accepted at the time.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RunIdentity {
+    pub parser_policy: String,
+    /// Behavioural: a hash of what the parser does on the probe corpus, not of its source.
+    pub parser_fingerprint: String,
+    pub crate_version: String,
+    pub cargo_lock_sha256: String,
+    /// Set by whoever builds (`S106_SOFTWARE_REVISION`); unknown otherwise, never inferred.
+    pub software_revision: Option<String>,
+    pub fixture_reference: String,
+    pub fixture_sha256: Option<String>,
+    pub extraction_sha256: String,
+    pub page_text_sha256: String,
+    #[serde(default)]
+    pub replacements: Vec<ReplacementIdentity>,
+}
+
+/// A field group adopted from an escalation extraction.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ReplacementIdentity {
+    /// "housing", "instrument" or a contribution name.
+    pub field_group: String,
+    pub extraction_sha256: String,
+    pub fixture_reference: String,
+    pub fixture_sha256: Option<String>,
+}
+
+impl RunIdentity {
+    pub fn new(
+        output: &serde_json::Value,
+        pages: &Pages,
+        fixture: &std::path::Path,
+    ) -> RunIdentity {
+        RunIdentity {
+            parser_policy: PARSER_POLICY.into(),
+            parser_fingerprint: parser_fingerprint().to_string(),
+            crate_version: env!("CARGO_PKG_VERSION").into(),
+            cargo_lock_sha256: sha256_hex(include_str!("../Cargo.lock")),
+            software_revision: option_env!("S106_SOFTWARE_REVISION").map(str::to_string),
+            fixture_reference: fixture.display().to_string(),
+            fixture_sha256: std::fs::read_to_string(fixture)
+                .ok()
+                .map(|s| sha256_hex(&s)),
+            extraction_sha256: sha256_hex(&serde_json::to_string(output).expect("serializable")),
+            page_text_sha256: sha256_hex(&serde_json::to_string(pages).expect("serializable")),
+            replacements: vec![],
+        }
+    }
+
+    /// The extraction a field group's values came from: its latest replacement, else the base.
+    pub fn extraction_for(&self, field_group: Option<&str>) -> &str {
+        field_group
+            .and_then(|g| self.replacements.iter().rev().find(|r| r.field_group == g))
+            .map_or(&self.extraction_sha256, |r| &r.extraction_sha256)
+    }
+}
+
+const PROBES: &str = include_str!("../fixtures/numeric-probes.txt");
+
+/// Probes are one per line with backslash, newline and carriage return escaped.
+pub fn unescape_probe(line: &str) -> String {
+    let mut out = String::new();
+    let mut chars = line.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('n') => out.push('\n'),
+            Some('r') => out.push('\r'),
+            Some(o) => out.push(o),
+            None => out.push('\\'),
+        }
+    }
+    out
+}
+
+pub fn escape_probe(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+}
+
+/// What the number parser does on every probe, one canonical block per probe: each quantity with
+/// unit and span, each error with cause and spans, then the whole-input readers. This is what the
+/// fingerprint hashes and what `tests/numeric_snapshot.rs` snapshots.
+pub fn probe_rendering() -> String {
+    let mut out = String::new();
+    for line in PROBES.lines().filter(|l| !l.is_empty()) {
+        let probe = unescape_probe(line);
+        let _ = writeln!(out, "probe {line}");
+        let scan = quantity::scan(&probe);
+        for q in &scan.quantities {
+            let _ = writeln!(out, "  quantity {} {:?} {:?}", q.value, q.unit, q.span);
+        }
+        for e in &scan.errors {
+            let _ = writeln!(out, "  error {}", render_error(e));
+        }
+        match quantity::decimal(&probe) {
+            Ok(v) => {
+                let _ = writeln!(out, "  decimal ok {v}");
+            }
+            Err(e) => {
+                let _ = writeln!(out, "  decimal err {}", render_error(&e));
+            }
+        }
+        match quantity::amount(&probe) {
+            Ok(v) => {
+                let _ = writeln!(out, "  amount ok {v}");
+            }
+            Err(e) => {
+                let _ = writeln!(out, "  amount err {}", render_error(&e));
+            }
+        }
+    }
+    out
+}
+
+fn render_error(e: &ParseError) -> String {
+    format!(
+        "{} {:?} candidate {:?} span {:?} expected {:?}",
+        e.category().code(),
+        e.cause,
+        e.candidate,
+        e.span,
+        e.expected
+    )
+}
+
+/// SHA-256 of `probe_rendering()`. A comment edit leaves it unchanged; any change in what the
+/// parser accepts, rejects or measures on the probe corpus changes it.
+pub fn parser_fingerprint() -> &'static str {
+    static FP: LazyLock<String> = LazyLock::new(|| sha256_hex(&probe_rendering()));
+    &FP
 }

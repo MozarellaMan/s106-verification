@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+use crate::audit::{ReplacementIdentity, RunIdentity};
 use crate::document::Document;
 use crate::llm::{self, ExtractEffort, Usage};
 use crate::schema::*;
@@ -370,6 +371,7 @@ pub fn to_agreement(
         contributions,
         variations,
         warnings,
+        run: Some(RunIdentity::new(output, &doc.pages(), &info.fixture)),
     })
 }
 
@@ -508,6 +510,16 @@ pub fn escalate(
                 }
             },
         };
+        if replace.is_some()
+            && let (Some(cand), Some(run)) = (&candidate.run, merged.run.as_mut())
+        {
+            run.replacements.push(ReplacementIdentity {
+                field_group: field.clone(),
+                extraction_sha256: cand.extraction_sha256.clone(),
+                fixture_reference: cand.fixture_reference.clone(),
+                fixture_sha256: cand.fixture_sha256.clone(),
+            });
+        }
         log.push(match replace {
             Some(()) => format!("{field}: replaced with {model} ({p0} -> {p1} Parser Errors)"),
             None => format!("{field}: kept ({})", why.join("; ")),

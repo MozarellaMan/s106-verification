@@ -46,6 +46,7 @@ fn agreement(contributions: Vec<Contribution>, affordable_units: Option<u32>) ->
         contributions,
         variations: vec![],
         warnings: vec![],
+        run: None,
     }
 }
 

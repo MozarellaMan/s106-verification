@@ -67,6 +67,7 @@ fn agreement_with(kind: InstrumentKind, housing: Housing) -> Agreement {
         contributions: vec![],
         variations: vec![],
         warnings: vec![],
+        run: None,
     }
 }
 

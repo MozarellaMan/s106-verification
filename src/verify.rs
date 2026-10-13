@@ -22,6 +22,7 @@ use serde::Serialize;
 use crate::audit::Finding;
 use crate::evidence::{Located, Pages, evidence_found, locate};
 use crate::quantity::{self, Cause, ParseError};
+use crate::report::gbp;
 use crate::schema::{
     AffordableBasis, Agreement, AmountStructure, ConditionalityKind, Contribution, Evidence,
     Instalment, Observed, Tenure, Variation,
@@ -164,29 +165,6 @@ fn parser_fail(id: &str, desc: &str, detail: &str, pages: Vec<usize>) -> CheckRe
         Some(ErrorClass::ParserError),
         detail,
         pages,
-    )
-}
-
-/// Pounds with thousands separators and two decimal places: 10058.6 -> "£10,058.60".
-fn gbp(d: Decimal) -> String {
-    let mut r = d.round_dp(2);
-    r.rescale(2);
-    let s = r.abs().to_string();
-    let (int, frac) = s.split_once('.').unwrap_or((&s, "00"));
-    let mut grouped = String::new();
-    for (i, ch) in int.chars().enumerate() {
-        if i > 0 && (int.len() - i) % 3 == 0 {
-            grouped.push(',');
-        }
-        grouped.push(ch);
-    }
-    format!(
-        "{}£{grouped}.{frac}",
-        if r.is_sign_negative() && !r.is_zero() {
-            "-"
-        } else {
-            ""
-        }
     )
 }
 
@@ -1514,6 +1492,19 @@ pub fn verify(agreement: &Agreement, pages: &Pages) -> Vec<CheckResult> {
             check_contribution(c, pages, i + 1),
             Scope::Contribution(i),
         ));
+    }
+    if let Some(run) = &agreement.run {
+        for r in &mut results {
+            let group = match r.scope {
+                Scope::Housing => Some("housing"),
+                Scope::Contribution(i) => agreement.contributions.get(i).map(|c| c.name.as_str()),
+                Scope::Instrument | Scope::Variation(_) => None,
+            };
+            let sha = run.extraction_for(group).to_string();
+            for f in &mut r.findings {
+                f.extraction_sha256 = Some(sha.clone());
+            }
+        }
     }
     results
 }
