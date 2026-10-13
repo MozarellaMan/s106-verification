@@ -44,6 +44,9 @@ pub struct Agreement {
     pub variations: Vec<Variation>,
     #[serde(default)]
     pub warnings: Vec<String>,
+    /// Which extraction, page text and parser produced this audit.
+    #[serde(default)]
+    pub run: Option<crate::audit::RunIdentity>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

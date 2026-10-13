@@ -44,7 +44,7 @@ fn info(source: &str) -> Info {
         served_by: "claude-haiku-5-5".into(),
         source: source.into(),
         usage: None,
-        fixture: PathBuf::new(),
+        fixture: None,
     }
 }
 

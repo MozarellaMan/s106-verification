@@ -93,7 +93,7 @@ fn rust_reproduces_python_m1() {
             served_by: "claude-haiku-5-5".into(),
             source: "replay-v1".into(),
             usage: None,
-            fixture: PathBuf::new(),
+            fixture: None,
         };
         let agreement = extract::to_agreement(&doc, &fx["output"], &pm, &info).unwrap();
         let ours: BTreeMap<String, (String, Option<&str>)> = verify(&agreement, &doc.pages())

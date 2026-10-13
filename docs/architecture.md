@@ -54,8 +54,10 @@ flowchart LR
    Empty citations become `None`; attachment positions pass through `PageMap`.
    Group contribution terms are removed; trigger labels come from the fixed
    vocabulary, with a covenant fallback for single triggers. The conversion does
-   not prove evidence. Malformed nonempty decimal strings currently become `None`;
-   that is a known input-validation limitation, distinct from JSON type errors.
+   not prove evidence. Numeric fields become `Observed<T>`: the extractor's string is
+   kept as `raw` beside the parse result, so a malformed nonempty string is a typed
+   `ParseError` (code, cause, byte span), not a silent `None`. `to_agreement` also
+   records `Agreement.run`, the run identity (see `docs/numeric-parsing.md`).
 
 5. **Verify.** `verify::verify` lists the checks in execution order. Each check
    computes its assertion and supplies `Input` values and citations to `resolve`.
@@ -63,7 +65,12 @@ flowchart LR
    `evidence_found` relocates that snippet on its cited page. Matching tolerates
    whitespace loss and bounded column interleaving. Decimal points and numeric
    boundaries are retained; numeric tokens cannot be skipped as garbled words.
-   No fuzzy-similarity score substitutes for these rules.
+   No fuzzy-similarity score substitutes for these rules. Numbers are read by
+   `quantity.rs` (one tokenizer, one grammar, units `Gbp`/`Percent`/`Count`) and the
+   claimed value must occur in the snippet with the unit the field expects.
+   `evidence::locate` returns where the snippet matched, plus any OCR digit repairs;
+   a numeric value is never verified through a repair. Each numeric problem is a
+   typed `audit::Finding` (NUM001-NUM006) attached to its check.
 
 6. **Optionally escalate.** With `--escalate`, Parser Errors trigger another
    complete extraction using the stronger model. `extract::escalate` groups check
@@ -71,6 +78,8 @@ flowchart LR
    when Parser Errors decrease, at least as many checks run and its implemented
    presence checks find no loss. These presence checks are incomplete (see below).
    The CLI re-verifies the merged agreement and records the merge log as a warning.
+   Each adopted field group also adds a `ReplacementIdentity` to `Agreement.run`, so a
+   finding's `extraction_sha256` names the extraction its field came from.
    REVIEW alone does not trigger escalation.
 
 7. **Report.** `report::render` prints the agreement and check results;
@@ -116,8 +125,10 @@ A PASS only concerns that check's assertion and current grounding mechanism.
 | `llm.rs` | `extract`, `schema_for`: SDK request/response and provider schema constraints |
 | `schema.rs` | `Agreement`: durable domain fields, evidence and provenance |
 | `verify.rs` | `verify`, `resolve`: check inventory and status decision |
-| `evidence.rs`, `text.rs`, `triggers.rs` | `evidence_found`: relocation; number reading; deterministic payment vocabulary |
-| `report.rs` | Terminal presentation and borrowed `AuditJson` view |
+| `quantity.rs` | `scan`, `decimal`, `integer`, `amount`: tokenizer, grammar, units, parse errors |
+| `audit.rs` | `Finding`, `RunIdentity`, `parser_fingerprint`: typed findings and run provenance |
+| `evidence.rs`, `text.rs`, `triggers.rs` | `locate`: relocation; text normalisation; deterministic payment vocabulary |
+| `report.rs` | Terminal presentation, `gbp`, and borrowed `AuditJson` view; the JSON holds the agreement (with `run`) and `verification[].findings` |
 | `eval.rs`, `ocrbench.rs` | Register comparison/run agreement; OCR against transcribed gold |
 
 The coupling is intentional: wire and verifier both use the domain enums, so
@@ -205,9 +216,13 @@ real-PDF test tiers would expose. Commit the snapshot of the text used for a res
   limitations, not permission to infer missing legal facts.
 - Model classification drives variation gating. Metadata, unconditional labels,
   indexing flags and complete obligation coverage are not independently verified.
-- Escalation's loss checks do not cover every field, and provenance retains the
-  original extraction label plus a warning rather than a per-field merge history.
-  Use it as a review aid, not an established safeguard against loss of obligations.
+- Escalation's loss checks do not cover every field. Provenance keeps the original
+  extraction label plus a warning, and `Agreement.run.replacements` records which
+  field groups came from which extraction. Use escalation as a review aid, not an
+  established safeguard against loss of obligations.
+- The parser fingerprint covers the probe corpus in `fixtures/numeric-probes.txt`,
+  not every possible input; `tests/numeric_snapshot.rs` is the review gate for changes
+  in the parser's results on that corpus.
 - Register evaluation is a diagnostic cross-check, not an extraction gold set.
   Purpose totals, instalments and duplicate register rows complicate comparisons.
   Run agreement compares selected fields and does not compare complete agreements.

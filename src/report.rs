@@ -44,10 +44,12 @@ pub fn counts(results: &[CheckResult]) -> [usize; 6] {
     ]
 }
 
-// Same format as `verify::gbp` for non-negative amounts; this one has no sign handling (a negative
-// would print "£-5.00"), so the two are kept apart rather than risk changing check detail strings.
-fn gbp(d: rust_decimal::Decimal) -> String {
-    let s = format!("{:.2}", d.round_dp(2));
+/// Pounds with thousands separators and at least two decimal places, exact value kept:
+/// 10058.6 -> "£10,058.60", 0.125 -> "£0.125", -5 -> "-£5.00".
+pub fn gbp(d: rust_decimal::Decimal) -> String {
+    let d = d.normalize();
+    let precision = d.scale().max(2) as usize;
+    let s = format!("{:.precision$}", d.abs());
     let (int, frac) = s.split_once('.').unwrap_or((&s, "00"));
     let mut g = String::new();
     for (i, ch) in int.chars().enumerate() {
@@ -56,7 +58,12 @@ fn gbp(d: rust_decimal::Decimal) -> String {
         }
         g.push(ch);
     }
-    format!("£{g}.{frac}")
+    let sign = if d.is_sign_negative() && !d.is_zero() {
+        "-"
+    } else {
+        ""
+    };
+    format!("{sign}£{g}.{frac}")
 }
 
 fn pg(e: &Option<Evidence>) -> String {
