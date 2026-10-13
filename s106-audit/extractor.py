@@ -536,11 +536,9 @@ PARSE_ATTEMPTS = 3
 
 
 def _call_with_retry(client, model: str, pdf_b64: str, prompt: str, effort: str, verbose: bool):
-    """Retry when the structured output arrives truncated (invalid JSON).
+    """_call_claude, retried up to PARSE_ATTEMPTS times on invalid (truncated) structured output.
 
-    The SDK validates the JSON inside parse(), so a response that ends early raises before
-    stop_reason can be inspected. Seen once in eight live Haiku runs on the sample; the
-    attempt count is recorded in usage so a flaky deed is visible in the audit JSON.
+    Records the attempt count in usage["attempts"]; raises RuntimeError when every attempt fails.
     """
     import sys
 
@@ -653,11 +651,12 @@ def wire_contribution(w: WireContribution, page_map: list[int]) -> FinancialCont
     # model's own label is kept only when the phrase decides differently.
     cited = classify_cited(w.trigger_evidence.snippet if w.trigger_evidence else None, w.trigger_clause)
     event = cited or w.trigger_event
+    amount = _money(w.amount_gbp)
     return FinancialContribution(
-        name=w.name, amount_gbp=_money(w.amount_gbp), amount_in_words=w.amount_in_words, index_linked=w.index_linked,
-        # "contingent" means no fixed figure (see CONTRIB_TASK), so it follows from the amount, not
-        # from the model's run-to-run judgement
-        is_cap=w.is_cap, contingent=_money(w.amount_gbp) is None and w.contingent, trigger_event=event,
+        name=w.name, amount_gbp=amount, amount_in_words=w.amount_in_words, index_linked=w.index_linked,
+        # "contingent" means no fixed figure (see CONTRIB_TASK): forced False whenever a figure was
+        # extracted; with no figure it is still Claude's flag (contingent vs. a missed amount)
+        is_cap=w.is_cap, contingent=amount is None and w.contingent, trigger_event=event,
         trigger_event_model=w.trigger_event if w.trigger_event != event else None, trigger_clause=w.trigger_clause,
         trigger_evidence=_ev(w.trigger_evidence, page_map), evidence=_ev(w.evidence, page_map))
 

@@ -18,7 +18,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from enum import Enum
 
 from schema import AffordableBasis, Evidence, Section106Agreement
-from triggers import classify_cited
+from triggers import classify_cited, imposes_payment
 
 PCT_TOLERANCE = Decimal("0.05")  # percentage points; deeds quote 2 dp
 
@@ -357,7 +357,24 @@ def check_contribution(c, pages, idx: int) -> list[CheckResult]:
     return out
 
 
-PAY_WORDS = re.compile(r"p\s*a\s*y|p\s*a\s*i\s*d", re.I)
+def _trigger_clause_problem(c, pages) -> str | None:
+    """Why the cited clause can't be trusted as this contribution's payment covenant, if it can't.
+
+    The timing phrase alone proves little: "Prior to Occupation" also schedules assessments. So
+    the clause must itself be in the deed (on the phrase's page, or running onto the next), the
+    phrase must sit inside it, and its wording must impose a payment.
+    """
+    ev = c.trigger_evidence
+    if squash(ocr_digits(ev.snippet)) not in squash(ocr_digits(c.trigger_clause)):
+        return "cited trigger phrase is not part of the cited clause"
+    spread = {ev.page: pages[ev.page] + "\n" + pages.get(ev.page + 1, "")}
+    if not evidence_found(Evidence(page=ev.page, snippet=c.trigger_clause), spread):
+        return f"cited payment clause not re-locatable in source (p{ev.page})"
+    if not imposes_payment(c.trigger_clause):
+        # e.g. "Prior to Occupation ... the Council shall assess the amount payable" schedules an
+        # assessment; the payment covenant is elsewhere.
+        return "cited clause does not impose a payment"
+    return None
 
 
 def check_trigger(c, pages, cid: str, pg: list[int]) -> list[CheckResult]:
@@ -372,12 +389,10 @@ def check_trigger(c, pages, cid: str, pg: list[int]) -> list[CheckResult]:
         return [CheckResult(cid + ".trig", desc, Status.FAIL, actual=c.trigger_event.value,
                             error_class=ErrorClass.PARSER_ERROR,
                             detail=f"cited trigger phrase not re-locatable in source ({where})", pages=tpg)]
-    if not PAY_WORDS.search(c.trigger_clause):
-        # e.g. "Prior to the Occupation of 50% ... the Council and the Owner shall compare ..." times an
-        # assessment, not a payment; the payment covenant is elsewhere.
+    problem = _trigger_clause_problem(c, pages)
+    if problem:
         return [CheckResult(cid + ".trig", desc, Status.FAIL, actual=c.trigger_event.value,
-                            error_class=ErrorClass.PARSER_ERROR,
-                            detail="cited clause does not make anything payable", pages=tpg)]
+                            error_class=ErrorClass.PARSER_ERROR, detail=problem, pages=tpg)]
     out = [CheckResult(cid + ".trig", desc, Status.PASS, actual=c.trigger_event.value, pages=tpg)]
     desc = f"{c.name}: trigger label follows from cited phrase"
     derived = classify_cited(c.trigger_evidence.snippet, c.trigger_clause)

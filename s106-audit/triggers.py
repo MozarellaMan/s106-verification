@@ -26,12 +26,35 @@ PATTERNS: list[tuple[TriggerEvent, str]] = [
     (TriggerEvent.PRE_COMMENCEMENT, r"not(?:to)?commence"),
     (TriggerEvent.PRE_OCCUPATION, _BEFORE + r"(?:first)?occupation"),
     (TriggerEvent.PRE_OCCUPATION, r"not(?:to)?occupy"),
-    (TriggerEvent.ON_COMPLETION, r"(?:on|upon)(?:the)?(?:completion|date)(?:of|hereof)(?:this)?(?:agreement|deed)?"),
+    # completion/date of *this agreement or deed* only; "on completion of construction" is not it
+    (TriggerEvent.ON_COMPLETION, r"(?:on|upon)(?:the)?(?:completion|date)of(?:this)?(?:agreement|deed)"),
+    (TriggerEvent.ON_COMPLETION, r"(?:on|upon)(?:the)?(?:completion|date)hereof"),
     (TriggerEvent.ON_DEMAND, r"within" + _NUM + r"(?:working)?days?"),
     (TriggerEvent.ON_DEMAND, r"ondemand"),
     (TriggerEvent.OTHER, r"inaccordancewiththeprocedure"),
 ]
 _COMPILED = [(event, re.compile(p)) for event, p in PATTERNS]
+
+
+# Wording that imposes a payment, as opposed to merely mentioning one ("the Council shall assess
+# the amount payable" schedules an assessment). Matched on squashed text, like PATTERNS.
+_PAYER = r"(?:shall|will|must|agrees?to|covenants?(?:with\w{0,40}?)?to|undertakes?to)"
+OBLIGATIONS = [
+    _PAYER + r"(?:pay|bepaid)",                      # "the Owner shall pay", "covenants ... to pay"
+    r"(?:shall|will)(?:then)?(?:be|become)(?:due(?:and)?)?payable",  # "shall be payable"
+    r"(?:is|are|becomes?)(?:due(?:and)?)?payable",  # "is payable", "becomes due and payable"
+    r"until\w*(?:has|have)beenpaid",                # "Not to Implement until ... have been paid"
+]
+_OBLIGATIONS = [re.compile(p) for p in OBLIGATIONS]
+# Covenant list items ("1.3 To pay the ...", "Unless ..., to pay the ...") need the clause or
+# comma boundary, which squashing removes, so this one runs on the raw text.
+_COVENANT_ITEM = re.compile(r"(?:^|[,;:])\s*(?:\d[\d.]*\s*)?(?:\([a-z0-9]+\)\s*)?to\s*pay", re.I | re.M)
+
+
+def imposes_payment(clause: str | None) -> bool:
+    """Does the clause oblige someone to pay (or make a sum payable), not just mention payment?"""
+    s = squash(clause or "")
+    return any(rx.search(s) for rx in _OBLIGATIONS) or bool(_COVENANT_ITEM.search(clause or ""))
 
 
 def squash(s: str) -> str:

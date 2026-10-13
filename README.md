@@ -114,17 +114,17 @@ Discrepancies. That errs on the safe side, but it weakens the classification.
 | H6 | mix table agrees with the definitions (per-tenure units, affordable units and habitable rooms) |
 | F*.amt | a figure was extracted (SKIP for formula/review-contingent sums with no fixed figure) |
 | F*.words | each contribution's figure == its words form ("£10,058.60 (ten thousand and fifty eight pounds and sixty pence)") |
-| F*.trig | a payment trigger was found; its cited phrase re-locates in the OCR text; the cited clause actually makes something payable (not, say, an assessment date) |
+| F*.trig | a payment trigger was found; the cited phrase and the full cited clause both re-locate in the OCR text, the phrase lies inside the clause, and the clause imposes a payment ("shall pay", "shall be payable", "To pay …", "until … paid"), not merely mentions one |
 | F*.tlabel | the trigger label follows from the cited phrase under the fixed vocabulary in `s106-audit/triggers.py` (SKIP if the phrase is outside it) |
 
-**Determinism.** Claude reads the deed, but what gets reported does not depend on the run where it
-can be avoided. A trigger's label is decided by `triggers.classify()` from the cited phrase, for both
-backends. The model's own label is kept as `trigger_event_model` only when it differs. `contingent`
-follows from whether a figure was extracted. Plural group terms ("Site and Development
-Contributions") are dropped from the contribution list with a warning. A truncated structured output
-is retried up to three times, and the number of attempts is recorded in the run's usage. In four live
-Haiku runs on the sample after these changes, housing figures, amounts, flags and trigger labels
-agreed exactly. One run also listed the two group terms, which are now filtered.
+**Determinism.** Values that can be decided from the deed text don't depend on the model run.
+A trigger's label comes from its cited phrase via the fixed vocabulary in `triggers.py` (the model's
+label is kept as `trigger_event_model` when it differs). `contingent` is forced false when a figure
+was extracted. Plural group terms ("Site and Development Contributions") are dropped from the
+contribution list with a warning. Truncated structured output is retried up to three times.
+*Limitations:* which clause the model cites, the words form it copies, and `contingent` for sums
+with no figure can still vary between runs. Phrases outside the vocabulary leave the label
+unverified (`F*.tlabel` SKIP).
 
 **Classification.** When a check fails, each input value's evidence snippet is re-located in the
 cited page, ignoring whitespace (OCR drops spaces). If any input is missing or can't be found,

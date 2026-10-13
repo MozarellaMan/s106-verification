@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "s106-audit"))
 
 from schema import Evidence, FinancialContribution, TriggerEvent  # noqa: E402
-from triggers import classify  # noqa: E402
+from triggers import classify, imposes_payment  # noqa: E402
 from verifier import Status, check_trigger, ocr_digits  # noqa: E402
 
 E = TriggerEvent
@@ -41,6 +41,7 @@ class ClassifyTest(unittest.TestCase):
             "To pay the Carbon Green Fund Contribution in accordance with the procedure outlined in paragraph 3": E.OTHER,
             "prior to Commencement of the Development": E.PRE_COMMENCEMENT,
             "on completion of this Agreement": E.ON_COMPLETION,
+            "on the date hereof": E.ON_COMPLETION,
         }
         for phrase, event in cases.items():
             with self.subTest(phrase=phrase):
@@ -55,6 +56,9 @@ class ClassifyTest(unittest.TestCase):
 
     def test_unrecognised(self):
         self.assertIsNone(classify("as the Council may direct"))
+        # Review repro: construction completion is not completion of the agreement.
+        self.assertIsNone(classify("on completion of construction"))
+        self.assertIsNone(classify("upon completion of the Development"))
         self.assertIsNone(classify(None))
 
 
@@ -64,14 +68,20 @@ def contribution(phrase: str, clause: str, event: TriggerEvent, model: TriggerEv
                                  trigger_evidence=Evidence(page=89, snippet=phrase))
 
 
+CLAUSE_3_5 = ("The Carbon Green Fund Contribution (as agreed between the Council and the Owner or determined in "
+              "accordance with clause 19 of this Agreement) shall be payable within 20 Working Days of such "
+              "agreement or determination.")
+CLAUSE_3_1 = ("Prior to the Occupation of 50% of the Development (or upon such other date as may be agreed between "
+              "the Council and the Owner) the Council and the Owner shall compare the environmental performance of "
+              "the Development against the Agreed Carbon Targets")
+
+
 class CheckTriggerTest(unittest.TestCase):
     def run_check(self, c):
         return {r.check_id.split(".")[1]: r for r in check_trigger(c, {89: PAGE_89}, "F5", [8])}
 
     def test_payment_clause_passes_and_records_model_label(self):
-        c = contribution("payable within 20 Working Days of",
-                         "The Carbon Green Fund Contribution ... shall be payable within 20 Working Days of such "
-                         "agreement or determination.", E.ON_DEMAND, model=E.OTHER)
+        c = contribution("payable within 20 Working Days of", CLAUSE_3_5, E.ON_DEMAND, model=E.OTHER)
         r = self.run_check(c)
         self.assertEqual(r["trig"].status, Status.PASS)
         self.assertEqual(r["tlabel"].status, Status.PASS)
@@ -79,24 +89,58 @@ class CheckTriggerTest(unittest.TestCase):
 
     def test_assessment_clause_is_not_a_trigger(self):
         # Live run 1 cited the assessment timing (3.1), which makes nothing payable.
-        c = contribution("Prior to the Occupation of 50% of the Development",
-                         "Prior to the Occupation of 50% of the Development (or upon such other date as may be "
-                         "agreed between the Council and the Owner) the Council and the Owner shall compare the "
-                         "environmental performance", E.PRE_OCCUPATION)
+        c = contribution("Prior to the Occupation of 50% of the Development", CLAUSE_3_1, E.PRE_OCCUPATION)
         r = self.run_check(c)
         self.assertEqual(r["trig"].status, Status.FAIL)
-        self.assertIn("does not make anything payable", r["trig"].detail)
+        self.assertIn("does not impose a payment", r["trig"].detail)
+
+    def test_invented_payment_clause_fails(self):
+        # Review repro: a real timing phrase wrapped in a payment covenant the deed doesn't contain.
+        c = contribution("Prior to the Occupation of 50% of the Development",
+                         "Prior to the Occupation of 50% of the Development the Owner shall pay the Carbon Green "
+                         "Fund Contribution to the Council", E.PRE_OCCUPATION)
+        r = self.run_check(c)
+        self.assertEqual(r["trig"].status, Status.FAIL)
+        self.assertIn("payment clause not re-locatable", r["trig"].detail)
+
+    def test_phrase_must_sit_in_the_clause(self):
+        c = contribution("Prior to the Occupation of 50% of the Development", CLAUSE_3_5, E.PRE_OCCUPATION)
+        r = self.run_check(c)
+        self.assertEqual(r["trig"].status, Status.FAIL)
+        self.assertIn("not part of the cited clause", r["trig"].detail)
 
     def test_misquoted_phrase_fails(self):
-        c = contribution("payable within 10 Working Days of", "shall be payable within 10 Working Days of such "
-                         "agreement", E.ON_DEMAND)
+        c = contribution("payable within 10 Working Days of", CLAUSE_3_5.replace("20", "10"), E.ON_DEMAND)
         self.assertEqual(self.run_check(c)["trig"].status, Status.FAIL)
 
     def test_label_must_follow_phrase(self):
-        c = contribution("payable within 20 Working Days of", "shall be payable within 20 Working Days of such "
-                         "agreement", E.PRE_OCCUPATION)
+        c = contribution("payable within 20 Working Days of", CLAUSE_3_5, E.PRE_OCCUPATION)
         r = self.run_check(c)
+        self.assertEqual(r["trig"].status, Status.PASS)
         self.assertEqual(r["tlabel"].status, Status.FAIL)
+
+
+class ImposesPaymentTest(unittest.TestCase):
+    def test_obligations(self):
+        for clause in ("To pay the Site and Development Contributions on or before Implementation.",
+                       "1.3 TopaytheCycleHireDockingStationContributiononorbeforeOccupation.",
+                       "Unless a lesser amount is specified in writing, to pay the Bus Contribution on or before "
+                       "first Occupation",
+                       "The Owner covenants with the Council to pay the Administration Cost within 28 days",
+                       "the Owner will pay the Default Employment in the End Use Contribution within 28 days",
+                       CLAUSE_3_5,
+                       "Not to Implement the Development until the Site and Development Contributions have been "
+                       "paid to the Council in full."):
+            with self.subTest(clause=clause):
+                self.assertTrue(imposes_payment(clause))
+
+    def test_mentions_are_not_obligations(self):
+        # Review repro: mentioning a payable amount is not imposing payment.
+        for clause in ("Prior to Occupation the Council shall assess the amount payable",
+                       "the Council shall calculate the sum to be paid by the Owner",
+                       CLAUSE_3_1):
+            with self.subTest(clause=clause):
+                self.assertFalse(imposes_payment(clause))
 
 
 class OcrDigitsTest(unittest.TestCase):
