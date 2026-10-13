@@ -326,3 +326,27 @@ fn gate_summary_counts_statuses_and_classes() {
     assert_eq!(g.failures, vec!["F1.a desc: why", "F2.a desc: why"]);
     assert_eq!(g.reviews, vec!["H2 desc: why"]);
 }
+
+#[test]
+fn only_fixed_sums_and_caps_are_totalled_and_scored() {
+    let mut a = agreement(vec![], None);
+    for (structure, value) in [
+        (AmountStructure::Fixed, "100"),
+        (AmountStructure::Cap, "200"),
+        (AmountStructure::Rate, "10"),
+        (AmountStructure::Formula, "20"),
+        (AmountStructure::None, "30"),
+    ] {
+        let mut c = contribution("test", Some(value), None);
+        c.amount.structure = structure;
+        a.contributions.push(c);
+    }
+    assert_eq!(a.total_stated_gbp(), d("300"));
+    let score = score_against_register(
+        &a,
+        &reference(&[("education", "100"), ("highways", "200")], &[]),
+    );
+    assert_eq!(score.extracted_sums, 2);
+    assert_eq!(score.extracted_sums_matched, 2);
+    assert!(score.unmatched_extracted.is_empty());
+}

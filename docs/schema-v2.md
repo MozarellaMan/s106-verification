@@ -71,8 +71,8 @@ Agreement
 - **V1 (instrument):** a variation or supplemental deed must cite a parent, and the parent's
   evidence is grounded. Whole-scheme housing checks (H1–H4) SKIP for variations and supplemental
   deeds.
-- **V2 (variations):** each operation's evidence is grounded and states its target (and new
-  value, if any).
+- **V2 (variations):** each citation is relocated and an identifying target token is checked.
+  The operation and full replacement wording are reported, not independently verified.
 - **F\*.cond:** a conditional contribution quotes its condition, and the quote is grounded.
 - **F\*.inst:** when instalments are stated as percentages they sum to 100. Each instalment's
   trigger phrase is grounded and labelled by the trigger vocabulary. The covenant (or lead-in)

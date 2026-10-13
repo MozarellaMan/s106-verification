@@ -66,5 +66,7 @@ deterministic non-LLM baseline is wanted, it has to be written afresh.
 
 ## Open
 
-- Opus escalation has unit-level logic and tests but has not been exercised live.
+- Opus escalation has selection logic but no dedicated escalation regression tests at
+  the migration baseline, and has not been exercised live. Its preservation and provenance
+  limitations are described in [architecture.md](architecture.md).
 - The Message Batches API (asynchronous, discounted) is the cost lever for scale and is not used yet.

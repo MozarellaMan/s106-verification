@@ -215,3 +215,60 @@ fn missing_page_or_evidence() {
     assert!(!found(99, "means the sum of £12,650"));
     assert!(!evidence_found(None, &PAGES));
 }
+
+#[test]
+fn contiguous_matches_preserve_complete_numbers() {
+    for (page, snippet) in [
+        ("150", "50"),
+        ("500", "50"),
+        ("£100", "£1.00"),
+        ("£1.00", "£100"),
+        ("£10.50 payable", "£1050 payable"),
+        ("£10,500 payable", "£10.500 payable"),
+    ] {
+        assert!(!found_in(page, snippet), "{snippet:?} matched {page:?}");
+    }
+    assert!(found_in("£1,000.00 payable", "£1000.00 payable"));
+    assert!(found_in(
+        "50% prior to Occupation",
+        "50% prior to Occupation"
+    ));
+}
+
+#[test]
+fn layout_matches_preserve_decimal_positions() {
+    let page = "means the sum of f100\nContribution pounds payable to the Council";
+    assert!(!found_in(
+        page,
+        "means the sum of £1.00 pounds payable to the Council"
+    ));
+    assert!(found_in(
+        page,
+        "means the sum of £100 pounds payable to the Council"
+    ));
+}
+
+#[test]
+fn numbered_clauses_do_not_absorb_a_following_percentage() {
+    for page in [
+        "1.1.1. 50% prior to Occupation",
+        "1.1.1  50% prior to Occupation",
+        "5 3 1 50% prior to Occupation",
+        "1.1.1\n50% prior to Occupation",
+    ] {
+        assert!(found_in(page, "50% prior to Occupation"), "{page}");
+    }
+    assert!(!found_in(
+        "150% prior to Occupation",
+        "50% prior to Occupation"
+    ));
+    assert!(!found_in(
+        "£1.50 prior to Occupation",
+        "50 prior to Occupation"
+    ));
+    // With no separator, a clause suffix is ambiguous with a decimal amount.
+    assert!(!found_in(
+        "9.1.1.50% prior to Occupation",
+        "50% prior to Occupation"
+    ));
+}

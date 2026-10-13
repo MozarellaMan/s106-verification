@@ -155,7 +155,7 @@ pub struct WireVariation {
 }
 
 // One schema for everything compiles to an output grammar the API rejects as too large
-// (measured with examples/schema_probe.rs), so extraction is three calls over the same cached PDF.
+// (measured with examples/schema_probe.rs), so extraction is three calls over the same PDF.
 
 /// First call: what the instrument is, and what it varies.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -178,7 +178,7 @@ pub struct WireContributionsPart {
     pub contributions: Vec<WireContribution>,
 }
 
-/// Both calls' answers combined; this is what fixtures store.
+/// The three calls' answers combined; this is what fixtures store.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WireExtraction {
     pub instrument: WireInstrument,

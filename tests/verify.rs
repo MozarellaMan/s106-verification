@@ -797,12 +797,12 @@ fn instalment_contribution(shares: [&str; 2], events: [E; 2]) -> Contribution {
             Instalment {
                 share_pct: Some(dec(shares[0])),
                 trigger_event: Some(events[0]),
-                trigger_phrase: Some(ev(30, "prior to Occupation of the 1st Dwelling")),
+                trigger_phrase: Some(ev(30, "50% prior to Occupation of the 1st Dwelling")),
             },
             Instalment {
                 share_pct: Some(dec(shares[1])),
                 trigger_event: Some(events[1]),
-                trigger_phrase: Some(ev(30, "prior to Occupation of the 50th Dwelling")),
+                trigger_phrase: Some(ev(30, "50% prior to Occupation of the 50th Dwelling")),
             },
         ],
     };
@@ -842,9 +842,15 @@ fn inst_shares_summing_to_100_pass() {
 }
 
 #[test]
-fn inst_shares_not_summing_to_100_with_grounded_phrases_is_discrepancy() {
-    let c = instalment_contribution(["50", "40"], [E::PreOccupation, E::PreOccupation]);
-    let rs = check_contribution(&c, &pages(&[(30, PAGE_30)]), 3);
+fn inst_shares_not_summing_to_100_with_grounded_values_is_discrepancy() {
+    let mut c = instalment_contribution(["50", "40"], [E::PreOccupation, E::PreOccupation]);
+    c.payment.instalments[1]
+        .trigger_phrase
+        .as_mut()
+        .unwrap()
+        .snippet = "40% prior to Occupation of the 50th Dwelling".into();
+    let source = PAGE_30.replace("(b) 50%", "(b) 40%");
+    let rs = check_contribution(&c, &pages(&[(30, &source)]), 3);
     let r = by_id(&rs)["F3.inst"].clone();
     assert_eq!(r.status, Status::Fail);
     assert_eq!(r.error_class, Some(ErrorClass::DocumentDiscrepancy));
@@ -898,4 +904,56 @@ fn inst_unlocatable_phrase_needs_review_and_non_payment_lead_in_fails() {
     let r = by_id(&rs)["F3.instcov"].clone();
     assert_eq!(r.status, Status::Fail);
     assert!(r.detail.contains("does not impose a payment"));
+}
+
+#[test]
+fn invented_instalment_shares_cannot_pass_or_blame_the_deed() {
+    for (shares, expected_status, expected_class) in [
+        (["60", "40"], Status::Review, None),
+        (["50", "40"], Status::Fail, Some(ErrorClass::ParserError)),
+    ] {
+        let c = instalment_contribution(shares, [E::PreOccupation, E::PreOccupation]);
+        let rs = check_contribution(&c, &pages(&[(30, PAGE_30)]), 3);
+        let r = by_id(&rs)["F3.inst"];
+        assert_eq!(r.status, expected_status, "{}", r.detail);
+        assert_eq!(r.error_class, expected_class, "{}", r.detail);
+    }
+}
+
+#[test]
+fn timing_without_share_evidence_is_review() {
+    let mut c = instalment_contribution(["50", "50"], [E::PreOccupation, E::PreOccupation]);
+    for inst in &mut c.payment.instalments {
+        let ev = inst.trigger_phrase.as_mut().unwrap();
+        ev.snippet = ev.snippet.trim_start_matches("50% ").to_string();
+    }
+    let rs = check_contribution(&c, &pages(&[(30, PAGE_30)]), 3);
+    assert_eq!(by_id(&rs)["F3.inst"].status, Status::Review);
+}
+
+#[test]
+fn unreadable_pence_is_a_parser_error_even_when_the_quote_relocates() {
+    let words = "ten pounds and illegible pence";
+    let snippet = format!("£10 ({words})");
+    let mut c = contribution("x", "y", E::OnDemand, None);
+    c.amount = amount(
+        AmountStructure::Fixed,
+        Some("10"),
+        Some(words),
+        Some(ev(1, &snippet)),
+    );
+    let rs = check_contribution(&c, &pages(&[(1, &snippet)]), 1);
+    let r = by_id(&rs)["F1.words"];
+    assert_eq!(r.status, Status::Fail);
+    assert_eq!(r.error_class, Some(ErrorClass::ParserError));
+}
+
+#[test]
+fn dwelling_numbers_do_not_ground_instalment_percentages() {
+    let mut c = instalment_contribution(["50", "50"], [E::PreOccupation, E::PreOccupation]);
+    for inst in &mut c.payment.instalments {
+        inst.trigger_phrase = Some(ev(30, "prior to Occupation of the 50th Dwelling"));
+    }
+    let rs = check_contribution(&c, &pages(&[(30, PAGE_30)]), 3);
+    assert_eq!(by_id(&rs)["F3.inst"].status, Status::Review);
 }

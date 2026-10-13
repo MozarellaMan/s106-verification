@@ -1,5 +1,4 @@
 //! Text normalisation and number reading shared by evidence matching, triggers and the verifier.
-//! Port of the helpers in the former `s106-audit/verifier.py` (see git history).
 
 use std::collections::BTreeSet;
 use std::str::FromStr;
@@ -114,18 +113,22 @@ pub fn words_to_int(text: &str) -> Option<u64> {
         }
         seen = true;
         if let Some(i) = UNITS.iter().position(|u| *u == w) {
-            current = current.saturating_add(i as u64);
+            current = current.checked_add(i as u64)?;
         } else if let Some(t) = TENS.iter().find(|t| t.0 == w) {
-            current = current.saturating_add(t.1);
+            current = current.checked_add(t.1)?;
         } else if w == "hundred" {
-            current = current.saturating_mul(100);
+            current = current.checked_mul(100)?;
         } else {
             let scale = SCALES.iter().find(|t| t.0 == w).map_or(1, |t| t.1);
-            total = total.saturating_add(current.saturating_mul(scale));
+            total = total.checked_add(current.checked_mul(scale)?)?;
             current = 0;
         }
     }
-    seen.then(|| total.saturating_add(current))
+    if seen {
+        total.checked_add(current)
+    } else {
+        None
+    }
 }
 
 /// "ten thousand and fifty eight pounds and sixty pence" -> 10058.60
@@ -135,11 +138,14 @@ pub fn words_to_amount(text: &str) -> Option<Decimal> {
     let pounds = words_to_int(&t[..at])?;
     let mut rest = &t[at + "pound".len()..];
     rest = rest.strip_prefix('s').unwrap_or(rest);
-    let pence_txt = letters_only(rest).replace("pence", "").replace("penny", "");
-    let pence = if pence_txt.trim_matches(|c| "and".contains(c)).is_empty() {
+    let suffix = letters_only(rest);
+    let pence = if suffix.is_empty() || suffix == "and" {
         0
     } else {
-        words_to_int(&pence_txt).unwrap_or(0)
+        let number = suffix
+            .strip_suffix("pence")
+            .or_else(|| suffix.strip_suffix("penny"))?;
+        words_to_int(number)?
     };
     Some(Decimal::from(pounds) + Decimal::new(i64::try_from(pence).ok()?, 2))
 }
@@ -165,6 +171,26 @@ pub fn numbers_in(text: &str) -> BTreeSet<Decimal> {
         }
     }
     out
+}
+
+/// A share needs percentage wording: "50th Dwelling" does not state a 50% share.
+pub fn percentage_in_snippet(value: Decimal, snippet: &str) -> bool {
+    static SUFFIX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?i)^\s*(?:%|per\s*cent)").unwrap());
+    let text = ocr_digits(snippet);
+    NUMBER
+        .find_iter(&text)
+        .chain(WORD_RUN.find_iter(&text))
+        .any(|m| {
+            if !SUFFIX.is_match(&text[m.end()..]) {
+                return false;
+            }
+            let number = m.as_str().trim().replace(',', "");
+            let parsed = Decimal::from_str(&number)
+                .ok()
+                .or_else(|| words_to_int(&number).map(Decimal::from));
+            parsed == Some(value)
+        })
 }
 
 /// A value a check depends on.

@@ -338,3 +338,61 @@ fn replay_refuses_a_fixture_from_a_different_pdf() {
     let err = extract::extract(&d, "claude-haiku-5-5", extract::Mode::Replay, None).unwrap_err();
     assert!(err.to_string().contains("different prompt"), "{err}");
 }
+
+#[test]
+fn recorded_wire_outputs_deserialize_and_errors_identify_the_field() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/llm");
+    let mut checked = 0;
+    for entry in std::fs::read_dir(root).unwrap() {
+        let path = entry
+            .unwrap()
+            .path()
+            .join("claude-haiku-5-5.extract.v2.json");
+        let fx: extract::Fixture =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(
+            fx.prompt_sha256,
+            extract::prompt_sha256(),
+            "{}",
+            path.display()
+        );
+        let d = doc(fx.pages.len());
+        let pm = PageMap(fx.pages);
+        let original = extract::to_agreement(&d, &fx.output, &pm, &info("replay")).unwrap();
+        assert_eq!(original.schema_version, "2", "{}", path.display());
+        let mut corrupt = fx.output;
+        corrupt["housing"]["total_units"] = json!("not a count");
+        let error = extract::to_agreement(&d, &corrupt, &pm, &info("replay")).unwrap_err();
+        assert!(
+            format!("{error:#}").contains("housing.total_units"),
+            "{error:#}"
+        );
+        checked += 1;
+    }
+    assert_eq!(checked, 10);
+}
+
+#[test]
+fn usage_notes_distinguish_live_from_recorded_costs() {
+    let mut live = info("live");
+    assert_eq!(live.usage_note(), None);
+    live.usage = Some(llm::Usage {
+        input_tokens: 1000,
+        output_tokens: 10,
+        attempts: 1,
+        cache_write_tokens: 0,
+        cache_read_tokens: 0,
+    });
+    assert_eq!(
+        live.usage_note().unwrap(),
+        "live: 1000 in / 10 out tokens, ~$0.000"
+    );
+    let replay = Info {
+        source: "replay".into(),
+        ..live
+    };
+    assert_eq!(
+        replay.usage_note().unwrap(),
+        "replay: 1000 in / 10 out tokens, ~$0.000 when recorded"
+    );
+}
