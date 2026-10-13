@@ -52,11 +52,94 @@ def squash(s: str) -> str:
     return re.sub(r"[^0-9a-z]", "", s.lower())
 
 
+# Line-wrap-aware token match, for snippets read cleanly off the page image. On
+# two-column definition pages OCR splices the left-column defined term into the
+# right-column sentence at every line wrap:
+#     "Affordable Housing means the sumof f10,058.60(ten thousand and fifty eightpounds
+#     MonitoringContribution" andsixtypence)Index Linked ...
+# so the squashed snippet is not a contiguous substring. Tokens must still appear in
+# order, and intervening OCR text is allowed only where the deed's layout explains it:
+#   * within a line, at most 1 non-digit char (OCR reads "£" as "f");
+#   * across a line wrap, nothing left on the line above, then up to MAX_GAP chars of
+#     left-column fragment at the start of the next line, holding no number words.
+# Numbers and number words are never skipped and digits must be digit-bounded, so a
+# changed amount ("12,650" -> "12,560") or a dropped word ("six hundred [and fifty]
+# pounds") still fails. Up to MAX_SKIP_SHARE of the other words may be OCR-garbled.
+MAX_GAP = 40          # chars of left-column fragment allowed at a line start
+MIN_TOKENS = 4        # shorter snippets must match contiguously
+MAX_SKIP_SHARE = 0.1  # share of plain words OCR may have garbled ("fifty" -> "fty")
+
+
+def _tokens(s: str) -> list[str]:
+    """Words and numbers; '£12,650.00' -> '1265000', the same digits squash() keeps."""
+    return [re.sub(r"[.,]", "", t) for t in re.findall(r"[a-z]+|\d+(?:[.,]\d+)*", s.lower())]
+
+
+def _is_number(tok: str) -> bool:
+    return tok.isdigit() or tok in _UNITS or tok in _TENS or tok in _SCALES or tok == "hundred"
+
+
+def _layout_match(tokens: list[str], page: str) -> bool:
+    raw = page.lower()
+    idx = [i for i, c in enumerate(raw) if c.isascii() and c.isalnum()]
+    hay = "".join(raw[i] for i in idx)  # == squash(page)
+    max_skips = int(sum(not _is_number(t) for t in tokens) * MAX_SKIP_SHARE)
+    n = len(tokens)
+
+    def gap_ok(end: int, start: int, extra: int) -> bool:
+        lines = raw[idx[end - 1] + 1:idx[start]].split("\n")
+        tail, head = squash(lines[0]), squash(lines[-1])
+        if len(lines) == 1:
+            return len(tail) <= 1 + extra and not any(c.isdigit() for c in tail)
+        return (len(tail) <= 1 + extra and not any(c.isdigit() for c in tail)
+                and not any(squash(l) for l in lines[1:-1])
+                and len(head) <= MAX_GAP + extra
+                and not any(_is_number(w) for w in re.findall(r"[a-z]+", lines[-1])))
+
+    def occurrences(tok: str, lo: int, hi: int):
+        i = hay.find(tok, lo, hi)
+        while i != -1:
+            end = i + len(tok)
+            if not tok.isdigit() or ((i == 0 or not hay[i - 1].isdigit())
+                                     and (end == len(hay) or not hay[end].isdigit())):
+                yield i, end
+            i = hay.find(tok, i + 1, hi)
+
+    seen: set[tuple[int, int, int, int]] = set()
+
+    def search(i: int, pos: int | None, extra: int, skips: int) -> bool:
+        # pos: end of the last matched token (None before the first match);
+        # extra: chars of slack owed to skipped (OCR-garbled) words since then
+        if i == n:
+            return pos is not None
+        key = (i, -1 if pos is None else pos, extra, skips)
+        if key in seen:
+            return False
+        seen.add(key)
+        tok = tokens[i]
+        if pos is None:
+            cands = occurrences(tok, 0, len(hay))
+        else:
+            hi = pos + MAX_GAP + 2 * extra + 2 + len(tok)
+            cands = ((s, e) for s, e in occurrences(tok, pos, hi) if gap_ok(pos, s, extra))
+        if any(search(i + 1, e, 0, skips) for _, e in cands):
+            return True
+        return (not _is_number(tok) and skips < max_skips
+                and search(i + 1, pos, extra + len(tok) + 1, skips + 1))
+
+    return search(0, None, 0, 0)
+
+
 def evidence_found(ev: Evidence | None, pages: dict[int, str]) -> bool:
     if ev is None or ev.page not in pages:
         return False
     needle = squash(ev.snippet)
-    return bool(needle) and needle in squash(pages[ev.page])
+    if not needle:
+        return False
+    if needle in squash(pages[ev.page]):
+        return True
+    tokens = _tokens(ev.snippet)
+    return len(tokens) >= MIN_TOKENS and _layout_match(tokens, pages[ev.page])
 
 
 _UNITS = {w: i for i, w in enumerate(
