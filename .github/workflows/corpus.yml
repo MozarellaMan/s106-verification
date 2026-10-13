@@ -20,6 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: MozarellaMan/s106-data
+          ref: main
           path: data
           ssh-key: ${{ secrets.S106_DATA_DEPLOY_KEY }}
       - uses: dtolnay/rust-toolchain@stable
