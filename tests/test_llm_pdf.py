@@ -133,6 +133,20 @@ class LlmPdfTest(unittest.TestCase):
         self.assertIn("rejected 1", out.warnings[-1])
         self.assertIn("newly marked contingent", out.warnings[-1])
 
+    def test_housing_loss_ignores_order(self):
+        from extractor import _lost_housing
+
+        a, _ = extract(PDF, backend="llm-pdf", llm_mode="replay")
+        h = a.housing
+        shuffled = h.model_copy(deep=True)
+        shuffled.tenures.reverse()
+        shuffled.mix_table.rows.reverse()
+        self.assertEqual(_lost_housing(h, shuffled), [])
+        shuffled.tenures[0].habitable_rooms = None
+        row = shuffled.mix_table.rows[0].units_by_tenure
+        del row[next(iter(row))]
+        self.assertEqual(len(_lost_housing(h, shuffled)), 2)
+
     def test_replay_rejects_different_pdf(self):
         import tempfile
 

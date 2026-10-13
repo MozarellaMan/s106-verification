@@ -669,14 +669,36 @@ def _failed_fields(a: Section106Agreement, results) -> dict[str, int]:
     return {k: n for k, n in counts.items() if n}
 
 
-def _lost_values(old, new, path: str = "") -> list[str]:
-    """Paths that held a value in `old` but are null, empty or shorter in `new`."""
-    if isinstance(old, dict):
-        return [p for k, v in old.items() for p in _lost_values(v, (new or {}).get(k), f"{path}.{k}".lstrip("."))]
-    if isinstance(old, list):
-        return [path] if len(new or []) < len(old) else [
-            p for i, (o, n) in enumerate(zip(old, new)) for p in _lost_values(o, n, f"{path}[{i}]")]
-    return [path] if old not in (None, "", False) and new in (None, "") else []
+HOUSING_VALUES = ("total_units", "total_units_evidence", "market_units", "market_units_evidence", "affordable_units",
+                  "affordable_units_evidence", "affordable_habitable_rooms", "total_habitable_rooms",
+                  "claimed_affordable_pct", "claimed_affordable_basis", "claimed_affordable_evidence")
+CONTRIBUTION_VALUES = ("amount_gbp", "amount_in_words", "trigger_event", "trigger_clause", "trigger_evidence", "evidence")
+
+
+def _lost(old, new, fields, prefix: str = "") -> list[str]:
+    return [prefix + f for f in fields if getattr(old, f) is not None and getattr(new, f) is None]
+
+
+def _lost_housing(old: HousingProvision, new: HousingProvision) -> list[str]:
+    """Housing values present in `old` but missing from `new`. Tenures match by tenure, mix rows by unit type."""
+    lost = _lost(old, new, HOUSING_VALUES)
+    new_tenures = {t.tenure: t for t in new.tenures}
+    for t in old.tenures:
+        label = f"tenures[{t.tenure.value}]"
+        n = new_tenures.get(t.tenure)
+        lost += [label] if n is None else _lost(t, n, ("units", "habitable_rooms", "evidence"), label + ".")
+    if old.mix_table:
+        om, nm = old.mix_table, new.mix_table
+        if nm is None:
+            return lost + ["mix_table"]
+        lost += _lost(om, nm, ("total_units", "total_habitable_rooms", "evidence"), "mix_table.")
+        unit = lambda s: re.sub(r"\W", "", s.lower())  # "1 bed" == "1-bed"
+        new_rows = {unit(r.unit_type): r.units_by_tenure for r in nm.rows}
+        for r in om.rows:
+            have = new_rows.get(unit(r.unit_type), {})
+            lost += [f"mix_table[{r.unit_type}][{t.value}]" for t in r.units_by_tenure if t not in have]
+        lost += [f"mix_table.subtotals[{t.value}]" for t in om.subtotals if t not in nm.subtotals]
+    return lost
 
 
 def _regressions(key: str, cur, cur_results, cand, cand_results) -> list[str]:
@@ -694,12 +716,12 @@ def _regressions(key: str, cur, cur_results, cand, cand_results) -> list[str]:
     if sum(r.status != Status.SKIP for r in after) < sum(r.status != Status.SKIP for r in before):
         why.append("fewer checks run")
     if key == "housing":
-        old, new = cur.housing, cand.housing
+        lost = _lost_housing(cur.housing, cand.housing)
     else:
         old, new = (next(c for c in x.contributions if c.name == key) for x in (cur, cand))
         if new.contingent and not old.contingent:
             why.append("newly marked contingent")
-    lost = _lost_values(old.model_dump(mode="json"), new.model_dump(mode="json"))
+        lost = _lost(old, new, CONTRIBUTION_VALUES)
     if lost:
         why.append("lost " + ", ".join(lost))
     return why
