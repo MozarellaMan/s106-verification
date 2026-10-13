@@ -276,6 +276,9 @@ struct Scanner<'a> {
     mixed: Vec<bool>,
     hits: Vec<Hit>,
     errors: Vec<ParseError>,
+    /// Token where scanning resumed after splitting a cluster at a prose "and"; a number word
+    /// there starts a quantity even though a word precedes it.
+    resume: Option<usize>,
 }
 
 const OPENING: &str = "([{\"'“‘";
@@ -291,6 +294,7 @@ impl<'a> Scanner<'a> {
             mixed,
             hits: vec![],
             errors: vec![],
+            resume: None,
         };
         s.find_mixed();
         s
@@ -601,7 +605,7 @@ impl<'a> Scanner<'a> {
 
     /// Word cluster starting at number word `i`; returns the next token to look at.
     fn words(&mut self, i: usize) -> usize {
-        if i > 0 && matches!(self.toks[i - 1].kind, Kind::Word(_)) {
+        if i > 0 && matches!(self.toks[i - 1].kind, Kind::Word(_)) && self.resume != Some(i) {
             return i + 1;
         }
         let mut end = cluster_end(&self.toks, i);
@@ -609,7 +613,7 @@ impl<'a> Scanner<'a> {
             return end;
         }
         let mut cluster = self.toks[i].start..self.toks[end - 1].end;
-        if !self.left_ok(i) {
+        if self.resume != Some(i) && !self.left_ok(i) {
             self.boundary_error(i, end, true);
             return end;
         }
@@ -638,6 +642,7 @@ impl<'a> Scanner<'a> {
                 // scanning after the conjunction.
                 Some((cut, value, unit)) => {
                     self.word_hit(value, unit, cluster.start..pieces[cut - 1].end);
+                    self.resume = Some(idx[cut] + 1);
                     return idx[cut] + 1;
                 }
                 None => {
@@ -665,28 +670,43 @@ impl<'a> Scanner<'a> {
     /// splits when prose follows ("one hundred and the Owner"), but not after pounds when a
     /// pence clause is attempted ("ten pounds and unknown pence"), and not at the end of text.
     fn conjunction_cut(&self, pieces: &[Tok], end: usize) -> Option<(usize, Decimal, Unit)> {
-        let trailing_prose = self.kind(end) == Some(Kind::Space)
-            && self.kind(end + 1) == Some(Kind::Alpha)
-            && !self.pence_ahead(end);
+        let prose_follows =
+            self.kind(end) == Some(Kind::Space) && self.kind(end + 1) == Some(Kind::Alpha);
         (1..pieces.len()).rev().find_map(|cut| {
             if pieces[cut].kind != Kind::Word("and") {
                 return None;
             }
+            let (value, unit) = quantity.parse(&pieces[..cut]).ok()?;
             let ok = match pieces[cut - 1].kind {
                 Kind::Word("percent" | "cent" | "pence" | "penny") => true,
-                _ => cut + 1 == pieces.len() && trailing_prose,
+                // "ten pounds and twenty pounds": the second amount states its own unit
+                Kind::Word("pound" | "pounds") if cut + 1 < pieces.len() => {
+                    // the rest opens with a completed amount that states its own pounds
+                    (cut + 2..=pieces.len()).any(|k| {
+                        matches!(pieces[k - 1].kind, Kind::Word("pound" | "pounds"))
+                            && quantity.parse(&pieces[cut + 1..k]).is_ok()
+                    })
+                }
+                _ => cut + 1 == pieces.len() && prose_follows && !self.pence_ahead(end),
             };
-            let (value, unit) = quantity.parse(&pieces[..cut]).ok().filter(|_| ok)?;
-            Some((cut, value, unit))
+            ok.then_some((cut, value, unit))
         })
     }
 
-    /// Does a "pence" or "penny" follow before the end of the clause?
+    /// Is the next amount an attempted pence clause? True when "pence" or "penny" comes before
+    /// any number or number word and before the end of the clause ("and fourty pence"), so a
+    /// later, unrelated clause ("and the sum of ten pounds and twenty pence") does not count.
     fn pence_ahead(&self, from: usize) -> bool {
-        self.toks[from..]
-            .iter()
-            .take_while(|t| !matches!(t.kind, Kind::Sym('.' | ';' | ':' | '(' | ')')))
-            .any(|t| matches!(t.kind, Kind::Word("pence" | "penny")))
+        for t in &self.toks[from..] {
+            match t.kind {
+                Kind::Sym('.' | ';' | ':' | '(' | ')') | Kind::Num => return false,
+                Kind::Word("pence" | "penny") => return true,
+                Kind::Word("and") => {}
+                Kind::Word(_) => return false,
+                _ => {}
+            }
+        }
+        false
     }
 }
 

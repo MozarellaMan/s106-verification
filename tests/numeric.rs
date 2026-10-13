@@ -552,3 +552,52 @@ fn second_review_regressions_from_pr13() {
         vec![(d("10000"), Unit::Gbp), (d("20000"), Unit::Gbp)]
     );
 }
+
+#[test]
+fn third_review_regressions_from_pr13() {
+    // scanning resumes at a quantity OCR-joined to the conjunction
+    assert_eq!(
+        found("fifty per cent andsixty per cent respectively"),
+        vec![(d("50"), Unit::Percent), (d("60"), Unit::Percent)]
+    );
+    // a later, unrelated pence clause does not hold back a quantity that cannot take pence
+    assert_eq!(
+        found("one hundred and the sum of ten pounds and twenty pence"),
+        vec![(d("100"), Unit::Count), (d("10.20"), Unit::Gbp)]
+    );
+    // separately stated whole-pound amounts split; incomplete pence stay rejected
+    assert_eq!(
+        found("ten pounds and twenty pounds respectively"),
+        vec![(d("10"), Unit::Gbp), (d("20"), Unit::Gbp)]
+    );
+    assert!(found("ten pounds and unknown pence").is_empty());
+    assert!(found("ten pounds and fifty").is_empty());
+}
+
+#[test]
+fn misspelt_pence_clauses_are_not_cut_at_and() {
+    for bad in [
+        "the sum of two hundred and fourty pence",
+        "one hundred and ninty pence",
+        "fifty and illegible pence",
+    ] {
+        assert!(found(bad).is_empty(), "{bad}");
+        assert!(!quantity::scan(bad).errors.is_empty(), "{bad}");
+    }
+    assert_eq!(
+        found("ten pounds and twenty pounds and thirty pounds"),
+        vec![
+            (d("10"), Unit::Gbp),
+            (d("20"), Unit::Gbp),
+            (d("30"), Unit::Gbp)
+        ]
+    );
+}
+
+#[test]
+fn pound_amount_then_prose_then_pounds_and_pence() {
+    assert_eq!(
+        found("ten pounds and the sum of five pounds and twenty pence"),
+        vec![(d("10"), Unit::Gbp), (d("5.20"), Unit::Gbp)]
+    );
+}
