@@ -56,7 +56,9 @@ disagrees with the deeds' dates. For each obligation a deed states:
 
 A variation's `Delete` (from the extraction's `variations`) becomes a `delete` event on each
 contribution whose key appears in the deleted target. It is applied, and the row is "removed by
-variation", only when its cited snippet is found on its page and its deed is verified (below).
+variation", only when its cited snippet is found on its page, says something is deleted (deleted,
+omitted, revoked, removed, struck out), names that contribution itself, and comes from a verified
+deed (below). A target that matches is not enough: the snippet is the evidence.
 Otherwise the event is kept in the history but not applied, and the row goes to "varied: compare
 by hand". A deletion that matches no obligation is reported as a warning, and every obligation
 stated before it goes to "varied: compare by hand", because it could be the one deleted.
@@ -82,7 +84,8 @@ is checked on its own against one reference: PLD's `lpa_app_no`, or the first de
 references when there is no PLD record (compared without case or separators). A deed citing a
 different reference is refused, naming the instrument. A later deed citing no reference is
 applied, with a warning, but every obligation it changes (replaces, deletes or introduces) goes to
-"varied: compare by hand".
+"varied: compare by hand", until a verified deed states the figure again. The events keep the
+unverified step either way.
 
 ## Status rules
 

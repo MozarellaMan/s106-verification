@@ -142,7 +142,9 @@ fn dov() -> Agreement {
 fn dov_pages() -> Pages {
     [(
         2,
-        "The definition of Bus Contribution is deleted".to_string(),
+        "The definition of Bus Contribution is deleted. The definition of Carbon Green Fund \
+         Contribution is deleted."
+            .to_string(),
     )]
     .into_iter()
     .collect()
@@ -165,7 +167,7 @@ fn delete_bus(page: usize) -> Variation {
         new_text: None,
         evidence: Some(Evidence {
             page,
-            snippet: "is deleted".into(),
+            snippet: "The definition of Bus Contribution is deleted".into(),
         }),
     }
 }
@@ -442,15 +444,9 @@ fn a_variation_citing_an_obligation_without_a_figure_leaves_it_unchanged() {
 #[test]
 fn a_deletion_removes_the_obligation() {
     let mut v = dov();
-    v.variations = vec![Variation {
-        op: VariationOp::Delete,
-        target: "the definition of \"Bus Contribution\" and paragraph 2 of Schedule 4".into(),
-        new_text: None,
-        evidence: Some(Evidence {
-            page: 2,
-            snippet: "is deleted".into(),
-        }),
-    }];
+    let mut del = delete_bus(2);
+    del.target = "the definition of \"Bus Contribution\" and paragraph 2 of Schedule 4".into();
+    v.variations = vec![del];
     let r = with_pages(&[southwark()], &v, full());
     let b = row(&r, &bus());
     assert_eq!(b.status, RowStatus::Removed);
@@ -954,4 +950,78 @@ fn a_later_figure_resolves_an_earlier_conflict() {
         row(&r, &Measure::TenureUnits { tenure: SR }).status,
         RowStatus::Indeterminate
     );
+}
+
+#[test]
+fn a_deletion_snippet_must_name_what_it_deletes() {
+    // The target says Bus Contribution, but the snippet is the Carbon Green Fund clause.
+    let mut v = dov();
+    let mut del = delete_bus(2);
+    del.evidence = Some(Evidence {
+        page: 2,
+        snippet: "The definition of Carbon Green Fund Contribution is deleted".into(),
+    });
+    v.variations = vec![del];
+    let r = with_pages(&[southwark()], &v, full());
+    let b = row(&r, &bus());
+    assert_eq!(b.status, RowStatus::Varied);
+    assert!(
+        b.reason.contains("doesn't name the Bus Contribution"),
+        "{}",
+        b.reason
+    );
+    // A bare "is deleted" names nothing.
+    let mut del = delete_bus(2);
+    del.evidence.as_mut().unwrap().snippet = "is deleted".into();
+    v.variations = vec![del];
+    let r = with_pages(&[southwark()], &v, full());
+    assert_eq!(row(&r, &bus()).status, RowStatus::Varied);
+    // A snippet that names it but doesn't delete anything isn't a deletion either.
+    let mut del = delete_bus(2);
+    del.evidence.as_mut().unwrap().snippet = "The definition of Bus Contribution".into();
+    v.variations = vec![del];
+    let r = with_pages(&[southwark()], &v, full());
+    assert!(
+        row(&r, &bus())
+            .reason
+            .contains("doesn't say anything is deleted")
+    );
+}
+
+#[test]
+fn an_obligation_introduced_by_an_unverified_deed_goes_to_review() {
+    let mut v = dov();
+    v.metadata.planning_references.clear();
+    let mut a = southwark();
+    a.housing.tenures.retain(|t| t.tenure != SR);
+    v.housing.tenures = vec![sr_tenure(Some(58))];
+    let r = run(&[a, v], full());
+    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
+    assert!(matches!(sr.events[0].op, Op::Introduce { .. }));
+    assert_eq!(sr.status, RowStatus::Varied);
+    assert!(
+        sr.reason.contains("states no planning reference"),
+        "{}",
+        sr.reason
+    );
+}
+
+#[test]
+fn a_verified_figure_clears_an_unverified_change() {
+    let mut unverified = dov();
+    unverified.metadata.planning_references.clear();
+    unverified.housing.tenures = vec![sr_tenure(Some(50))];
+    let mut verified = dov();
+    verified.provenance.sha256 = "dov2".into();
+    verified.metadata.agreement_date = Some("1 March 2024".into());
+    verified.housing.tenures = vec![sr_tenure(Some(55))];
+    let r = run(
+        &[southwark(), unverified, verified],
+        delivery(177, &[(SR, 55), (INT, 18)], true),
+    );
+    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
+    assert_eq!(sr.current, Some(dec("55")));
+    assert_eq!(sr.status, RowStatus::CountsMatch);
+    // The history still shows the unverified step.
+    assert!(!sr.events[1].verified && sr.events[2].verified);
 }

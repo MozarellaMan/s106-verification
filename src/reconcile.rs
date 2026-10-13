@@ -326,6 +326,9 @@ pub fn instrument_obligations(a: &Agreement, pages: Option<&Pages>) -> Instrumen
                 grounding: match (pages, &v.evidence) {
                     (None, _) => Grounding::NotChecked,
                     (Some(_), None) => Grounding::Ungrounded("no evidence cited".into()),
+                    (Some(_), Some(ev)) if !says_deleted(&ev.snippet) => Grounding::Ungrounded(
+                        "cited snippet doesn't say anything is deleted".into(),
+                    ),
                     (Some(p), Some(ev)) if evidence_found(Some(ev), p) => Grounding::Grounded,
                     (Some(_), Some(ev)) => Grounding::Ungrounded(format!(
                         "cited snippet not re-locatable on p{}",
@@ -334,6 +337,26 @@ pub fn instrument_obligations(a: &Agreement, pages: Option<&Pages>) -> Instrumen
                 },
             })
             .collect(),
+    }
+}
+
+/// Does a snippet say something is deleted (or omitted, revoked, removed)?
+fn says_deleted(snippet: &str) -> bool {
+    let s = snippet.to_lowercase();
+    ["delet", "omit", "revoke", "remove", "struck out"]
+        .iter()
+        .any(|w| s.contains(w))
+}
+
+/// Does a deletion's cited snippet itself name the obligation it is applied to? The target
+/// matching an obligation isn't enough: the snippet is the evidence.
+fn snippet_names(snippet: &str, m: &Measure) -> bool {
+    match m {
+        Measure::Contribution { key } => {
+            !key.is_empty()
+                && format!(" {} ", contribution_key(snippet)).contains(&format!(" {key} "))
+        }
+        _ => false,
     }
 }
 
@@ -1185,9 +1208,19 @@ pub fn reconcile(
             if hits.is_empty() {
                 unmatched.push((k, del.target.clone()));
             }
-            let applies = del.grounding == Grounding::Grounded && verified[k];
             for m in hits {
-                if applies {
+                // Grounded on its page, and the snippet names this obligation.
+                let grounding = match (&del.grounding, &del.evidence) {
+                    (Grounding::Grounded, Some(ev)) if !snippet_names(&ev.snippet, &m) => {
+                        Grounding::Ungrounded(format!(
+                            "its cited snippet on p{} doesn't name the {}",
+                            ev.page,
+                            events[&m][0].label.trim_end_matches(" (£)")
+                        ))
+                    }
+                    (g, _) => g.clone(),
+                };
+                if grounding == Grounding::Grounded && verified[k] {
                     current.insert(m.clone(), None);
                 }
                 let label = events[&m][0].label.clone();
@@ -1197,7 +1230,7 @@ pub fn reconcile(
                     op: Op::Delete,
                     instrument: inst.instrument.clone(),
                     evidence: del.evidence.clone(),
-                    grounding: del.grounding.clone(),
+                    grounding,
                     note: Some(format!("deletes \"{}\"", del.target)),
                     conflict: None,
                     verified: verified[k],
@@ -1224,7 +1257,7 @@ pub fn reconcile(
         let mut setter: Option<&ObligationEvent> = None;
         let mut unproven_deletion: Option<String> = None;
         let mut unverified_change: Option<String> = None;
-        for (k, e) in evs.iter().enumerate() {
+        for e in &evs {
             let sets = match e.op {
                 Op::Introduce { value: v } => Some(v),
                 Op::Restate { value: v } | Op::Replace { to: v, .. } => Some(Some(v)),
@@ -1250,8 +1283,12 @@ pub fn reconcile(
             } else if sets.is_some() {
                 conflict = None;
             }
-            let changes = matches!(e.op, Op::Replace { .. } | Op::Delete)
-                || (k > 0 && matches!(e.op, Op::Introduce { .. }));
+            // Whatever an unverified deed introduces, replaces or deletes needs review, until a
+            // verified deed states the figure again (the events keep the history).
+            let changes = matches!(e.op, Op::Introduce { .. } | Op::Replace { .. } | Op::Delete);
+            if e.verified && (sets.is_some() || (e.op == Op::Delete && removed)) {
+                unverified_change = None;
+            }
             if !e.verified && changes {
                 unverified_change = Some(format!(
                     "the {} dated {}",
