@@ -560,6 +560,11 @@ probe means the 84 Residential Units to be sold on the open market
   quantity 84 Count 10..12
   decimal err NUM002 UnexpectedToken candidate 0..60 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..60 span 0..5 expected "an amount in pounds and pence in words"
+probe means the sum of £1,250,000 (one million two hundred and fifty thousand pounds) Index Linked
+  quantity 1250000 Gbp 17..28
+  quantity 1250000 Gbp 30..79
+  decimal err NUM002 UnexpectedToken candidate 0..93 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..93 span 0..5 expected "an amount in pounds and pence in words"
 probe means the sum of £10,500 (ten thousand pounds)
   quantity 10500 Gbp 17..25
   quantity 10000 Gbp 27..46
@@ -804,6 +809,11 @@ probe the sum of ten pounds and payable
   quantity 10 Gbp 11..21
   decimal err NUM002 UnexpectedToken candidate 0..33 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..33 span 0..3 expected "an amount in pounds and pence in words"
+probe the sum of £2,365,000.00 (two million three hundred and sixty five thousand pounds)
+  quantity 2365000.00 Gbp 11..25
+  quantity 2365000 Gbp 27..83
+  decimal err NUM002 UnexpectedToken candidate 0..84 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..84 span 0..3 expected "an amount in pounds and pence in words"
 probe thirteen
   quantity 13 Count 0..8
   decimal err NUM002 UnexpectedToken candidate 0..8 span 7..8 expected "a single decimal number"
