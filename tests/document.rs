@@ -31,13 +31,13 @@ fn doc(source: TextSource, lines: Vec<Line>) -> Document {
 
 #[test]
 fn margin_speck_is_not_joined_into_a_sentence() {
-    // Verbatim boxes from North Tyneside 19/01280 p5 (PP-OCRv5): a binding mark at x=25 read as "1"
-    // shares a row with the wrapped amount, which made "twelve 1 thousand" unmatchable.
+    // Invented boxes modelled on PP-OCRv5 output: a binding mark at x=25 read as "1"
+    // shares a row with the wrapped amount, which made "four 1 thousand" unmatchable.
     let d = doc(
         TextSource::Ocr,
         vec![
             line(
-                "Primary Education Contribution: means £212,500.00 (Two hundred and twelve",
+                "Primary Education Contribution: means £84,500.00 (Eighty four",
                 [277.0, 1366.0, 1453.0, 1442.0],
             ),
             line("1", [25.0, 1456.0, 66.0, 1516.0]),
@@ -60,7 +60,7 @@ fn margin_speck_is_not_joined_into_a_sentence() {
     );
     let ev = Evidence {
         page: 5,
-        snippet: "means: £212,500.00 (Two hundred and twelve thousand five hundred pounds)".into(),
+        snippet: "means: £84,500.00 (Eighty four thousand five hundred pounds)".into(),
     };
     assert!(evidence_found(Some(&ev), &pages));
 }
@@ -72,12 +72,12 @@ fn same_row_boxes_join_and_rows_stay_separate() {
         vec![
             line("\"Affordable Housing", [130.0, 960.0, 400.0, 990.0]),
             line(
-                "means the sum of £10,058.60 (ten thousand and fifty eight pounds",
+                "means the sum of £6,042.30 (six thousand and forty two pounds",
                 [470.0, 958.0, 1450.0, 992.0],
             ),
             line("Monitoring Contribution\"", [130.0, 1000.0, 420.0, 1030.0]),
             line(
-                "and sixty pence) Index Linked to be paid by the Owner to the",
+                "and thirty pence) Index Linked to be paid by the Owner to the",
                 [470.0, 998.0, 1450.0, 1032.0],
             ),
         ],
@@ -91,7 +91,7 @@ fn same_row_boxes_join_and_rows_stay_separate() {
             .starts_with("\"Affordable Housing means the sum")
     );
     // the snippet runs across the wrapped right column, with the term's second half in between
-    let ev = Evidence { page: 5, snippet: "means the sum of £10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked".into() };
+    let ev = Evidence { page: 5, snippet: "means the sum of £6,042.30 (six thousand and forty two pounds and thirty pence) Index Linked".into() };
     assert!(evidence_found(Some(&ev), &d.pages()));
 }
 

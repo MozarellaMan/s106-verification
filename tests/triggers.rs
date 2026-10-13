@@ -1,12 +1,12 @@
 //! Trigger labels are decided by the cited phrase.
 //!
-//! Phrases are the ones Claude Haiku 5.5 cited across live runs on the Southwark sample,
-//! including the runs whose labels drifted.
+//! Phrases are invented, modelled on the wording a model cited across live runs, including the
+//! runs whose labels drifted.
 
 use s106::schema::TriggerEvent as E;
 use s106::triggers::{classify, imposes_payment};
 
-const CLAUSE_3_5: &str = "The Carbon Green Fund Contribution (as agreed between the Council and the Owner or determined in \
+const CLAUSE_3_5: &str = "The Carbon Offset Fund Contribution (as agreed between the Council and the Owner or determined in \
 accordance with clause 19 of this Agreement) shall be payable within 20 Working Days of such \
 agreement or determination.";
 const CLAUSE_3_1: &str = "Prior to the Occupation of 50% of the Development (or upon such other date as may be agreed between \
@@ -20,7 +20,7 @@ fn classify_cited_phrases() {
     let cases = [
         ("within 28 days of receiving written request", E::OnDemand),
         (
-            "the Owner will pay the Default Employment in the End Use Contribution within 28 days",
+            "the Owner will pay the Local Skills in the Interim Use Contribution within 28 days",
             E::OnDemand,
         ),
         (
@@ -28,11 +28,11 @@ fn classify_cited_phrases() {
             E::OnDemand,
         ),
         (
-            "To pay the Site and Development Contributions on or before Implementation.",
+            "To pay the Site Wide Contributions on or before Implementation.",
             E::PreImplementation,
         ),
         (
-            "not to Implement the Development until the Green Run-off Rate Off-Set",
+            "not to Implement the Development until the Surface Water Run-off Attenuation",
             E::PreImplementation,
         ),
         (
@@ -44,7 +44,7 @@ fn classify_cited_phrases() {
             E::PreOccupation,
         ),
         (
-            "To pay the Carbon Green Fund Contribution in accordance with the procedure outlined in paragraph 3",
+            "To pay the Carbon Offset Fund Contribution in accordance with the procedure outlined in paragraph 3",
             E::Other,
         ),
         (
@@ -63,7 +63,7 @@ fn classify_cited_phrases() {
 fn classify_ocr_spacing_does_not_change_the_label() {
     assert_eq!(
         classify(Some(
-            "TopaytheCycleHireDockingStationContributiononorbeforeOccupation."
+            "TopaytheBikeShareDockingStationContributiononorbeforeOccupation."
         )),
         Some(E::PreOccupation)
     );
@@ -98,13 +98,13 @@ fn classify_unrecognised() {
 #[test]
 fn imposes_payment_obligations() {
     let clauses = [
-        "To pay the Site and Development Contributions on or before Implementation.",
-        "1.3 TopaytheCycleHireDockingStationContributiononorbeforeOccupation.",
+        "To pay the Site Wide Contributions on or before Implementation.",
+        "1.3 TopaytheBikeShareDockingStationContributiononorbeforeOccupation.",
         "Unless a lesser amount is specified in writing, to pay the Bus Contribution on or before first Occupation",
         "The Owner covenants with the Council to pay the Administration Cost within 28 days",
-        "the Owner will pay the Default Employment in the End Use Contribution within 28 days",
+        "the Owner will pay the Local Skills in the Interim Use Contribution within 28 days",
         CLAUSE_3_5,
-        "Not to Implement the Development until the Site and Development Contributions have been paid to the \
+        "Not to Implement the Development until the Site Wide Contributions have been paid to the \
          Council in full.",
         "The Council shall assess the Contribution. The Contribution is payable within 28 days of demand.",
         "The sum (if any) is payable within 28 days of the Assessment.",
@@ -123,7 +123,7 @@ fn imposes_payment_mentions_are_not_obligations() {
     let clauses = [
         "Prior to Occupation the Council shall assess the amount payable",
         // Re-review repro: "is payable" inside a question is not an obligation.
-        "Prior to Occupation the Council shall assess whether the Carbon Green Fund Contribution is payable.",
+        "Prior to Occupation the Council shall assess whether the Carbon Offset Fund Contribution is payable.",
         "PriortoOccupationtheCouncilshalldeterminewhethertheContributionispayable",
         // Re-review repro: the same "assess if" question, with and without OCR spacing.
         "Prior to Occupation the Council shall assess if the Contribution is payable",
