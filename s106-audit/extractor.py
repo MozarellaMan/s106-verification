@@ -18,6 +18,7 @@ import pdfplumber
 from pydantic import BaseModel, Field
 
 from ocr import page_texts
+from triggers import classify_cited
 from schema import (AffordableBasis, AgreementMetadata, Evidence, FinancialContribution, HousingProvision, MixRow, MixTable,
                     Section106Agreement, Tenure, TenureAllocation, TriggerEvent)
 
@@ -169,12 +170,14 @@ def find_trigger(names: list[str], pages: dict[int, str], search_pages: list[int
                         if best is None or dist < best[0]:
                             # clause = the numbered paragraph around the match
                             ps = t.rfind("\n", 0, m.start())
-                            pe = t.find("\n", win_start + tm.end())
+                            # ... to the end of the sentence, so "Not to Implement ... until the
+                            # X Contributions have been\npaid" keeps its payment wording
+                            pe = t.find(".", win_start + tm.end(), win_start + tm.end() + 400)
                             best = (dist, event, n, snippet(t, ps + 1, pe if pe > 0 else len(t)),
                                     snippet(t, win_start + tm.start(), win_start + tm.end()))
     if best:
         _, event, n, clause, phrase_snip = best
-        return event, clause, Evidence(page=n, snippet=phrase_snip)
+        return classify_cited(phrase_snip, clause) or event, clause, Evidence(page=n, snippet=phrase_snip)
     return None, None, None
 
 
@@ -460,8 +463,11 @@ Financial contributions: {which}. For each give the figure, the words form exact
 Index Linked, whether the figure is a maximum ("up to a maximum of", "or such lesser amount"), and whether it is \
 contingent (payable only by formula or review outcome, with no fixed figure: then amount_gbp is null). Find the \
 covenant that makes it payable; a deed often imposes one trigger on a group term such as "Site and Development \
-Contributions". Give that clause verbatim as trigger_clause, classify it as trigger_event, and cite the trigger \
-phrase as trigger_evidence."""
+Contributions". The trigger is the clause that says when the money must be paid or becomes payable. If that \
+covenant only refers elsewhere (e.g. "in accordance with the procedure in paragraph 3 of Schedule 11"), follow \
+the reference and use the clause there that says when payment falls due; a clause that only times an assessment, \
+review or notice is not the trigger. Give that clause verbatim as trigger_clause, classify it as trigger_event, and \
+cite the trigger phrase (e.g. "within 20 Working Days of", "on or before Implementation") as trigger_evidence."""
 
 ALL_CONTRIBUTIONS = 'every defined term whose name ends in "Contribution", plus the "Administration Cost"'
 
@@ -526,6 +532,31 @@ def _call_claude(client, model: str, pdf_b64: str, prompt: str, effort: str):
     return resp.parsed_output, usage, resp.model
 
 
+PARSE_ATTEMPTS = 3
+
+
+def _call_with_retry(client, model: str, pdf_b64: str, prompt: str, effort: str, verbose: bool):
+    """_call_claude, retried up to PARSE_ATTEMPTS times on invalid (truncated) structured output.
+
+    Records the attempt count in usage["attempts"]; raises RuntimeError when every attempt fails.
+    """
+    import sys
+
+    from pydantic import ValidationError
+
+    for attempt in range(1, PARSE_ATTEMPTS + 1):
+        try:
+            out, usage, served_by = _call_claude(client, model, pdf_b64, prompt, effort)
+        except ValidationError as e:
+            if attempt == PARSE_ATTEMPTS:
+                raise RuntimeError(f"{model} returned invalid structured output {PARSE_ATTEMPTS} times") from e
+            if verbose:
+                print(f"  {model}: truncated structured output, retrying ({attempt}/{PARSE_ATTEMPTS})", file=sys.stderr)
+            continue
+        usage["attempts"] = attempt
+        return out, usage, served_by
+
+
 def run_llm_pdf(pdf_path: Path, page_numbers: list[int], prompt: str, model: str, kind: str,
                 mode: str = "auto", effort: str = "medium", client=None, verbose: bool = False
                 ) -> tuple[WireExtraction, dict]:
@@ -545,7 +576,8 @@ def run_llm_pdf(pdf_path: Path, page_numbers: list[int], prompt: str, model: str
                 client = anthropic.Anthropic()
             if verbose:
                 print(f"  {model}: live call, {len(page_numbers)} pages as a PDF document block", file=sys.stderr)
-            out, usage, served_by = _call_claude(client, model, pdf_subset_b64(pdf_path, page_numbers), prompt, effort)
+            out, usage, served_by = _call_with_retry(client, model, pdf_subset_b64(pdf_path, page_numbers), prompt,
+                                                     effort, verbose)
         except TypeError as e:  # the SDK raises this when no API key / token / profile resolves
             if "authentication" not in str(e):
                 raise
@@ -615,9 +647,17 @@ def wire_housing(w: WireHousing, page_map: list[int]) -> HousingProvision:
 
 
 def wire_contribution(w: WireContribution, page_map: list[int]) -> FinancialContribution:
+    # The label comes from the cited phrase, not the model, so repeat runs agree; the
+    # model's own label is kept only when the phrase decides differently.
+    cited = classify_cited(w.trigger_evidence.snippet if w.trigger_evidence else None, w.trigger_clause)
+    event = cited or w.trigger_event
+    amount = _money(w.amount_gbp)
     return FinancialContribution(
-        name=w.name, amount_gbp=_money(w.amount_gbp), amount_in_words=w.amount_in_words, index_linked=w.index_linked,
-        is_cap=w.is_cap, contingent=w.contingent, trigger_event=w.trigger_event, trigger_clause=w.trigger_clause,
+        name=w.name, amount_gbp=amount, amount_in_words=w.amount_in_words, index_linked=w.index_linked,
+        # "contingent" means no fixed figure (see CONTRIB_TASK): forced False whenever a figure was
+        # extracted; with no figure it is still Claude's flag (contingent vs. a missed amount)
+        is_cap=w.is_cap, contingent=amount is None and w.contingent, trigger_event=event,
+        trigger_event_model=w.trigger_event if w.trigger_event != event else None, trigger_clause=w.trigger_clause,
         trigger_evidence=_ev(w.trigger_evidence, page_map), evidence=_ev(w.evidence, page_map))
 
 
@@ -625,6 +665,9 @@ def _describe(info: dict) -> str:
     u = info.get("usage") or {}
     tokens = f", {u['input_tokens']:,} in / {u['output_tokens']:,} out tokens" if u else ""
     return f"{info['model']} {info['source']}{tokens}"
+
+
+GROUP_TERM = re.compile(r"Contributions\s*$", re.I)
 
 
 def extract_llm_pdf(pdf_path: Path, pages: dict[int, str], base: Section106Agreement, model: str = PDF_DEFAULT_MODEL,
@@ -635,7 +678,12 @@ def extract_llm_pdf(pdf_path: Path, pages: dict[int, str], base: Section106Agree
     w, info = run_llm_pdf(pdf_path, page_map, prompt, model, "extract", mode, client=client, verbose=verbose)
     out = base.model_copy(deep=True)
     out.housing = wire_housing(w.housing, page_map)
-    out.contributions = [wire_contribution(c, page_map) for c in w.contributions]
+    # Plural defined terms ("Site and Development Contributions", "TfL Contributions") only group
+    # other contributions for a shared trigger; some runs list them as obligations of their own.
+    groups = [c.name for c in w.contributions if GROUP_TERM.search(c.name)]
+    out.contributions = [wire_contribution(c, page_map) for c in w.contributions if c.name not in groups]
+    if groups:
+        out.warnings.append(f"llm-pdf: dropped group term(s) listed as contributions: {', '.join(groups)}")
     out.extraction_backend = f"llm-pdf:{model}" + ("" if info["source"] == "live" else " (replay)")
     out.warnings.append(f"llm-pdf: {_describe(info)}; pages {_ranges(page_map)}")
     return out

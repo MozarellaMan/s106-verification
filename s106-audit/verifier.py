@@ -18,6 +18,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from enum import Enum
 
 from schema import AffordableBasis, Evidence, Section106Agreement
+from triggers import classify_cited, imposes_payment
 
 PCT_TOLERANCE = Decimal("0.05")  # percentage points; deeds quote 2 dp
 
@@ -146,16 +147,28 @@ def _layout_match(tokens: list[str], page: str) -> bool:
     return search(0, None, 0, 0)
 
 
+# Only inside a number: a digit on one side and a digit or number punctuation on the
+# other, never a letter, so "paragraph1of" stays as it is.
+_OCR_ZERO = re.compile(r"(?<=\d)[oO](?=[\d%,.)]|$)|(?<![A-Za-z])[oO](?=\d)", re.M)
+_OCR_ONE = re.compile(r"(?<=\d)[lI|](?=[\d%,.)]|$)|(?<![A-Za-z])[lI|](?=\d)", re.M)
+
+
+def ocr_digits(text: str) -> str:
+    """Undo OCR letter-for-digit swaps next to digits: '5o%' -> '50%', 'l0' -> '10'."""
+    return _OCR_ONE.sub("1", _OCR_ZERO.sub("0", text))
+
+
 def evidence_found(ev: Evidence | None, pages: dict[int, str]) -> bool:
     if ev is None or ev.page not in pages:
         return False
     needle = squash(ev.snippet)
     if not needle:
         return False
-    if needle in squash(pages[ev.page]):
+    page = ocr_digits(pages[ev.page])
+    if needle in squash(page):
         return True
     tokens = _tokens(ev.snippet)
-    return len(tokens) >= MIN_TOKENS and _layout_match(tokens, pages[ev.page])
+    return len(tokens) >= MIN_TOKENS and _layout_match(tokens, page)
 
 
 
@@ -340,13 +353,59 @@ def check_contribution(c, pages, idx: int) -> list[CheckResult]:
     else:
         out.append(CheckResult(cid + ".words", f"{c.name}: figures == words", Status.SKIP,
                                detail="no words form captured", pages=pg))
+    out.extend(check_trigger(c, pages, cid, pg))
+    return out
+
+
+def _trigger_clause_problem(c, pages) -> str | None:
+    """Why the cited clause can't be trusted as this contribution's payment covenant, if it can't.
+
+    The timing phrase alone proves little: "Prior to Occupation" also schedules assessments. So
+    the clause must itself be in the deed (on the phrase's page, or running onto the next), the
+    phrase must sit inside it, and its wording must impose a payment.
+    """
+    ev = c.trigger_evidence
+    if squash(ocr_digits(ev.snippet)) not in squash(ocr_digits(c.trigger_clause)):
+        return "cited trigger phrase is not part of the cited clause"
+    spread = {ev.page: pages[ev.page] + "\n" + pages.get(ev.page + 1, "")}
+    if not evidence_found(Evidence(page=ev.page, snippet=c.trigger_clause), spread):
+        return f"cited payment clause not re-locatable in source (p{ev.page})"
+    if not imposes_payment(c.trigger_clause):
+        # e.g. "Prior to Occupation ... the Council shall assess the amount payable" schedules an
+        # assessment; the payment covenant is elsewhere.
+        return "cited clause does not impose a payment"
+    return None
+
+
+def check_trigger(c, pages, cid: str, pg: list[int]) -> list[CheckResult]:
+    """Trigger located, its cited phrase is in the deed, and the phrase decides the label."""
     desc = f"{c.name}: payment trigger located"
-    if c.trigger_event and c.trigger_clause:
-        out.append(CheckResult(cid + ".trig", desc, Status.PASS, actual=c.trigger_event.value,
-                               pages=_pages([c.trigger_evidence])))
+    if not (c.trigger_event and c.trigger_clause):
+        return [CheckResult(cid + ".trig", desc, Status.FAIL, error_class=ErrorClass.PARSER_ERROR,
+                            detail="no trigger clause matched in the schedules", pages=pg)]
+    tpg = _pages([c.trigger_evidence])
+    if not evidence_found(c.trigger_evidence, pages):
+        where = f"p{c.trigger_evidence.page}" if c.trigger_evidence else "no evidence cited"
+        return [CheckResult(cid + ".trig", desc, Status.FAIL, actual=c.trigger_event.value,
+                            error_class=ErrorClass.PARSER_ERROR,
+                            detail=f"cited trigger phrase not re-locatable in source ({where})", pages=tpg)]
+    problem = _trigger_clause_problem(c, pages)
+    if problem:
+        return [CheckResult(cid + ".trig", desc, Status.FAIL, actual=c.trigger_event.value,
+                            error_class=ErrorClass.PARSER_ERROR, detail=problem, pages=tpg)]
+    out = [CheckResult(cid + ".trig", desc, Status.PASS, actual=c.trigger_event.value, pages=tpg)]
+    desc = f"{c.name}: trigger label follows from cited phrase"
+    derived = classify_cited(c.trigger_evidence.snippet, c.trigger_clause)
+    note = f"model proposed '{c.trigger_event_model.value}'" if c.trigger_event_model else ""
+    if derived is None:
+        out.append(CheckResult(cid + ".tlabel", desc, Status.SKIP, actual=c.trigger_event.value,
+                               detail="phrase not in the trigger vocabulary; label unverified", pages=tpg))
+    elif derived == c.trigger_event:
+        out.append(CheckResult(cid + ".tlabel", desc, Status.PASS, derived.value, c.trigger_event.value,
+                               detail=note, pages=tpg))
     else:
-        out.append(CheckResult(cid + ".trig", desc, Status.FAIL, error_class=ErrorClass.PARSER_ERROR,
-                               detail="no trigger clause matched in the schedules", pages=pg))
+        out.append(CheckResult(cid + ".tlabel", desc, Status.FAIL, derived.value, c.trigger_event.value,
+                               ErrorClass.PARSER_ERROR, "label disagrees with the cited phrase", tpg))
     return out
 
 

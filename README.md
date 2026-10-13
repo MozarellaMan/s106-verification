@@ -110,8 +110,21 @@ Discrepancies. That errs on the safe side, but it weakens the classification.
 | H2 | Σ tenure units == affordable units |
 | H3 | Σ tenure habitable rooms == affordable habitable rooms |
 | H4 | claimed affordable % == calculated % (on the deed's stated basis, ±0.05pp) |
-| F:*:words | each contribution's figure == its words form ("£10,058.60 (ten thousand and fifty eight pounds and sixty pence)") |
-| F:*:trigger | a payment trigger was located in the schedules |
+| H5 | approved mix table: rows sum to each tenure's sub-total, sub-totals sum to the table total |
+| H6 | mix table agrees with the definitions (per-tenure units, affordable units and habitable rooms) |
+| F*.amt | a figure was extracted (SKIP for formula/review-contingent sums with no fixed figure) |
+| F*.words | each contribution's figure == its words form ("£10,058.60 (ten thousand and fifty eight pounds and sixty pence)") |
+| F*.trig | a payment trigger was found; the cited phrase and the full cited clause both re-locate in the OCR text, the phrase lies inside the clause, and the clause imposes a payment ("shall pay", "shall be payable", "To pay …", "until … paid"), not merely mentions one |
+| F*.tlabel | the trigger label follows from the cited phrase under the fixed vocabulary in `s106-audit/triggers.py` (SKIP if the phrase is outside it) |
+
+**Determinism.** Values that can be decided from the deed text don't depend on the model run.
+A trigger's label comes from its cited phrase via the fixed vocabulary in `triggers.py` (the model's
+label is kept as `trigger_event_model` when it differs). `contingent` is forced false when a figure
+was extracted. Plural group terms ("Site and Development Contributions") are dropped from the
+contribution list with a warning. Truncated structured output is retried up to three times.
+*Limitations:* which clause the model cites, the words form it copies, and `contingent` for sums
+with no figure can still vary between runs. Phrases outside the vocabulary leave the label
+unverified (`F*.tlabel` SKIP).
 
 **Classification.** When a check fails, each input value's evidence snippet is re-located in the
 cited page, ignoring whitespace (OCR drops spaces). If any input is missing or can't be found,

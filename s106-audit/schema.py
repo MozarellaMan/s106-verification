@@ -88,6 +88,8 @@ class FinancialContribution(BaseModel):
     is_cap: bool = Field(False, description="Figure is a maximum (e.g. 'up to a maximum of', 'or such lesser amount')")
     contingent: bool = Field(False, description="Only payable by formula or review outcome; no fixed figure")
     trigger_event: TriggerEvent | None = None
+    trigger_event_model: TriggerEvent | None = Field(
+        None, description="Label the model proposed, kept for audit when the cited phrase decides a different one")
     trigger_clause: str | None = Field(None, description="Verbatim payment trigger clause")
     trigger_evidence: Evidence | None = None
     evidence: Evidence | None = None

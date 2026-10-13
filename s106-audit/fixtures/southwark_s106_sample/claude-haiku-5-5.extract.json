@@ -49,8 +49,8 @@
     91
   ],
   "usage": {
-    "input_tokens": 70216,
-    "output_tokens": 14553
+    "input_tokens": 70352,
+    "output_tokens": 13417
   },
   "output": {
     "housing": {
@@ -62,12 +62,12 @@
       "market_units": 177,
       "market_units_evidence": {
         "page": 20,
-        "snippet": "the 177 Residential Units of Market Housing"
+        "snippet": "the 177 Residential Units of Market Housing comprised"
       },
       "affordable_units": 76,
       "affordable_units_evidence": {
         "page": 3,
-        "snippet": "the 76 Residential Units (271 Habitable Rooms)"
+        "snippet": "means the 76 Residential Units (271 Habitable Rooms) to be"
       },
       "affordable_habitable_rooms": 271,
       "total_habitable_rooms": null,
@@ -78,7 +78,7 @@
           "habitable_rooms": 212,
           "evidence": {
             "page": 28,
-            "snippet": "means the 58 Residential Units (made up of 10 one bedroom units"
+            "snippet": "means the 58 Residential Units (made up of 10 one bedroom units, 24 two bedroom units and 24 three bedroom units (212) Habitable Rooms))"
           }
         },
         {
@@ -87,7 +87,7 @@
           "habitable_rooms": 59,
           "evidence": {
             "page": 19,
-            "snippet": "means the 18 Residential Units (provided as 7 one bedroom units"
+            "snippet": "means the 18 Residential Units (provided as 7 one bedroom units, 5 two bedroom units and 6 three bedroom units (59 Habitable Rooms))"
           }
         }
       ],
@@ -159,24 +159,6 @@
     },
     "contributions": [
       {
-        "name": "Administration Cost",
-        "amount_gbp": "16913.26",
-        "amount_in_words": "sixteen thousand nine hundred and thirteen pounds and twenty six pence",
-        "index_linked": true,
-        "is_cap": false,
-        "contingent": false,
-        "trigger_event": "on demand / review",
-        "trigger_clause": "The Owner covenants to pay the Administration Cost to the Council within 28 days of receiving written request and separately not to Implement the Development until the Administration Cost has been paid to the Council.",
-        "trigger_evidence": {
-          "page": 33,
-          "snippet": "within 28 days of receiving written request"
-        },
-        "evidence": {
-          "page": 2,
-          "snippet": "means the sum of \u00a316,913.26 (sixteen thousand nine hundred and"
-        }
-      },
-      {
         "name": "Affordable Housing Contribution",
         "amount_gbp": null,
         "amount_in_words": null,
@@ -187,10 +169,10 @@
         "trigger_clause": "The Owner shall not Occupy or permit Occupation of more than 50 per cent of the Market Housing Units comprised within the Development unless and until any Affordable Housing Contribution that may be required to be paid pursuant to paragraph 5.8 of this Schedule has been paid to the Council in full.",
         "trigger_evidence": {
           "page": 35,
-          "snippet": "The Owner shall not Occupy or permit Occupation of more than 50 per cent of the Market"
+          "snippet": "shall not Occupy or permit Occupation of more than 50 per cent of the Market Housing Units"
         },
         "evidence": {
-          "page": 2,
+          "page": 4,
           "snippet": "means a financial contribution that may arise pursuant to a Viability"
         }
       },
@@ -208,8 +190,26 @@
           "snippet": "To pay the Site and Development Contributions on or before Implementation."
         },
         "evidence": {
+          "page": 4,
+          "snippet": "means the sum of \u00a310,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked"
+        }
+      },
+      {
+        "name": "Administration Cost",
+        "amount_gbp": "16913.26",
+        "amount_in_words": "sixteen thousand nine hundred and thirteen pounds and twenty six pence",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "on demand / review",
+        "trigger_clause": "The Owner covenants to pay the Administration Cost to the Council within 28 days of receiving written request and separately not to Implement the Development until the Administration Cost has been paid to the Council.",
+        "trigger_evidence": {
+          "page": 33,
+          "snippet": "within 28 days of receiving written request"
+        },
+        "evidence": {
           "page": 2,
-          "snippet": "means the sum of \u00a310,058.60 (ten thousand and fifty eight pounds"
+          "snippet": "means the sum of \u00a316,913.26 (sixteen thousand nine hundred and thirteen pounds and twenty six pence) Index Linked"
         }
       },
       {
@@ -223,7 +223,7 @@
         "trigger_clause": "Unless a lesser amount is specified by the Director of Planning in writing following a Bus Contribution Methodology Review, to pay the Bus Contribution on or before first Occupation of any part of the Development or such later date as may be advised to the Owner by the Council and by TfL.",
         "trigger_evidence": {
           "page": 36,
-          "snippet": "to pay the Bus Contribution on or before first Occupation of any part of the Development"
+          "snippet": "on or before first Occupation of any part of the Development"
         },
         "evidence": {
           "page": 5,
@@ -241,11 +241,11 @@
         "trigger_clause": "The Carbon Green Fund Contribution (as agreed between the Council and the Owner or determined in accordance with clause 19 of this Agreement) shall be payable within 20 Working Days of such agreement or determination.",
         "trigger_evidence": {
           "page": 40,
-          "snippet": "shall be payable within 20 Working Days of such agreement or determination."
+          "snippet": "shall be payable within 20 Working Days of such agreement or determination"
         },
         "evidence": {
           "page": 6,
-          "snippet": "a sum of up to a maximum \u00a3475,991.00 (four hundred and seventy five thousand nine hundred and ninety one pounds)"
+          "snippet": "means a sum of up to a maximum \u00a3475,991.00 (four hundred and seventy five thousand nine hundred and ninety one pounds) Index Linked"
         }
       },
       {
@@ -263,7 +263,7 @@
         },
         "evidence": {
           "page": 9,
-          "snippet": "means the sums as calculated by the Council in accordance with the"
+          "snippet": "means the sums as calculated by the Council in accordance with the formula in paragraph 1.6 of Part 1 of Schedule 9"
         }
       },
       {
@@ -281,7 +281,7 @@
         },
         "evidence": {
           "page": 10,
-          "snippet": "means the sum of \u00a312,650 (twelve thousand and six hundred and"
+          "snippet": "means the sum of \u00a312,650 (twelve thousand and six hundred and fifty pounds) Index Linked"
         }
       },
       {
@@ -291,15 +291,15 @@
         "index_linked": true,
         "is_cap": false,
         "contingent": true,
-        "trigger_event": "other",
+        "trigger_event": "on demand / review",
         "trigger_clause": "In the event that the Owner does not produce an Employment and Skills Plan or such plan is not approved by the Council (such approval not to be unreasonably withheld or delayed), the Owner will pay the Default Employment in the End Use Contribution within 28 days of receiving written notice from the Council.",
         "trigger_evidence": {
           "page": 39,
-          "snippet": "the Owner will pay the Default Employment in the End Use Contribution within 28 days"
+          "snippet": "within 28 days of receiving written notice from the Council"
         },
         "evidence": {
           "page": 10,
-          "snippet": "means a financial contribution of \u00a373,100 (seventy three thousand one hundred pounds)"
+          "snippet": "means a financial contribution of \u00a373,100 (seventy three thousand one hundred pounds) Index Linked"
         }
       },
       {
@@ -313,11 +313,11 @@
         "trigger_clause": "The Developer will pay the Employment in the End Use Contribution to the Council within 28 days of receipt of the notice referred to in paragraph 3.6.",
         "trigger_evidence": {
           "page": 39,
-          "snippet": "The Developer will pay the Employment in the End Use Contribution to the Council within 28 days"
+          "snippet": "within 28 days of receipt of the notice referred to in paragraph 3.6"
         },
         "evidence": {
-          "page": 14,
-          "snippet": "means the sum as calculated in accordance with the formula in"
+          "page": 16,
+          "snippet": "means the sum as calculated in accordance with the formula in paragraph 3.6 of Part 1 of Schedule 9"
         }
       },
       {
@@ -335,7 +335,7 @@
         },
         "evidence": {
           "page": 15,
-          "snippet": "means the sum of \u00a310,120 (ten thousand and one hundred and"
+          "snippet": "means the sum of \u00a310,120 (ten thousand and one hundred and twenty pounds) Index Linked"
         }
       },
       {
@@ -349,10 +349,10 @@
         "trigger_clause": "If the results of the Greenfield Run-off Rate Strategy approved pursuant to paragraph 6.1 above show that the Development does not include provisions for attenuation storage to limit survey water run-off rate to 8.5 litres per second for storms up to and including the 1 in 100 year event plus climate change allowance, to pay the Greenfield Run-off Rate Off-Set Contribution and not to Implement the Development until the Green Run-off Rate Off-Set Contribution has been paid to the Council in full.",
         "trigger_evidence": {
           "page": 37,
-          "snippet": "not to Implement the Development until the Green Run-off Rate Off-Set"
+          "snippet": "not to Implement the Development until the Green Run-off Rate Off-Set Contribution has been paid to the Council in full"
         },
         "evidence": {
-          "page": 16,
+          "page": 18,
           "snippet": "means a financial contribution calculated at a rate of \u00a3366 per cubic"
         }
       },
@@ -371,7 +371,7 @@
         },
         "evidence": {
           "page": 23,
-          "snippet": "means the sum of \u00a3259,552.00 (Two hundred and fifty nine"
+          "snippet": "means the sum of \u00a3259,552.00 (Two hundred and fifty nine thousand and five hundred and fifty two pounds ) Index Linked"
         }
       }
     ]
