@@ -8,7 +8,6 @@ the others **and** against the deed's own text: each value must appear in the pa
 cites, and that passage must be found on the cited page. Nothing in the gate is a model judgement.
 
 Architecture and contributor reading path: [docs/architecture.md](docs/architecture.md).
-Independent Rust review: [docs/rust-review.md](docs/rust-review.md).
 
 Scope, roadmap and open research questions: [docs/research-plan.md](docs/research-plan.md).
 Schema v2 and the real deeds behind it: [docs/schema-v2.md](docs/schema-v2.md).
