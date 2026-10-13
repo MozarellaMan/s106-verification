@@ -19,10 +19,11 @@ use regex::Regex;
 use rust_decimal::prelude::*;
 use serde::Serialize;
 
+use crate::audit::Finding;
 use crate::evidence::{Pages, evidence_found};
 use crate::schema::{
     AffordableBasis, Agreement, AmountStructure, ConditionalityKind, Contribution, Evidence,
-    Instalment, Tenure, Variation,
+    Instalment, Observed, Tenure, Variation,
 };
 use crate::text::{Value, ocr_digits, percentage_in_snippet, squash, value_in_snippet};
 use crate::triggers::{classify, classify_cited, imposes_payment};
@@ -49,6 +50,18 @@ pub enum ErrorClass {
     DocumentDiscrepancy,
 }
 
+/// Which part of the agreement a check belongs to. Set by `verify`, never recovered from the check id.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Scope {
+    #[default]
+    Instrument,
+    Housing,
+    /// 0-based contribution index
+    Contribution(usize),
+    /// 0-based variation index
+    Variation(usize),
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct CheckResult {
     pub check_id: String,
@@ -59,6 +72,25 @@ pub struct CheckResult {
     pub error_class: Option<ErrorClass>,
     pub detail: String,
     pub pages: Vec<usize>,
+    /// Numeric problems this check found in the fields it reads.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub findings: Vec<Finding>,
+    #[serde(skip)]
+    pub scope: Scope,
+}
+
+impl CheckResult {
+    fn with_findings(mut self, findings: Vec<Finding>) -> CheckResult {
+        self.findings = findings;
+        self
+    }
+}
+
+fn scoped(mut results: Vec<CheckResult>, scope: Scope) -> Vec<CheckResult> {
+    for r in &mut results {
+        r.scope = scope;
+    }
+    results
 }
 
 /// One value a check depends on, with the evidence cited for it.
@@ -112,6 +144,8 @@ fn result(
         error_class,
         detail: detail.into(),
         pages,
+        findings: vec![],
+        scope: Scope::default(),
     }
 }
 
@@ -429,8 +463,27 @@ pub fn check_claimed_pct(a: &Agreement, pages: &Pages) -> CheckResult {
     if a.instrument.kind.is_variation() {
         return skip(cid, &desc, VARIATION_SKIP, vec![]);
     }
-    let Some(pct) = h.claimed_affordable_pct else {
+    let Some(observed) = h.claimed_affordable_pct.as_ref() else {
         return skip(cid, &desc, "no affordable % stated in the deed", vec![]);
+    };
+    let pct = match &observed.parsed {
+        Ok(p) => *p,
+        Err(e) => {
+            let finding = Finding::new(
+                cid,
+                "agreement/housing/claimed_affordable_pct".to_string(),
+                Some((&observed.raw, e)),
+                h.claimed_affordable_evidence.as_ref(),
+                pages,
+            );
+            return parser_fail(
+                cid,
+                &desc,
+                "claimed % not parseable",
+                page_list([h.claimed_affordable_evidence.as_ref()]),
+            )
+            .with_findings(vec![finding]);
+        }
     };
     let claimed = input(
         "claimed %",
@@ -830,7 +883,34 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
     let mut out = Vec::new();
     let pg = page_list([c.amount.evidence.as_ref()]);
     let cid = format!("F{idx}");
-    let value = c.amount.value_gbp;
+    let field = |leaf: &str| format!("agreement/contributions/{}/amount/{leaf}", idx - 1);
+    let value = match &c.amount.value_gbp {
+        None => None,
+        Some(Observed { parsed: Ok(v), .. }) => Some(*v),
+        Some(Observed {
+            raw,
+            parsed: Err(e),
+        }) => {
+            let id = format!("{cid}.amt");
+            let finding = Finding::new(
+                &id,
+                field("value_gbp"),
+                Some((raw, e)),
+                c.amount.evidence.as_ref(),
+                pages,
+            );
+            out.push(
+                parser_fail(
+                    &id,
+                    &format!("{}: amount extracted", c.name),
+                    "figure not parseable",
+                    pg,
+                )
+                .with_findings(vec![finding]),
+            );
+            return out;
+        }
+    };
     match value {
         None => {
             let figureless_ok = matches!(
@@ -847,12 +927,17 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
                     pg.clone(),
                 ));
             } else {
-                out.push(parser_fail(
-                    &format!("{cid}.amt"),
-                    &desc,
-                    "no figure parsed",
-                    pg,
-                ));
+                let id = format!("{cid}.amt");
+                let finding = Finding::new(
+                    &id,
+                    field("value_gbp"),
+                    None,
+                    c.amount.evidence.as_ref(),
+                    pages,
+                );
+                out.push(
+                    parser_fail(&id, &desc, "no figure parsed", pg).with_findings(vec![finding]),
+                );
                 return out;
             }
         }
@@ -871,37 +956,50 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
             // figures vs words: the deed states every sum twice, so an exact cross-check is free
             let desc = format!("{}: figures == words", c.name);
             let wid = format!("{cid}.words");
-            match c.amount.words.as_deref().filter(|w| !w.is_empty()) {
+            match c.amount.words.as_ref() {
                 None => out.push(skip(&wid, &desc, "no words form captured", pg.clone())),
-                Some(words) => match crate::quantity::amount(words).ok() {
-                    None => out.push(result(
+                Some(Observed {
+                    raw,
+                    parsed: Err(e),
+                }) => {
+                    let finding = Finding::new(
                         &wid,
-                        &desc,
-                        Status::Fail,
-                        Some(gbp(v)),
-                        Some(words.to_string()),
-                        Some(ErrorClass::ParserError),
-                        "words form not parseable",
-                        pg.clone(),
-                    )),
-                    Some(w) => out.push(resolve(
-                        &wid,
-                        &desc,
-                        w == v,
-                        &[
-                            amount,
-                            input(
-                                "words form",
-                                Some(Value::Text(words.to_string())),
-                                c.amount.evidence.as_ref(),
-                            ),
-                        ],
+                        field("words"),
+                        Some((raw, e)),
+                        c.amount.evidence.as_ref(),
                         pages,
-                        Some(gbp(v)),
-                        Some(gbp(w)),
-                        &[],
-                    )),
-                },
+                    );
+                    out.push(
+                        result(
+                            &wid,
+                            &desc,
+                            Status::Fail,
+                            Some(gbp(v)),
+                            Some(raw.clone()),
+                            Some(ErrorClass::ParserError),
+                            "words form not parseable",
+                            pg.clone(),
+                        )
+                        .with_findings(vec![finding]),
+                    );
+                }
+                Some(Observed { raw, parsed: Ok(w) }) => out.push(resolve(
+                    &wid,
+                    &desc,
+                    *w == v,
+                    &[
+                        amount,
+                        input(
+                            "words form",
+                            Some(Value::Text(raw.trim().to_string())),
+                            c.amount.evidence.as_ref(),
+                        ),
+                    ],
+                    pages,
+                    Some(gbp(v)),
+                    Some(gbp(*w)),
+                    &[],
+                )),
             }
         }
     }
@@ -916,7 +1014,7 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
         if c.payment.instalments.is_empty() {
             out.extend(check_trigger(c, pages, &cid, &pg));
         } else {
-            out.extend(check_instalments(c, pages, &cid));
+            out.extend(check_instalments(c, pages, &cid, idx - 1));
         }
     }
     out
@@ -1090,7 +1188,12 @@ pub fn check_trigger(c: &Contribution, pages: &Pages, cid: &str, pg: &[usize]) -
 /// phrase is in the deed and decides its label. Replaces the single-trigger checks.
 ///
 /// Ids: `F3.inst` (shares), `F3.instcov` (lead-in covenant), `F3.inst1`, `F3.inst2`, ... (triggers).
-pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<CheckResult> {
+pub fn check_instalments(
+    c: &Contribution,
+    pages: &Pages,
+    cid: &str,
+    index: usize,
+) -> Vec<CheckResult> {
     let insts: &[Instalment] = &c.payment.instalments;
     let mut out = Vec::new();
     let all_pg = page_list(insts.iter().map(|i| i.trigger_phrase.as_ref()));
@@ -1100,11 +1203,43 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
         format!("{cid}.inst"),
         format!("{}: instalment shares sum to 100%", c.name),
     );
-    if insts.iter().all(|i| i.share_pct.is_some()) {
-        let sum: Decimal = insts.iter().filter_map(|i| i.share_pct).sum();
+    let share = |i: &Instalment| i.share_pct.as_ref().and_then(Observed::ok).copied();
+    let bad: Vec<Finding> = insts
+        .iter()
+        .enumerate()
+        .filter_map(|(j, i)| match i.share_pct.as_ref()? {
+            Observed {
+                raw,
+                parsed: Err(e),
+            } => Some(Finding::new(
+                &id,
+                format!("agreement/contributions/{index}/payment/instalments/{j}/share_pct"),
+                Some((raw, e)),
+                i.trigger_phrase.as_ref(),
+                pages,
+            )),
+            _ => None,
+        })
+        .collect();
+    if !bad.is_empty() {
+        out.push(
+            result(
+                &id,
+                &desc,
+                Status::Fail,
+                Some("100%".to_string()),
+                None,
+                Some(ErrorClass::ParserError),
+                "instalment share not parseable",
+                all_pg.clone(),
+            )
+            .with_findings(bad),
+        );
+    } else if insts.iter().all(|i| i.share_pct.is_some()) {
+        let sum: Decimal = insts.iter().filter_map(share).sum();
         let parts = insts
             .iter()
-            .filter_map(|i| i.share_pct)
+            .filter_map(share)
             .map(|d| d.to_string())
             .collect::<Vec<_>>()
             .join(" + ");
@@ -1114,7 +1249,7 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
             .map(|(n, i)| {
                 input(
                     format!("instalment {} share", n + 1),
-                    i.share_pct.map(Value::Num),
+                    share(i).map(Value::Num),
                     i.trigger_phrase.as_ref(),
                 )
             })
@@ -1123,7 +1258,7 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
             .iter()
             .enumerate()
             .filter_map(|(n, inst)| {
-                let share = inst.share_pct?;
+                let share = share(inst)?;
                 let evidence = inst.trigger_phrase.as_ref()?;
                 (!percentage_in_snippet(share, &evidence.snippet)).then(|| {
                     format!(
@@ -1256,19 +1391,31 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
 
 /// Run every check on an extracted agreement against its page text.
 pub fn verify(agreement: &Agreement, pages: &Pages) -> Vec<CheckResult> {
-    let mut results = vec![
-        check_unit_consistency(agreement, pages),
-        check_tenure_units(agreement, pages),
-        check_tenure_rooms(agreement, pages),
-        check_claimed_pct(agreement, pages),
-    ];
-    results.extend(check_mix_table(agreement, pages));
-    results.push(check_instrument(agreement, pages));
+    let mut results = scoped(
+        vec![
+            check_unit_consistency(agreement, pages),
+            check_tenure_units(agreement, pages),
+            check_tenure_rooms(agreement, pages),
+            check_claimed_pct(agreement, pages),
+        ],
+        Scope::Housing,
+    );
+    results.extend(scoped(check_mix_table(agreement, pages), Scope::Housing));
+    results.extend(scoped(
+        vec![check_instrument(agreement, pages)],
+        Scope::Instrument,
+    ));
     for (i, v) in agreement.variations.iter().enumerate() {
-        results.push(check_variation(v, i + 1, pages));
+        results.extend(scoped(
+            vec![check_variation(v, i + 1, pages)],
+            Scope::Variation(i),
+        ));
     }
     for (i, c) in agreement.contributions.iter().enumerate() {
-        results.extend(check_contribution(c, pages, i + 1));
+        results.extend(scoped(
+            check_contribution(c, pages, i + 1),
+            Scope::Contribution(i),
+        ));
     }
     results
 }

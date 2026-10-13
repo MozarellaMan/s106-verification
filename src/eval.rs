@@ -14,6 +14,7 @@
 //! Writes `data/processed/eval/<id>/run<k>.audit.json` and `data/processed/eval/summary.{json,md}`.
 //! Runs are sequential: PDFium sits behind a process-wide lock and `extract` calls the API synchronously.
 
+use crate::schema::Observed;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::str::FromStr;
@@ -377,7 +378,10 @@ fn housing_print(h: &Housing) -> Vec<(&'static str, String)> {
             "claimed_affordable_pct",
             format!(
                 "{:?}",
-                h.claimed_affordable_pct.map(|d| d.normalize().to_string())
+                h.claimed_affordable_pct
+                    .as_ref()
+                    .and_then(Observed::ok)
+                    .map(|d| d.normalize().to_string())
             ),
         ),
     ]
@@ -393,7 +397,7 @@ fn fingerprint(a: &Agreement) -> Fingerprint {
     let mut sums: Vec<String> = a
         .contributions
         .iter()
-        .filter_map(|c| c.amount.value_gbp)
+        .filter_map(|c| c.amount.value_gbp.as_ref().and_then(Observed::ok).copied())
         .map(|d| d.normalize().to_string())
         .collect();
     sums.sort();
@@ -420,7 +424,7 @@ fn fingerprint(a: &Agreement) -> Fingerprint {
             (
                 name,
                 [
-                    amount_text(c.amount.value_gbp),
+                    amount_text(c.amount.value_gbp.as_ref().and_then(Observed::ok).copied()),
                     c.amount.index_linked.to_string(),
                     format!("{:?}", c.amount.structure),
                     format!("{:?}", c.conditionality.kind),

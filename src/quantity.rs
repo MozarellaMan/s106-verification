@@ -5,6 +5,7 @@
 //! tokenizer and grammar over a whole field, so the prose and exact paths cannot drift.
 //! Nothing is guessed: OCR letter/digit mixes and malformed candidates are reported, not repaired.
 
+use std::borrow::Cow;
 use std::ops::Range;
 
 use rust_decimal::Decimal;
@@ -134,14 +135,14 @@ impl Cause {
 }
 
 /// A pure parse failure. It knows nothing about checks, pages or extractions.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParseError {
     /// The whole candidate that was rejected (e.g. "1,23"), in the coordinates of the scanned text.
     pub candidate: Range<usize>,
     /// The precise failure point inside the text (e.g. the "2" of "1,23"); empty at end of input.
     pub span: Range<usize>,
     pub cause: Cause,
-    pub expected: &'static str,
+    pub expected: Cow<'static, str>,
 }
 
 impl ParseError {
@@ -318,7 +319,7 @@ impl<'a> Scanner<'a> {
             candidate,
             span,
             cause,
-            expected,
+            expected: expected.into(),
         });
     }
 
@@ -740,7 +741,8 @@ fn cluster_error(pieces: &[Tok], cluster: Range<usize>, offset: usize) -> ParseE
             "below one hundred followed by pence or penny"
         } else {
             "units, tens, hundreds and descending million/thousand groups"
-        },
+        }
+        .into(),
     }
 }
 
@@ -944,7 +946,7 @@ fn error_at(
         candidate,
         span,
         cause,
-        expected,
+        expected: expected.into(),
     }
 }
 
