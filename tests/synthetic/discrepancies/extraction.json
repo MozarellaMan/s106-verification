@@ -1,0 +1,192 @@
+{
+ "instrument": {
+  "kind": "agreement",
+  "evidence": {
+   "page": 1,
+   "snippet": "DEED OF AGREEMENT pursuant to Section 106 of the Town and Country Planning Act 1990"
+  },
+  "parent_description": "",
+  "parent_date": "",
+  "parent_evidence": {
+   "page": 0,
+   "snippet": ""
+  },
+  "scope": "",
+  "scope_evidence": {
+   "page": 0,
+   "snippet": ""
+  }
+ },
+ "metadata": {
+  "council": "",
+  "planning_references": [],
+  "legal_reference": "",
+  "agreement_date": "",
+  "site_address": "Station Yard, Sample Street, Exampleton",
+  "parties": []
+ },
+ "variations": [],
+ "housing": {
+  "total_units": 100,
+  "total_units_evidence": {
+   "page": 2,
+   "snippet": "the construction of 100 new homes"
+  },
+  "market_units": 70,
+  "market_units_evidence": {
+   "page": 2,
+   "snippet": "means the 70 dwellings to be sold on the open market"
+  },
+  "affordable_units": 25,
+  "affordable_units_evidence": {
+   "page": 2,
+   "snippet": "means the 25 dwellings comprising Affordable Rent Units and First Homes"
+  },
+  "affordable_habitable_rooms": null,
+  "total_habitable_rooms": null,
+  "tenures": [
+   {
+    "tenure": "Affordable Rent",
+    "label": "Affordable Rent Units",
+    "units": 15,
+    "habitable_rooms": null,
+    "evidence": {
+     "page": 2,
+     "snippet": "means the 15 dwellings to be let at Affordable Rent"
+    }
+   },
+   {
+    "tenure": "First Homes",
+    "label": "First Homes",
+    "units": null,
+    "habitable_rooms": null,
+    "evidence": {
+     "page": 2,
+     "snippet": "means those dwellings to be sold as First Homes"
+    }
+   }
+  ],
+  "mix_table": {
+   "rows": [],
+   "subtotals": [],
+   "total_units": null,
+   "total_habitable_rooms": null,
+   "evidence": {
+    "page": 0,
+    "snippet": ""
+   }
+  },
+  "claimed_affordable_pct": "25",
+  "claimed_affordable_basis": "units",
+  "claimed_affordable_evidence": {
+   "page": 2,
+   "snippet": "100 new homes of which 25% shall be Affordable Housing"
+  }
+ },
+ "contributions": [
+  {
+   "name": "Library Contribution",
+   "amount_structure": "fixed",
+   "amount_gbp": "10500",
+   "amount_in_words": "ten thousand pounds",
+   "index_linked": false,
+   "amount_evidence": {
+    "page": 3,
+    "snippet": "means the sum of £10,500 (ten thousand pounds)"
+   },
+   "conditionality": "unconditional",
+   "condition_evidence": {
+    "page": 0,
+    "snippet": ""
+   },
+   "covenant": "The Owner shall pay the Library Contribution prior to Commencement",
+   "covenant_evidence": {
+    "page": 4,
+    "snippet": "The Owner shall pay the Library Contribution prior to Commencement"
+   },
+   "trigger_phrase": {
+    "page": 4,
+    "snippet": "prior to Commencement"
+   },
+   "instalments": []
+  },
+  {
+   "name": "Sports Contribution",
+   "amount_structure": "fixed",
+   "amount_gbp": "50000",
+   "amount_in_words": "fifty thousand pounds",
+   "index_linked": false,
+   "amount_evidence": {
+    "page": 3,
+    "snippet": "means the sum of £50,000 (fifty thousand pounds)"
+   },
+   "conditionality": "unconditional",
+   "condition_evidence": {
+    "page": 0,
+    "snippet": ""
+   },
+   "covenant": "The Owner shall pay the Sports Contribution prior to first Occupation",
+   "covenant_evidence": {
+    "page": 4,
+    "snippet": "The Owner shall pay the Sports Contribution prior to first Occupation"
+   },
+   "trigger_phrase": {
+    "page": 4,
+    "snippet": "upon practical completion of the community hall"
+   },
+   "instalments": []
+  },
+  {
+   "name": "Healthcare Contribution",
+   "amount_structure": "fixed",
+   "amount_gbp": "25000",
+   "amount_in_words": "",
+   "index_linked": false,
+   "amount_evidence": {
+    "page": 3,
+    "snippet": "means the sum of £20,000 (twenty thousand pounds)"
+   },
+   "conditionality": "unconditional",
+   "condition_evidence": {
+    "page": 0,
+    "snippet": ""
+   },
+   "covenant": "The Owner shall pay the Healthcare Contribution prior to Occupation of the 50th dwelling",
+   "covenant_evidence": {
+    "page": 4,
+    "snippet": "The Owner shall pay the Healthcare Contribution prior to Occupation of the 50th dwelling"
+   },
+   "trigger_phrase": {
+    "page": 4,
+    "snippet": "prior to Occupation of the 50th dwelling"
+   },
+   "instalments": []
+  },
+  {
+   "name": "Bus Stop Contribution",
+   "amount_structure": "formula",
+   "amount_gbp": "",
+   "amount_in_words": "",
+   "index_linked": false,
+   "amount_evidence": {
+    "page": 3,
+    "snippet": "means a sum calculated in accordance with the formula in Schedule 2"
+   },
+   "conditionality": "unconditional",
+   "condition_evidence": {
+    "page": 0,
+    "snippet": ""
+   },
+   "covenant": "The Owner shall pay the Bus Stop Contribution on demand",
+   "covenant_evidence": {
+    "page": 4,
+    "snippet": "The Owner shall pay the Bus Stop Contribution on demand"
+   },
+   "trigger_phrase": {
+    "page": 4,
+    "snippet": "on demand"
+   },
+   "instalments": []
+  }
+ ]
+}
