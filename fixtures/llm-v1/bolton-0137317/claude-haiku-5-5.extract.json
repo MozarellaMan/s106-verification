@@ -1,0 +1,154 @@
+{
+  "model": "claude-haiku-5-5",
+  "served_by": "claude-haiku-5-5",
+  "kind": "extract",
+  "provenance": "live",
+  "pdf_sha256": "c73209d0b4baf4a4da5fc76a647261c80dac0f258d5bb0e27dc55629a32b2c11",
+  "pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28
+  ],
+  "usage": {
+    "input_tokens": 48316,
+    "output_tokens": 5390,
+    "attempts": 1
+  },
+  "output": {
+    "housing": {
+      "total_units": 112,
+      "total_units_evidence": {
+        "page": 8,
+        "snippet": "for the erection of 112 Dwellings"
+      },
+      "market_units": null,
+      "market_units_evidence": {
+        "page": 0,
+        "snippet": ""
+      },
+      "affordable_units": null,
+      "affordable_units_evidence": {
+        "page": 0,
+        "snippet": ""
+      },
+      "affordable_habitable_rooms": null,
+      "total_habitable_rooms": null,
+      "tenures": [],
+      "mix_table": {
+        "rows": [],
+        "subtotals": [],
+        "total_units": null,
+        "total_habitable_rooms": null,
+        "evidence": {
+          "page": 0,
+          "snippet": ""
+        }
+      },
+      "claimed_affordable_pct": null,
+      "claimed_affordable_basis": null,
+      "claimed_affordable_evidence": {
+        "page": 0,
+        "snippet": ""
+      }
+    },
+    "contributions": [
+      {
+        "name": "Green Land Management Contribution",
+        "amount_gbp": "6000",
+        "amount_in_words": null,
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_clause": "within 5 Working Days of the completion of the laying out of the first phase or first acre (whichever is soonest) of the Green Land in accordance with the Open Space Strategy Alpha shall pay the first annual instalment of the Green Land Management Contribution",
+        "trigger_evidence": {
+          "page": 22,
+          "snippet": "within 5 Working Days of the completion of the laying out of the first phase or first acre"
+        },
+        "evidence": {
+          "page": 3,
+          "snippet": "the sum of \u00a36,000 per annum (being a"
+        }
+      },
+      {
+        "name": "Health Contribution",
+        "amount_gbp": "224",
+        "amount_in_words": null,
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_clause": "within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Health Contribution for the preceding 12 month period calculated on the basis of the number of Market Dwellings Completed and first Occupied on the Phase 1 Development Site during that period",
+        "trigger_evidence": {
+          "page": 18,
+          "snippet": "within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Health Contribution"
+        },
+        "evidence": {
+          "page": 5,
+          "snippet": "the sum of \u00a3224 per Market Dwelling to be"
+        }
+      },
+      {
+        "name": "Off-site Highways Contribution",
+        "amount_gbp": "2000",
+        "amount_in_words": "two thousand pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_clause": "within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Off-site Highways Contribution for the preceding 12 month period calculated on the basis of the number of Market Dwellings Completed and first Occupied on the Phase 1 Development Site during that period",
+        "trigger_evidence": {
+          "page": 18,
+          "snippet": "within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Off-site Highways Contribution"
+        },
+        "evidence": {
+          "page": 6,
+          "snippet": "the sum of \u00a32,000 (two thousand pounds) per Market Dwelling to be paid to the Council in"
+        }
+      },
+      {
+        "name": "Primary Education Contribution",
+        "amount_gbp": "2572",
+        "amount_in_words": "two thousand five hundred and seventy two pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_clause": "within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Primary Education Contribution for the preceding 12 month period calculated on the basis of the number of Market Dwellings Completed and first Occupied on the Phase 1 Development Site during that period",
+        "trigger_evidence": {
+          "page": 18,
+          "snippet": "within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Primary Education Contribution"
+        },
+        "evidence": {
+          "page": 7,
+          "snippet": "the sum of \u00a32,572 (two thousand five hundred and seventy two pounds) per Market Dwelling"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,612 @@
+{
+  "agreement": {
+    "metadata": {
+      "council": "Unknown",
+      "planning_reference": null,
+      "legal_reference": null,
+      "agreement_date": null,
+      "site_address": null,
+      "parties": [
+        "THE COUNCIL OF THE CITY OF SALFORD",
+        "BELLWAY HOMES LIMITED"
+      ],
+      "source_pdf": "data/raw/eval/salford-73971.pdf",
+      "page_count": 35,
+      "text_source": "text-layer"
+    },
+    "housing": {
+      "total_units": 209,
+      "total_units_evidence": {
+        "page": 3,
+        "snippet": "erection of up to 209 dwellings"
+      },
+      "market_units": null,
+      "market_units_evidence": null,
+      "affordable_units": null,
+      "affordable_units_evidence": null,
+      "affordable_habitable_rooms": null,
+      "total_habitable_rooms": null,
+      "tenures": [],
+      "mix_table": null,
+      "claimed_affordable_pct": "20",
+      "claimed_affordable_basis": "units",
+      "claimed_affordable_evidence": {
+        "page": 29,
+        "snippet": "20% (twenty per cent) of the total number of Dwellings approved"
+      }
+    },
+    "contributions": [
+      {
+        "name": "Ecology Contribution",
+        "amount_gbp": "7000",
+        "amount_in_words": "seven thousand pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Commencement",
+        "trigger_event_model": "other",
+        "trigger_clause": "To pay to the Council 2 1 fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development;",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development"
+        },
+        "evidence": {
+          "page": 4,
+          "snippet": "shall be the sum of \u00a37,000 (seven thousand pounds) Index Linked"
+        }
+      },
+      {
+        "name": "Education Contribution",
+        "amount_gbp": "581011",
+        "amount_in_words": "five hundred and eighty one thousand and eleven pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Commencement",
+        "trigger_event_model": "other",
+        "trigger_clause": "To pay to the Council 2 1 fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development;",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development"
+        },
+        "evidence": {
+          "page": 4,
+          "snippet": "shall be the sum of \u00a3581,011 (five hundred and eighty one thousand and eleven pounds) Index Linked"
+        }
+      },
+      {
+        "name": "Open Space Contribution",
+        "amount_gbp": "252921",
+        "amount_in_words": "two hundred and fifty two thousand and nine hundred and twenty one pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Commencement",
+        "trigger_event_model": "other",
+        "trigger_clause": "To pay to the Council 2 1 fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development;",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development"
+        },
+        "evidence": {
+          "page": 4,
+          "snippet": "shall be the sum of \u00a3252,921 (two hundred and fifty two thousand and nine hundred and twenty one pounds Index Linked"
+        }
+      },
+      {
+        "name": "Sports Pitch Contribution",
+        "amount_gbp": "170570",
+        "amount_in_words": "one hundred and seventy thousand, five hundred and seventy pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Commencement",
+        "trigger_event_model": "other",
+        "trigger_clause": "To pay to the Council 2 1 fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development;",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development"
+        },
+        "evidence": {
+          "page": 5,
+          "snippet": "shall be the sum of \u00a3170,570 (one hundred and seventy thousand, five hundred and seventy pounds) Index Linked"
+        }
+      },
+      {
+        "name": "Highways Contribution",
+        "amount_gbp": "450000",
+        "amount_in_words": "four hundred and fifty thousand pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Commencement",
+        "trigger_event_model": "other",
+        "trigger_clause": "To pay to the Council 2 1 fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development;",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development"
+        },
+        "evidence": {
+          "page": 4,
+          "snippet": "shall be the sum of \u00a3450,000 (four hundred and fifty thousand pounds) Index Linked"
+        }
+      },
+      {
+        "name": "Public Realm Contribution",
+        "amount_gbp": "150000",
+        "amount_in_words": "one hundred and fifty thousand pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Commencement",
+        "trigger_event_model": "other",
+        "trigger_clause": "To pay to the Council 2 1 fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development;",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development"
+        },
+        "evidence": {
+          "page": 4,
+          "snippet": "shall be the sum of \u00a3150,000 (one hundred and fifty thousand pounds) Index Linked"
+        }
+      },
+      {
+        "name": "Maximum Contribution",
+        "amount_gbp": "1611502",
+        "amount_in_words": "one million, six hundred and eleven thousand and five hundred and two pounds",
+        "index_linked": true,
+        "is_cap": true,
+        "contingent": false,
+        "trigger_event": null,
+        "trigger_event_model": null,
+        "trigger_clause": null,
+        "trigger_evidence": null,
+        "evidence": {
+          "page": 4,
+          "snippet": "the sum of \u00a31,611,502 (one million, six hundred and eleven thousand and five hundred and two pounds) Index Linked"
+        }
+      },
+      {
+        "name": "Affordable Housing Contribution",
+        "amount_gbp": "5336500",
+        "amount_in_words": "five million and three hundred and thirty six thousand and five hundred pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": "other",
+        "trigger_clause": "50% (fifty per cent) on Occupation of 20% (twenty per cent) of the Dwellings on the Site or in that Phase (as appropriate), and",
+        "trigger_evidence": {
+          "page": 30,
+          "snippet": "50% (fifty per cent) on Occupation of 20% (twenty per cent) of the Dwellings on"
+        },
+        "evidence": {
+          "page": 24,
+          "snippet": "a sum equating to \u00a35,336,500 (five million and three hundred and thirty six thousand and five hundred pounds) Index Linked"
+        }
+      }
+    ],
+    "extraction_backend": "llm-pdf:claude-haiku-5-5 (replay)",
+    "warnings": [
+      "llm-pdf: claude-haiku-5-5 replay (live), 88,866 in / 9,787 out tokens; pages 1-35"
+    ],
+    "total_contributions_gbp": "8559504"
+  },
+  "verification": [
+    {
+      "check_id": "H1",
+      "description": "Market units + affordable units == total residential units",
+      "status": "FAIL",
+      "expected": "209",
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "not extracted: market units, affordable units",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "H2",
+      "description": "Sum of tenure units == affordable units",
+      "status": "FAIL",
+      "expected": null,
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "no tenure breakdown extracted",
+      "pages": []
+    },
+    {
+      "check_id": "H3",
+      "description": "Sum of tenure habitable rooms == affordable habitable rooms",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "habitable-room breakdown not stated",
+      "pages": []
+    },
+    {
+      "check_id": "H4",
+      "description": "Claimed affordable % vs calculated % (basis: units)",
+      "status": "FAIL",
+      "expected": "20%",
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "not extracted: affordable units",
+      "pages": [
+        3,
+        29
+      ]
+    },
+    {
+      "check_id": "H5",
+      "description": "Approved mix table: rows sum to subtotals",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no mix table found",
+      "pages": []
+    },
+    {
+      "check_id": "F1.amt",
+      "description": "Ecology Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a37,000.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F1.words",
+      "description": "Ecology Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a37,000.00",
+      "actual": "\u00a37,000.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F1.trig",
+      "description": "Ecology Contribution: payment trigger located",
+      "status": "PASS",
+      "expected": null,
+      "actual": "prior to Commencement",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F1.tlabel",
+      "description": "Ecology Contribution: trigger label follows from cited phrase",
+      "status": "PASS",
+      "expected": "prior to Commencement",
+      "actual": "prior to Commencement",
+      "error_class": null,
+      "detail": "model proposed 'other'",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F2.amt",
+      "description": "Education Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a3581,011.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F2.words",
+      "description": "Education Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a3581,011.00",
+      "actual": "\u00a3581,011.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F2.trig",
+      "description": "Education Contribution: payment trigger located",
+      "status": "PASS",
+      "expected": null,
+      "actual": "prior to Commencement",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F2.tlabel",
+      "description": "Education Contribution: trigger label follows from cited phrase",
+      "status": "PASS",
+      "expected": "prior to Commencement",
+      "actual": "prior to Commencement",
+      "error_class": null,
+      "detail": "model proposed 'other'",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F3.amt",
+      "description": "Open Space Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a3252,921.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F3.words",
+      "description": "Open Space Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a3252,921.00",
+      "actual": "\u00a3252,921.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F3.trig",
+      "description": "Open Space Contribution: payment trigger located",
+      "status": "PASS",
+      "expected": null,
+      "actual": "prior to Commencement",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F3.tlabel",
+      "description": "Open Space Contribution: trigger label follows from cited phrase",
+      "status": "PASS",
+      "expected": "prior to Commencement",
+      "actual": "prior to Commencement",
+      "error_class": null,
+      "detail": "model proposed 'other'",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F4.amt",
+      "description": "Sports Pitch Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a3170,570.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        5
+      ]
+    },
+    {
+      "check_id": "F4.words",
+      "description": "Sports Pitch Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a3170,570.00",
+      "actual": "\u00a3170,570.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        5
+      ]
+    },
+    {
+      "check_id": "F4.trig",
+      "description": "Sports Pitch Contribution: payment trigger located",
+      "status": "PASS",
+      "expected": null,
+      "actual": "prior to Commencement",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F4.tlabel",
+      "description": "Sports Pitch Contribution: trigger label follows from cited phrase",
+      "status": "PASS",
+      "expected": "prior to Commencement",
+      "actual": "prior to Commencement",
+      "error_class": null,
+      "detail": "model proposed 'other'",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F5.amt",
+      "description": "Highways Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a3450,000.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F5.words",
+      "description": "Highways Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a3450,000.00",
+      "actual": "\u00a3450,000.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F5.trig",
+      "description": "Highways Contribution: payment trigger located",
+      "status": "PASS",
+      "expected": null,
+      "actual": "prior to Commencement",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F5.tlabel",
+      "description": "Highways Contribution: trigger label follows from cited phrase",
+      "status": "PASS",
+      "expected": "prior to Commencement",
+      "actual": "prior to Commencement",
+      "error_class": null,
+      "detail": "model proposed 'other'",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F6.amt",
+      "description": "Public Realm Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a3150,000.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F6.words",
+      "description": "Public Realm Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a3150,000.00",
+      "actual": "\u00a3150,000.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F6.trig",
+      "description": "Public Realm Contribution: payment trigger located",
+      "status": "PASS",
+      "expected": null,
+      "actual": "prior to Commencement",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F6.tlabel",
+      "description": "Public Realm Contribution: trigger label follows from cited phrase",
+      "status": "PASS",
+      "expected": "prior to Commencement",
+      "actual": "prior to Commencement",
+      "error_class": null,
+      "detail": "model proposed 'other'",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F7.amt",
+      "description": "Maximum Contribution: amount stated in cited evidence",
+      "status": "REVIEW",
+      "expected": null,
+      "actual": "\u00a31,611,502.00",
+      "error_class": null,
+      "detail": "holds, but not grounded: amount: cited snippet not re-locatable on p4",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F7.words",
+      "description": "Maximum Contribution: figures == words",
+      "status": "REVIEW",
+      "expected": "\u00a31,611,502.00",
+      "actual": "\u00a31,611,502.00",
+      "error_class": null,
+      "detail": "holds, but not grounded: amount: cited snippet not re-locatable on p4; words form: cited snippet not re-locatable on p4",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F7.trig",
+      "description": "Maximum Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "no trigger clause matched in the schedules",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "check_id": "F8.amt",
+      "description": "Affordable Housing Contribution: amount stated in cited evidence",
+      "status": "REVIEW",
+      "expected": null,
+      "actual": "\u00a35,336,500.00",
+      "error_class": null,
+      "detail": "holds, but not grounded: amount: cited snippet not re-locatable on p24",
+      "pages": [
+        24
+      ]
+    },
+    {
+      "check_id": "F8.words",
+      "description": "Affordable Housing Contribution: figures == words",
+      "status": "REVIEW",
+      "expected": "\u00a35,336,500.00",
+      "actual": "\u00a35,336,500.00",
+      "error_class": null,
+      "detail": "holds, but not grounded: amount: cited snippet not re-locatable on p24; words form: cited snippet not re-locatable on p24",
+      "pages": [
+        24
+      ]
+    },
+    {
+      "check_id": "F8.trig",
+      "description": "Affordable Housing Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited payment clause not re-locatable in source (p30)",
+      "pages": [
+        30
+      ]
+    }
+  ]
+}

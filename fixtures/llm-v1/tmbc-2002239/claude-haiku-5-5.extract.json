@@ -1,0 +1,98 @@
+{
+  "model": "claude-haiku-5-5",
+  "served_by": "claude-haiku-5-5",
+  "kind": "extract",
+  "provenance": "live",
+  "pdf_sha256": "07f25ce0b7e59546a2e0d43978a821bd7d6498b16ccb6cc1ab9064c83c2d3ab3",
+  "pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26
+  ],
+  "usage": {
+    "input_tokens": 45168,
+    "output_tokens": 2190,
+    "attempts": 1
+  },
+  "output": {
+    "housing": {
+      "total_units": 9,
+      "total_units_evidence": {
+        "page": 7,
+        "snippet": "Construction of 9 detached dwellings on the Site with associated access"
+      },
+      "market_units": null,
+      "market_units_evidence": {
+        "page": 0,
+        "snippet": ""
+      },
+      "affordable_units": 4,
+      "affordable_units_evidence": {
+        "page": 4,
+        "snippet": "in lieu of the provision of 4 Affordable Housing units on the Site as part of the Development"
+      },
+      "affordable_habitable_rooms": null,
+      "total_habitable_rooms": null,
+      "tenures": [],
+      "mix_table": {
+        "rows": [],
+        "subtotals": [],
+        "total_units": null,
+        "total_habitable_rooms": null,
+        "evidence": {
+          "page": 0,
+          "snippet": ""
+        }
+      },
+      "claimed_affordable_pct": null,
+      "claimed_affordable_basis": null,
+      "claimed_affordable_evidence": {
+        "page": 0,
+        "snippet": ""
+      }
+    },
+    "contributions": [
+      {
+        "name": "Affordable Housing Contribution",
+        "amount_gbp": "45000.00",
+        "amount_in_words": "forty five thousand pounds",
+        "index_linked": false,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_clause": "Prior to Occupation of the first Market Housing Unit, the Owner undertakes to pay to the Council the Affordable Housing Contribution;",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "Prior to Occupation of the first Market Housing Unit, the Owner undertakes to pay to the Council the Affordable Housing Contribution"
+        },
+        "evidence": {
+          "page": 5,
+          "snippet": "the sum of \u00a345,000.00 (forty five thousand pounds) paid in lieu of the loss of 4 x Dwellings"
+        }
+      }
+    ]
+  }
+}

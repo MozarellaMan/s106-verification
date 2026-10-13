@@ -1,0 +1,96 @@
+{
+  "agreement": {
+    "metadata": {
+      "council": "Unknown",
+      "planning_reference": null,
+      "legal_reference": null,
+      "agreement_date": null,
+      "site_address": null,
+      "parties": [
+        "STMODWENHOMESLIMITED"
+      ],
+      "source_pdf": "data/raw/eval/tmbc-2400842.pdf",
+      "page_count": 9,
+      "text_source": "ocr"
+    },
+    "housing": {
+      "total_units": null,
+      "total_units_evidence": null,
+      "market_units": null,
+      "market_units_evidence": null,
+      "affordable_units": null,
+      "affordable_units_evidence": null,
+      "affordable_habitable_rooms": null,
+      "total_habitable_rooms": null,
+      "tenures": [],
+      "mix_table": null,
+      "claimed_affordable_pct": "25",
+      "claimed_affordable_basis": "units",
+      "claimed_affordable_evidence": {
+        "page": 6,
+        "snippet": "being 25% (twenty five percent) of the total number of Dwellings"
+      }
+    },
+    "contributions": [],
+    "extraction_backend": "llm-pdf:claude-haiku-5-5 (replay)",
+    "warnings": [
+      "PDF has no text layer; values come from OCR and evidence matching is whitespace-insensitive",
+      "llm-pdf: claude-haiku-5-5 replay (live), 18,786 in / 1,088 out tokens; pages 1-9"
+    ],
+    "total_contributions_gbp": "0"
+  },
+  "verification": [
+    {
+      "check_id": "H1",
+      "description": "Market units + affordable units == total residential units",
+      "status": "FAIL",
+      "expected": "None",
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "not extracted: total units, market units, affordable units",
+      "pages": []
+    },
+    {
+      "check_id": "H2",
+      "description": "Sum of tenure units == affordable units",
+      "status": "FAIL",
+      "expected": null,
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "no tenure breakdown extracted",
+      "pages": []
+    },
+    {
+      "check_id": "H3",
+      "description": "Sum of tenure habitable rooms == affordable habitable rooms",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "habitable-room breakdown not stated",
+      "pages": []
+    },
+    {
+      "check_id": "H4",
+      "description": "Claimed affordable % vs calculated % (basis: units)",
+      "status": "FAIL",
+      "expected": "25%",
+      "actual": null,
+      "error_class": "Parser Error",
+      "detail": "not extracted: affordable units, total units",
+      "pages": [
+        6
+      ]
+    },
+    {
+      "check_id": "H5",
+      "description": "Approved mix table: rows sum to subtotals",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no mix table found",
+      "pages": []
+    }
+  ]
+}

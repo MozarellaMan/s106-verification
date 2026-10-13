@@ -1,0 +1,233 @@
+{
+  "model": "claude-haiku-5-5",
+  "served_by": "claude-haiku-5-5",
+  "kind": "extract",
+  "provenance": "live",
+  "pdf_sha256": "13714f6b131d5d12c05a69b9468ab1b30b1c74c483b61c5c077949ddb2a35469",
+  "pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35
+  ],
+  "usage": {
+    "input_tokens": 88866,
+    "output_tokens": 9787,
+    "attempts": 1
+  },
+  "output": {
+    "housing": {
+      "total_units": 209,
+      "total_units_evidence": {
+        "page": 3,
+        "snippet": "erection of up to 209 dwellings"
+      },
+      "market_units": null,
+      "market_units_evidence": {
+        "page": 0,
+        "snippet": ""
+      },
+      "affordable_units": null,
+      "affordable_units_evidence": {
+        "page": 0,
+        "snippet": ""
+      },
+      "affordable_habitable_rooms": null,
+      "total_habitable_rooms": null,
+      "tenures": [],
+      "mix_table": {
+        "rows": [],
+        "subtotals": [],
+        "total_units": null,
+        "total_habitable_rooms": null,
+        "evidence": {
+          "page": 0,
+          "snippet": ""
+        }
+      },
+      "claimed_affordable_pct": "20",
+      "claimed_affordable_basis": "units",
+      "claimed_affordable_evidence": {
+        "page": 29,
+        "snippet": "20% (twenty per cent) of the total number of Dwellings approved"
+      }
+    },
+    "contributions": [
+      {
+        "name": "Ecology Contribution",
+        "amount_gbp": "7000",
+        "amount_in_words": "seven thousand pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_clause": "To pay to the Council 2 1 fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development;",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development"
+        },
+        "evidence": {
+          "page": 4,
+          "snippet": "shall be the sum of \u00a37,000 (seven thousand pounds) Index Linked"
+        }
+      },
+      {
+        "name": "Education Contribution",
+        "amount_gbp": "581011",
+        "amount_in_words": "five hundred and eighty one thousand and eleven pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_clause": "To pay to the Council 2 1 fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development;",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development"
+        },
+        "evidence": {
+          "page": 4,
+          "snippet": "shall be the sum of \u00a3581,011 (five hundred and eighty one thousand and eleven pounds) Index Linked"
+        }
+      },
+      {
+        "name": "Open Space Contribution",
+        "amount_gbp": "252921",
+        "amount_in_words": "two hundred and fifty two thousand and nine hundred and twenty one pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_clause": "To pay to the Council 2 1 fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development;",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development"
+        },
+        "evidence": {
+          "page": 4,
+          "snippet": "shall be the sum of \u00a3252,921 (two hundred and fifty two thousand and nine hundred and twenty one pounds Index Linked"
+        }
+      },
+      {
+        "name": "Sports Pitch Contribution",
+        "amount_gbp": "170570",
+        "amount_in_words": "one hundred and seventy thousand, five hundred and seventy pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_clause": "To pay to the Council 2 1 fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development;",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development"
+        },
+        "evidence": {
+          "page": 5,
+          "snippet": "shall be the sum of \u00a3170,570 (one hundred and seventy thousand, five hundred and seventy pounds) Index Linked"
+        }
+      },
+      {
+        "name": "Highways Contribution",
+        "amount_gbp": "450000",
+        "amount_in_words": "four hundred and fifty thousand pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_clause": "To pay to the Council 2 1 fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development;",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development"
+        },
+        "evidence": {
+          "page": 4,
+          "snippet": "shall be the sum of \u00a3450,000 (four hundred and fifty thousand pounds) Index Linked"
+        }
+      },
+      {
+        "name": "Public Realm Contribution",
+        "amount_gbp": "150000",
+        "amount_in_words": "one hundred and fifty thousand pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_clause": "To pay to the Council 2 1 fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development;",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development"
+        },
+        "evidence": {
+          "page": 4,
+          "snippet": "shall be the sum of \u00a3150,000 (one hundred and fifty thousand pounds) Index Linked"
+        }
+      },
+      {
+        "name": "Maximum Contribution",
+        "amount_gbp": "1611502",
+        "amount_in_words": "one million, six hundred and eleven thousand and five hundred and two pounds",
+        "index_linked": true,
+        "is_cap": true,
+        "contingent": false,
+        "trigger_event": null,
+        "trigger_clause": null,
+        "trigger_evidence": {
+          "page": 0,
+          "snippet": ""
+        },
+        "evidence": {
+          "page": 4,
+          "snippet": "the sum of \u00a31,611,502 (one million, six hundred and eleven thousand and five hundred and two pounds) Index Linked"
+        }
+      },
+      {
+        "name": "Affordable Housing Contribution",
+        "amount_gbp": "5336500",
+        "amount_in_words": "five million and three hundred and thirty six thousand and five hundred pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_clause": "50% (fifty per cent) on Occupation of 20% (twenty per cent) of the Dwellings on the Site or in that Phase (as appropriate), and",
+        "trigger_evidence": {
+          "page": 30,
+          "snippet": "50% (fifty per cent) on Occupation of 20% (twenty per cent) of the Dwellings on"
+        },
+        "evidence": {
+          "page": 24,
+          "snippet": "a sum equating to \u00a35,336,500 (five million and three hundred and thirty six thousand and five hundred pounds) Index Linked"
+        }
+      }
+    ]
+  }
+}

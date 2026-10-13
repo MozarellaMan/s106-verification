@@ -1,0 +1,453 @@
+{
+  "agreement": {
+    "metadata": {
+      "council": "Unknown",
+      "planning_reference": null,
+      "legal_reference": "PB/80741",
+      "agreement_date": null,
+      "site_address": null,
+      "parties": [
+        "THE COUNCILOF THE CITY OF SUNDERLAND"
+      ],
+      "source_pdf": "data/raw/eval/sunderland-2101544.pdf",
+      "page_count": 40,
+      "text_source": "ocr"
+    },
+    "housing": {
+      "total_units": 60,
+      "total_units_evidence": {
+        "page": 5,
+        "snippet": "The construction of 60 Dwellings and associated infrastructure on the Site"
+      },
+      "market_units": null,
+      "market_units_evidence": null,
+      "affordable_units": 6,
+      "affordable_units_evidence": {
+        "page": 3,
+        "snippet": "Means the 6 (six) Dwellings to be constructed on the Site"
+      },
+      "affordable_habitable_rooms": null,
+      "total_habitable_rooms": null,
+      "tenures": [
+        {
+          "tenure": "Other",
+          "units": 5,
+          "habitable_rooms": null,
+          "evidence": {
+            "page": 3,
+            "snippet": "Means those five (5) dwellings to be provided on the Site"
+          }
+        },
+        {
+          "tenure": "Intermediate",
+          "units": 1,
+          "habitable_rooms": null,
+          "evidence": {
+            "page": 5,
+            "snippet": "the 1 (one) Affordable Housing Unit which is to be provided at a Discounted Price"
+          }
+        }
+      ],
+      "mix_table": null,
+      "claimed_affordable_pct": null,
+      "claimed_affordable_basis": null,
+      "claimed_affordable_evidence": null
+    },
+    "contributions": [
+      {
+        "name": "Allotments Contribution",
+        "amount_gbp": "5580.00",
+        "amount_in_words": "five thousand, five hundred and eighty pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "The Developer covenants to pay the Allotments Contribution in the following instalments:- 33% prior to the Occupation of the 1st Dwelling; 33% prior to the Occupation of the 28th Dwelling. 34% prior to the Occupation of the 58th Dwelling.",
+        "trigger_evidence": {
+          "page": 22,
+          "snippet": "33% prior to the Occupation of the 1st Dwelling;"
+        },
+        "evidence": {
+          "page": 3,
+          "snippet": "means the contribution of \u00a35580.00 (five thousand, five hundred and eighty pounds)"
+        }
+      },
+      {
+        "name": "Biodiversity Contribution",
+        "amount_gbp": "20220.00",
+        "amount_in_words": "twenty thousand two hundred and twenty pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "The Developer covenants to pay the Biodiversity Contribution in the following instalments:- 33% prior to the Occupation of the 1st Dwelling; 33% prior to the Occupation of the 28th Dwelling. 34% prior to the Occupation of the 58th Dwelling",
+        "trigger_evidence": {
+          "page": 22,
+          "snippet": "33% prior to the Occupation of the 1st Dwelling;"
+        },
+        "evidence": {
+          "page": 3,
+          "snippet": "means the sum of \u00a320,220.00 (twenty thousand two hundred and twenty pounds)"
+        }
+      },
+      {
+        "name": "Education Contribution",
+        "amount_gbp": "185700.00",
+        "amount_in_words": "one hundred and eighty five thousand seven hundred pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "The Developer covenants to pay the Education Contribution in the following instalments:- 33% prior to the Occupation of the 1st Dwelling; 33% prior to the Occupation of the 28th Dwelling. 34% prior to the Occupation of the 58th Dwelling.",
+        "trigger_evidence": {
+          "page": 22,
+          "snippet": "33% prior to the Occupation of the 1st Dwelling;"
+        },
+        "evidence": {
+          "page": 6,
+          "snippet": "means the contribution of \u00a3185,700.00 (one hundred and eighty five thousand seven hundred pounds)"
+        }
+      },
+      {
+        "name": "Public Transport Contribution",
+        "amount_gbp": "20580.00",
+        "amount_in_words": "twenty thousand five hundred and eighty pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "The Developer covenants to pay the Public Transport Contribution in the following instalments:- 33% prior to the Occupation of the 1st Dwelling; 33% prior to the Occupation of the 28th Dwelling. 34% prior to the Occupation of the 58th Dwelling",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "33% prior to the Occupation of the 1st Dwelling;"
+        },
+        "evidence": {
+          "page": 12,
+          "snippet": "means the sum of \u00a320,580.00 (twenty thousand five hundred and eighty pounds)"
+        }
+      },
+      {
+        "name": "RDLR Contribution",
+        "amount_gbp": "120120.00",
+        "amount_in_words": "one hundred and twenty thousand one hundred and twenty pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "The Developer covenants to pay the RDLR Contribution in the following instalments:- 33% prior to the Occupation of the 1st Dwelling; 33% prior to the Occupation of the 28th Dwelling; 34% prior to the Occupation of the 58th Dwelling",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "33% prior to the Occupation of the 1st Dwelling;"
+        },
+        "evidence": {
+          "page": 12,
+          "snippet": "means the contribution of \u00a3120,120.00 (one hundred and twenty thousand one hundred and twenty pounds)"
+        }
+      },
+      {
+        "name": "Recreation Contribution",
+        "amount_gbp": "55620.00",
+        "amount_in_words": "fifty five thousand, six hundred and twenty pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_event_model": null,
+        "trigger_clause": "The Developer covenants to pay the Recreational Contribution in the following instalments:- 33% prior to the Occupation of the 1st Dwelling; 33% prior to the Occupation of the 28th Dwelling. 34% prior to the Occupation of the 58th Dwelling",
+        "trigger_evidence": {
+          "page": 23,
+          "snippet": "33% prior to the Occupation of the 1st Dwelling;"
+        },
+        "evidence": {
+          "page": 12,
+          "snippet": "means the contribution of \u00a355,620.00 (fifty five thousand, six hundred and twenty pounds)"
+        }
+      }
+    ],
+    "extraction_backend": "llm-pdf:claude-haiku-5-5 (replay)",
+    "warnings": [
+      "PDF has no text layer; values come from OCR and evidence matching is whitespace-insensitive",
+      "llm-pdf: claude-haiku-5-5 replay (live), 67,204 in / 6,841 out tokens; pages 1-40"
+    ],
+    "total_contributions_gbp": "407820.00"
+  },
+  "verification": [
+    {
+      "check_id": "H1",
+      "description": "Market units + affordable units == total residential units",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "deed does not state market unit count separately",
+      "pages": [
+        3,
+        5
+      ]
+    },
+    {
+      "check_id": "H2",
+      "description": "Sum of tenure units == affordable units",
+      "status": "PASS",
+      "expected": "6",
+      "actual": "5 Other + 1 Intermediate = 6",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3,
+        5
+      ]
+    },
+    {
+      "check_id": "H3",
+      "description": "Sum of tenure habitable rooms == affordable habitable rooms",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "habitable-room breakdown not stated",
+      "pages": []
+    },
+    {
+      "check_id": "H4",
+      "description": "Claimed affordable % vs calculated % (basis: not stated)",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no affordable % stated in the deed",
+      "pages": []
+    },
+    {
+      "check_id": "H5",
+      "description": "Approved mix table: rows sum to subtotals",
+      "status": "SKIP",
+      "expected": null,
+      "actual": null,
+      "error_class": null,
+      "detail": "no mix table found",
+      "pages": []
+    },
+    {
+      "check_id": "F1.amt",
+      "description": "Allotments Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a35,580.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F1.words",
+      "description": "Allotments Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a35,580.00",
+      "actual": "\u00a35,580.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F1.trig",
+      "description": "Allotments Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited payment clause not re-locatable in source (p22)",
+      "pages": [
+        22
+      ]
+    },
+    {
+      "check_id": "F2.amt",
+      "description": "Biodiversity Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a320,220.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F2.words",
+      "description": "Biodiversity Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a320,220.00",
+      "actual": "\u00a320,220.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        3
+      ]
+    },
+    {
+      "check_id": "F2.trig",
+      "description": "Biodiversity Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited payment clause not re-locatable in source (p22)",
+      "pages": [
+        22
+      ]
+    },
+    {
+      "check_id": "F3.amt",
+      "description": "Education Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a3185,700.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        6
+      ]
+    },
+    {
+      "check_id": "F3.words",
+      "description": "Education Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a3185,700.00",
+      "actual": "\u00a3185,700.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        6
+      ]
+    },
+    {
+      "check_id": "F3.trig",
+      "description": "Education Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited payment clause not re-locatable in source (p22)",
+      "pages": [
+        22
+      ]
+    },
+    {
+      "check_id": "F4.amt",
+      "description": "Public Transport Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a320,580.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F4.words",
+      "description": "Public Transport Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a320,580.00",
+      "actual": "\u00a320,580.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F4.trig",
+      "description": "Public Transport Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited payment clause not re-locatable in source (p23)",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F5.amt",
+      "description": "RDLR Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a3120,120.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F5.words",
+      "description": "RDLR Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a3120,120.00",
+      "actual": "\u00a3120,120.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F5.trig",
+      "description": "RDLR Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited payment clause not re-locatable in source (p23)",
+      "pages": [
+        23
+      ]
+    },
+    {
+      "check_id": "F6.amt",
+      "description": "Recreation Contribution: amount stated in cited evidence",
+      "status": "PASS",
+      "expected": null,
+      "actual": "\u00a355,620.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F6.words",
+      "description": "Recreation Contribution: figures == words",
+      "status": "PASS",
+      "expected": "\u00a355,620.00",
+      "actual": "\u00a355,620.00",
+      "error_class": null,
+      "detail": "",
+      "pages": [
+        12
+      ]
+    },
+    {
+      "check_id": "F6.trig",
+      "description": "Recreation Contribution: payment trigger located",
+      "status": "FAIL",
+      "expected": null,
+      "actual": "prior to Occupation",
+      "error_class": "Parser Error",
+      "detail": "cited payment clause not re-locatable in source (p23)",
+      "pages": [
+        23
+      ]
+    }
+  ]
+}

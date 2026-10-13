@@ -1,29 +1,52 @@
 # s106-verification
 
-A verification harness for UK Section 106 planning agreements, in the spirit of BootLoops-style
-exact quantitative checking. It extracts housing and financial obligations from an executed
-deed, then runs them through a programmatic gate of hard numeric assertions. Every failure is
-classified as either a **Parser Error** (our extraction is wrong) or a **Document Discrepancy**
-(the deed disagrees with itself).
+A verification harness for UK Section 106 planning obligations, written in Rust.
+
+Claude reads an executed deed (agreement, unilateral undertaking, deed of variation or
+supplemental deed) into a typed schema. A deterministic gate then checks every number against
+the others **and** against the deed's own text: each value must appear in the passage the model
+cites, and that passage must be found on the cited page. Nothing in the gate is a model judgement.
+
+Scope, roadmap and open research questions: [docs/research-plan.md](docs/research-plan.md).
+Schema v2 and the real deeds behind it: [docs/schema-v2.md](docs/schema-v2.md).
+How the Rust harness was accepted against the former Python one: [docs/migration.md](docs/migration.md).
 
 ```
-s106-audit/
-  schema.py     Pydantic v2 model: Section106Agreement (metadata, housing/tenure, contributions + triggers)
-  ocr.py        pdfplumber text layer -> parallel RapidOCR fallback for scanned deeds, cached per page
-  extractor.py  definitions-clause + schedule parser (rules) or Claude over the page images (llm-pdf)
-  fixtures/     recorded Claude responses so --backend llm-pdf runs offline
-  verifier.py   hard assertions + Parser Error / Document Discrepancy classification
-  run_audit.py  CLI: terminal report + JSON
+src/
+  document.rs   PDF pages -> text with boxes: PDFium text layer, or PP-OCRv5 OCR; cached by content hash
+  wire.rs       structured-output types the model fills in, and their conversion to schema v2
+  llm.rs        the Anthropic API (rust-claude-sdk, pinned): strict JSON schemas, PDF input, retries
+  extract.rs    prompts, recorded fixtures and offline replay, escalation to a stronger model
+  schema.rs     schema v2: instrument, housing, contributions (amount / conditionality / payment), variations
+  verify.rs     the gate: arithmetic + grounding -> PASS / REVIEW / FAIL / SKIP
+  evidence.rs   re-locating a cited snippet in OCR text (dropped spaces, two-column wraps, OCR digits)
+  triggers.rs   fixed vocabulary that labels payment triggers from the cited phrase
+  text.rs       number and words-to-amount reading
+  report.rs     terminal report and JSON
+  eval.rs       evaluation against the national S106 register (planning.data.gov.uk)
+  ocrbench.rs   OCR scored against hand-transcribed gold (gold/*.json)
 ```
 
 ## Setup
 
+Rust 1.85+ (edition 2024). Then fetch PDFium and the OCR models; each file is checked against a
+pinned SHA-256:
+
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+scripts/fetch-models.sh
 ```
 
-The sample deed is Southwark's S106 for **19/AP/1773** (227–255 Ilderton Road SE15, dated 28 Jan 2021).
-It comes from the public planning register. It is not committed to the repo, so fetch it with:
+```bash
+cargo build --release
+```
+
+Live extraction needs an Anthropic API key in `~/.config/s106/anthropic_key` (or
+`ANTHROPIC_API_KEY`). Replaying recorded fixtures needs nothing.
+
+### The deeds
+
+Deeds come from public planning registers and are not committed. The Southwark sample is the S106
+for **19/AP/1773** (227–255 Ilderton Road SE15, dated 28 Jan 2021):
 
 ```bash
 mkdir -p data/raw && curl -sSL -c /tmp/sk -b /tmp/sk \
@@ -37,96 +60,84 @@ its Sectigo intermediate certificate. If curl reports an SSL error, add the inte
 `http://crt.sectigo.com/SectigoPublicServerAuthenticationCAOVR36.crt` to a CA bundle and pass it
 with `--cacert`.
 
+The nine evaluation deeds are listed, with URLs, in `data/reference/candidates.tsv` and go in
+`data/raw/eval/<id>.pdf`. Their SHA-256s are in the recorded fixtures (`fixtures/llm/<id>/`),
+which refuse to replay against a different file.
+
 ## Run
 
 ```bash
-.venv/bin/python s106-audit/run_audit.py                      # rules backend
-.venv/bin/python s106-audit/run_audit.py --backend llm-pdf            # Claude reads the scans (offline: replays fixture)
-.venv/bin/python s106-audit/run_audit.py --backend llm-pdf --cascade  # + re-read Parser Error fields on Opus
-.venv/bin/python -m unittest discover -s tests                        # offline tests, mocked client
+s106 audit data/raw/southwark_s106_sample.pdf                      # replay if no credentials, else live
+s106 audit data/raw/southwark_s106_sample.pdf --llm-mode record    # call the API and save the fixture
+s106 audit <pdf> --escalate                                        # re-read Parser-Error fields with Opus 5.5
+s106 eval --replay                                                 # all candidate deeds vs the register, offline
+s106 eval --runs 3                                                 # live, three runs per deed (run-to-run agreement)
+s106 bench-ocr gold/southwark_19_AP_1773.json data/raw/southwark_s106_sample.pdf --models ppocrv5-en-mobile,ppocrv4-mobile
 ```
 
-The JSON output goes to `data/processed/<stem>.audit.json`. Exit codes are `0` clean,
-`1` parser errors, and `2` document discrepancies.
+(`cargo run --release --` instead of `s106` without installing.)
 
-## LLM-PDF backend
+`audit` prints a report and writes JSON to `data/processed/<stem>.audit.json`. Exit codes are `0`
+clean, `1` Parser Errors or REVIEW flags, and `2` Document Discrepancies.
 
-`--backend llm-pdf` has Claude read the page images instead of the OCR + regex layer. RapidOCR
-still runs (cached): it picks the definitions and the payment and mix-table pages (42 of 109 for the
-sample), which are sent as one PDF document block to `claude-haiku-5-5` (change it with `--model`), and it
-stays the independent text the verifier uses to match snippets and classify failures. Model output is never
-used as the reference text.
+**What a run costs.** Extraction is three structured-output calls over the whole PDF. A single
+schema for everything compiles to a grammar the API rejects, and the PDF can't be cached across
+calls whose schemas differ. With Haiku 5.5 a 30-page deed costs a few cents; the 109-page
+Southwark scan costs about $0.30. Escalation to Opus 5.5 costs more and only runs with
+`--escalate`.
 
-`--cascade` re-reads only the fields with Parser Errors on `claude-opus-5-5` (`--cascade-model`). A
-replacement is kept only if the verifier reports fewer Parser Errors for that field, runs at least as many
-of its checks, and no previously extracted value is lost.
+## Outcomes
 
-`--llm-mode` controls where responses come from:
+An input is *grounded* when its value appears in its cited snippet (as digits, OCR `£`→`f` and
+`5o`→`50` repaired, or as number words) and that snippet re-locates on the cited page of the page
+text, ignoring whitespace. Mix-table cells have no snippets of their own, so a row is grounded
+when one line on the table's page states all of its counts.
 
-| mode | behaviour |
-|------|-----------|
-| `auto` (default) | live if Anthropic credentials resolve (key file, env key, auth token or `ant auth login` profile), otherwise replay |
-| `live` | always call the API; fails without credentials |
-| `record` | call the API and save the response to `s106-audit/fixtures/<stem>/<model>.<kind>.json` |
-| `replay` | load the saved response; errors if the PDF (sha256) or the page selection differs from the recording |
-
-**Credentials for unattended runs.** `run_audit.py` reads a key from `~/.config/s106/anthropic_key`
-(override the path with `S106_KEY_FILE`). The key goes straight to the client and is never exported, so
-it doesn't reach Claude Code or other tools. Create the key in a dedicated Console workspace with a
-monthly spend limit, then:
-
-```bash
-mkdir -p ~/.config/s106 && install -m 600 /dev/null ~/.config/s106/anthropic_key
-```
-
-Paste the key into that file in your editor. Without the file, the SDK's normal resolution applies
-(`ANTHROPIC_API_KEY`, then an `ant auth login` profile), and `auto` mode falls back to replay.
-
-The committed fixture is a live Haiku recording of the sample deed. Re-record it after changing the
-prompt, the schema, the page selection or the deed:
-
-```bash
-.venv/bin/python s106-audit/run_audit.py --backend llm-pdf --llm-mode record
-```
-
-**Cost.** Scanned pages are billed as images, at roughly 1.7k input tokens each. The report's warning
-line shows the token usage of each live call.
-
-| call | rate (per MTok in / out) | per deed |
-|------|-------------------|----------|
-| Haiku 5.5 extraction | $0.10 / $0.50 under 100k prompt tokens, $0.50 / $2.50 above | ≈ $0.015 |
-| Opus 5.5 cascade (only when Parser Errors remain) | $4 / $20 | ≈ $0.30–0.60 per call (estimate) |
-
-**Known limitation.** On two-column definition pages, OCR splices the left-column term into the
-right-column sentence wherever a line wraps, so a clean snippet the model read off the image may not
-match the OCR text. Failures on such fields can only be classed as Parser Errors, never Document
-Discrepancies. That errs on the safe side, but it weakens the classification.
+| outcome | meaning |
+|---|---|
+| PASS | the assertion holds and every input is grounded |
+| REVIEW | the assertion holds, but some input isn't grounded: correctness unproven |
+| FAIL, Parser Error | an input is missing or ungrounded, and the assertion fails |
+| FAIL, Document Discrepancy | the assertion fails although every input is grounded: what the deed *appears* to say through OCR, to be confirmed against the original |
+| SKIP | the deed doesn't state what the check needs; whole-scheme checks on a variation; a floorspace or unstated % basis (never recomputed by units) |
 
 ## Checks
 
 | ID | Assertion |
 |----|-----------|
-| H1 | market units + affordable units == total residential units |
+| H1 | market units + affordable units == total residential units (SKIP for variations) |
 | H2 | Σ tenure units == affordable units |
 | H3 | Σ tenure habitable rooms == affordable habitable rooms |
-| H4 | claimed affordable % == calculated % (on the deed's stated basis, ±0.05pp) |
-| H5 | approved mix table: rows sum to each tenure's sub-total, sub-totals sum to the table total |
-| H6 | mix table agrees with the definitions (per-tenure units, affordable units and habitable rooms) |
-| F*.amt | a figure was extracted (SKIP for formula/review-contingent sums with no fixed figure) |
-| F*.words | each contribution's figure == its words form ("£10,058.60 (ten thousand and fifty eight pounds and sixty pence)") |
-| F*.trig | a payment trigger was found; the cited phrase and the full cited clause both re-locate in the OCR text, the phrase lies inside the clause, and the clause imposes a payment ("shall pay", "shall be payable", "To pay …", "until … paid"), not merely mentions one |
-| F*.tlabel | the trigger label follows from the cited phrase under the fixed vocabulary in `s106-audit/triggers.py` (SKIP if the phrase is outside it) |
+| H4 | claimed affordable % == calculated % on the deed's stated basis (±0.05pp) |
+| H5 | approved mix table: rows sum to each tenure's sub-total, sub-totals to the total |
+| H6 | mix table agrees with the definitions |
+| V1 | a variation or supplemental deed identifies its parent, and the citation is grounded |
+| V2.n | each variation's target (and new wording) is grounded in its citation |
+| F*.amt | a fixed or capped sum was extracted and is stated in its citation (SKIP for formula/rate/no figure) |
+| F*.words | the figure equals its words form ("£10,058.60 (ten thousand and fifty eight pounds and sixty pence)") |
+| F*.cond | a conditional sum's condition is the deed's own wording, found on its page |
+| F*.trig | the payment covenant and its trigger phrase are both in the deed, the phrase lies inside the covenant, and the covenant imposes a payment |
+| F*.tlabel | the trigger label follows from the cited phrase (fixed vocabulary in `triggers.rs`) |
+| F*.inst… | instalments: shares sum to 100%; the lead-in imposes payment; each instalment's phrase is in the deed and decides its label |
 
-**Determinism.** Values that can be decided from the deed text don't depend on the model run.
-A trigger's label comes from its cited phrase via the fixed vocabulary in `triggers.py` (the model's
-label is kept as `trigger_event_model` when it differs). `contingent` is forced false when a figure
-was extracted. Plural group terms ("Site and Development Contributions") are dropped from the
-contribution list with a warning. Truncated structured output is retried up to three times.
-*Limitations:* which clause the model cites, the words form it copies, and `contingent` for sums
-with no figure can still vary between runs. Phrases outside the vocabulary leave the label
-unverified (`F*.tlabel` SKIP).
+## Reproducibility
 
-**Classification.** When a check fails, each input value's evidence snippet is re-located in the
-cited page, ignoring whitespace (OCR drops spaces). If any input is missing or can't be found,
-the failure is a **Parser Error**. If every input is found verbatim, the failure is a
-**Document Discrepancy**.
+- **Page text** is cached under `data/interim/ocr/<sha256[:16]>-<ocr version>/`, keyed by
+  document content and OCR settings (renderer, model set, DPI), with a `manifest.json`. A
+  replaced PDF or a changed model never reuses old text.
+- **Model responses** are recorded in `fixtures/llm/<stem>/<model>.extract.v2.json`, tied to the
+  PDF's SHA-256 and to a hash of the prompts and schemas. A different deed or a changed prompt
+  refuses to replay. v1 fixtures from the former Python harness (`fixtures/llm-v1/`) still replay.
+- **Runtime artifacts** (PDFium, OCR models) are pinned by SHA-256 in `scripts/fetch-models.sh`.
+- **Determinism:** trigger labels come from the cited phrase, not the model. Plural group terms
+  are dropped. Truncated structured output is retried.
+
+## Tests
+
+```bash
+cargo test                                              # offline, no deeds, no credentials
+cargo test --release -- --ignored                       # also: OCR vs hand-verified gold, and the
+                                                        # frozen Python M1 results (needs the deeds)
+```
+
+The ignored tests fail with "corpus missing" if the deeds aren't present; they never skip silently.

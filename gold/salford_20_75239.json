@@ -1,0 +1,22 @@
+{
+  "document": "Salford S106, 20/75239/FUL, 311-315 Bury New Road (data/raw/eval/salford-75239.pdf), born-digital text layer",
+  "sha256": "cb8bbb789eaa877f023828c990c1c2bf16d17a6ef9a1cb9107e8bf597c3230ce",
+  "method": "Transcribed by reading 110 dpi renders (pdftoppm) of pages 3 and 8. Single-column layout with inline definitions.",
+  "transcribed": "2026-10-13",
+  "lines": [
+    {"page": 3, "printed": "3", "kind": "body", "text": "Possessory Title under Title Number MAN332903 together with but subject to all"},
+    {"page": 3, "printed": "3", "kind": "body", "text": "Debenture both dated 28 May 2020 (the “Second Mortgagee’s Charges”)."},
+    {"page": 3, "printed": "3", "kind": "body", "text": "in order to comply with the SPD will support the payment of the Open Space"},
+    {"page": 8, "printed": "8", "kind": "body", "text": "described in Schedule 4. In accordance with the SPD the amount payable is"},
+    {"page": 8, "printed": "8", "kind": "body", "text": "£124,204 (one hundred and twenty four thousand two hundred and four pounds) and"},
+    {"page": 8, "printed": "8", "kind": "definition-inline", "text": "“Planning Permission” the planning permission granted pursuant to the Application"},
+    {"page": 8, "printed": "8", "kind": "definition-inline", "text": "“UDP” the City of Salford Unitary Development Plan 2004-2016 (adopted 21 June"},
+    {"page": 8, "printed": "8", "kind": "body", "text": "1.2 The Clause headings do not affect this interpretation."}
+  ],
+  "facts": [
+    {"page": 3, "printed": "3", "label": "Possessory title number", "value": "MAN332903"},
+    {"page": 8, "printed": "8", "label": "Open Space Contribution amount", "value": "£124,204 (one hundred and twenty four thousand two hundred and four pounds)"},
+    {"page": 8, "printed": "8", "label": "SPD adoption", "value": "adopted 18 June 2015 and refreshed on 9 December 2019"}
+  ],
+  "term_definitions": []
+}
