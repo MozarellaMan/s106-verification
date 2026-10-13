@@ -1,6 +1,8 @@
 # Tier 5: live model calls. Only when started by hand; needs the ANTHROPIC_API_KEY secret and
 # costs about $0.10 per deed per run (docs/migration.md). Run 1 of each deed is recorded as a
 # fixture; the recorded fixtures and summary are uploaded for review, never committed here.
+# `s106 eval` fails unless every selected deed completed every requested run; the artifacts are
+# uploaded either way.
 name: live
 on:
   workflow_dispatch:
@@ -24,10 +26,8 @@ jobs:
           path: data/raw
           key: corpus-${{ hashFiles('fixtures/corpus.tsv') }}
       - run: scripts/fetch-models.sh
-      # third-party downloads: a deed that can't be fetched is reported as "corpus missing" in the
-      # summary rather than failing the run
+      # this run is started by hand and is never a pull-request check, so it needs the whole corpus
       - run: scripts/fetch-corpus.sh
-        continue-on-error: true
       - run: cargo run --release -- eval --runs "$RUNS" ${ONLY:+--only "$ONLY"}
         env:
           RUNS: ${{ inputs.runs }}

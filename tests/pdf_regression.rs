@@ -77,7 +77,7 @@ fn difficult_pages_match_their_snapshots() {
         );
         problems.extend(
             snapshot(id)
-                .compare(&doc, 1.0)
+                .compare_pages(&doc)
                 .into_iter()
                 .map(|d| format!("{id} {d}")),
         );

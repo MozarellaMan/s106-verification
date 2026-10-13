@@ -926,6 +926,14 @@ pub fn evaluate_all(args: &EvalArgs, repo_root: &Path) -> Result<Vec<DeedSummary
     }
     let mut rows = read_candidates(&args.candidates)?;
     if !args.only.is_empty() {
+        let unknown: Vec<&String> = args
+            .only
+            .iter()
+            .filter(|id| !rows.iter().any(|r| &r.id == *id))
+            .collect();
+        if !unknown.is_empty() {
+            anyhow::bail!("not in {}: {unknown:?}", args.candidates.display());
+        }
         rows.retain(|r| args.only.contains(&r.id));
     }
     let register = load_register(&args.register)?;
@@ -956,8 +964,31 @@ pub fn evaluate_all(args: &EvalArgs, repo_root: &Path) -> Result<Vec<DeedSummary
     Ok(summary)
 }
 
+/// Deeds without every requested run completed (one run each when replaying).
+pub fn incomplete(summary: &[DeedSummary], args: &EvalArgs) -> Vec<String> {
+    let want = if args.replay { 1 } else { args.runs.max(1) };
+    summary
+        .iter()
+        .filter_map(|d| {
+            let ok = d.runs.iter().filter(|r| r.gate.is_some()).count();
+            (ok != want).then(|| format!("{} ({ok}/{want} runs)", d.id))
+        })
+        .collect()
+}
+
+/// Prints the summary; fails, after writing it, unless every deed completed every run.
 pub fn run(args: &EvalArgs, repo_root: &Path) -> Result<()> {
     let summary = evaluate_all(args, repo_root)?;
     println!("{}", markdown(&summary, &args.model));
+    let missing = incomplete(&summary, args);
+    if !missing.is_empty() {
+        anyhow::bail!(
+            "{} of {} deeds incomplete: {} (details in {})",
+            missing.len(),
+            summary.len(),
+            missing.join(", "),
+            args.out.join("summary.md").display()
+        );
+    }
     Ok(())
 }

@@ -35,6 +35,13 @@ pub const PAGE_TEXT_LOGIC: u32 = 3;
 const PDFIUM_ARCHIVE: &str = "pdfium-linux-x64.tgz";
 const ORT_ARCHIVE: &str = "onnxruntime-linux-x64-1.28.0.tgz";
 const RUNTIME_ARTIFACTS: &str = include_str!("../scripts/runtime-artifacts.tsv");
+
+/// Where scripts/fetch-models.sh unpacks a pinned archive: a directory named by its SHA-256, so
+/// the library loaded is always the one the pin (and so the cache key) names.
+fn unpacked(models_dir: &Path, name: &str, archive: &str) -> PathBuf {
+    let sha = pinned_sha256(archive).expect("runtime archives are pinned");
+    models_dir.join(format!("{name}-{}", &sha[..12]))
+}
 pub const SNAPSHOT_FORMAT: &str = "s106-page-text/1";
 const CACHE_FORMAT: &str = "s106-page-text-cache/1";
 
@@ -189,8 +196,7 @@ impl Config {
         type Bound = std::result::Result<std::sync::Mutex<Pdfium>, String>;
         static PDFIUM: std::sync::OnceLock<Bound> = std::sync::OnceLock::new();
         let bound = PDFIUM.get_or_init(|| {
-            check_pinned(&self.models_dir.join(PDFIUM_ARCHIVE)).map_err(|e| format!("{e:#}"))?;
-            let lib = self.models_dir.join("pdfium/lib");
+            let lib = unpacked(&self.models_dir, "pdfium", PDFIUM_ARCHIVE).join("lib");
             Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(&lib))
                 .map(|b| std::sync::Mutex::new(Pdfium::new(b)))
                 .map_err(|e| {
@@ -214,14 +220,14 @@ pub enum TextSource {
     Ocr,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Line {
     pub text: String,
     /// [left, top, right, bottom]: PDF points from the top-left (text layer) or pixels at OCR_DPI (OCR).
     pub bbox: [f32; 4],
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PageText {
     /// 1-based PDF page index.
     pub page: usize,
@@ -345,9 +351,12 @@ fn check_pinned(path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Write via a temporary file, so an interrupted run never leaves a truncated cache entry.
+/// Write via a temporary file unique to this writer, so an interrupted run never leaves a
+/// truncated cache entry and concurrent writers never share a temporary file.
 fn write_atomic(path: &Path, contents: &str) -> Result<()> {
-    let tmp = path.with_extension("json.tmp");
+    static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let tmp = path.with_extension(format!("{}.{n}.tmp", std::process::id()));
     std::fs::write(&tmp, contents).with_context(|| format!("write {}", tmp.display()))?;
     std::fs::rename(&tmp, path).with_context(|| format!("write {}", path.display()))?;
     Ok(())
@@ -652,10 +661,23 @@ impl Snapshot {
         }
     }
 
-    /// Differences between this snapshot and freshly produced page text: identity, page count, and
-    /// per page the source, the text of each line, and any box moved by more than `tolerance`
-    /// (pixels or points). An empty list means they agree.
-    pub fn compare(&self, doc: &Document, tolerance: f32) -> Vec<String> {
+    /// Differences between this snapshot and a whole document read afresh: the same PDF, producer
+    /// and every page 1..=page_count, each page identical (source, dimensions, lines and boxes).
+    /// An empty list means they agree.
+    pub fn compare_document(&self, doc: &Document) -> Vec<String> {
+        let numbers: Vec<usize> = doc.pages.iter().map(|p| p.page).collect();
+        if numbers != (1..=self.page_count).collect::<Vec<_>>() {
+            return vec![format!(
+                "document has pages {numbers:?}, snapshot has 1..={}",
+                self.page_count
+            )];
+        }
+        self.compare_pages(doc)
+    }
+
+    /// As `compare_document`, for a document read for selected pages only: each page it holds
+    /// must be identical to the snapshot's.
+    pub fn compare_pages(&self, doc: &Document) -> Vec<String> {
         let mut out = vec![];
         if self.sha256 != doc.sha256 {
             out.push(format!("sha256 {} vs {}", self.sha256, doc.sha256));
@@ -668,49 +690,37 @@ impl Snapshot {
             ));
         }
         for d in &doc.pages {
-            let Some(s) = self.pages.iter().find(|p| p.page == d.page) else {
-                out.push(format!("page {}: not in the snapshot", d.page));
-                continue;
-            };
-            if s.source != d.source {
-                out.push(format!(
-                    "page {}: source {:?} vs {:?}",
-                    d.page, s.source, d.source
-                ));
-                continue;
-            }
-            let (a, b): (Vec<&str>, Vec<&str>) = (
-                s.lines.iter().map(|l| l.text.as_str()).collect(),
-                d.lines.iter().map(|l| l.text.as_str()).collect(),
-            );
-            if a != b {
-                let first = a
-                    .iter()
-                    .zip(&b)
-                    .position(|(x, y)| x != y)
-                    .unwrap_or(a.len().min(b.len()));
-                out.push(format!(
-                    "page {}: text differs from line {} ({} vs {} lines): {:?} vs {:?}",
-                    d.page,
-                    first + 1,
-                    a.len(),
-                    b.len(),
-                    a.get(first),
-                    b.get(first)
-                ));
-                continue;
-            }
-            let moved = s
-                .lines
-                .iter()
-                .zip(&d.lines)
-                .flat_map(|(x, y)| x.bbox.iter().zip(y.bbox).map(|(p, q)| (p - q).abs()))
-                .fold(0.0f32, f32::max);
-            if moved > tolerance {
-                out.push(format!("page {}: a box moved by {moved:.1}", d.page));
+            match self.pages.iter().find(|p| p.page == d.page) {
+                None => out.push(format!("page {}: not in the snapshot", d.page)),
+                Some(s) if s != d => out.push(format!("page {}: {}", d.page, page_diff(s, d))),
+                Some(_) => {}
             }
         }
         out
+    }
+}
+
+/// The first way two versions of a page differ, for the mismatch report.
+fn page_diff(a: &PageText, b: &PageText) -> String {
+    if a.source != b.source {
+        return format!("source {:?} vs {:?}", a.source, b.source);
+    }
+    if (a.width, a.height) != (b.width, b.height) {
+        return format!("size {}x{} vs {}x{}", a.width, a.height, b.width, b.height);
+    }
+    if a.lines.len() != b.lines.len() {
+        return format!("{} vs {} lines", a.lines.len(), b.lines.len());
+    }
+    match a.lines.iter().zip(&b.lines).position(|(x, y)| x != y) {
+        Some(i) => format!(
+            "line {}: {:?} {:?} vs {:?} {:?}",
+            i + 1,
+            a.lines[i].text,
+            a.lines[i].bbox,
+            b.lines[i].text,
+            b.lines[i].bbox
+        ),
+        None => "differs".into(),
     }
 }
 
@@ -720,8 +730,12 @@ fn ocr_engine(m: &OcrModels) -> Result<oar_ocr::prelude::OAROCR> {
     }
     // ONNX Runtime is bound once per process, from the copy fetched beside the models.
     static ORT: std::sync::OnceLock<Result<(), String>> = std::sync::OnceLock::new();
-    check_pinned(&m.det.with_file_name(ORT_ARCHIVE))?;
-    let lib = m.det.with_file_name("onnxruntime/lib/libonnxruntime.so");
+    let lib = unpacked(
+        m.det.parent().unwrap_or(Path::new(".")),
+        "onnxruntime",
+        ORT_ARCHIVE,
+    )
+    .join("lib/libonnxruntime.so");
     ORT.get_or_init(|| {
         ort::init_from(&lib)
             .map(|env| {

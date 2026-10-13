@@ -17,8 +17,17 @@ grep -v '^#' scripts/runtime-artifacts.tsv | while IFS=$'\t' read -r set file sh
   [ -f "$f" ] || curl -sSfL -o "$f" "$url"
   echo "$sha  $f" | sha256sum -c --quiet || { echo "checksum mismatch: $f" >&2; rm -f "$f"; exit 1; }
 done
-[ -f models/pdfium/lib/libpdfium.so ] || { mkdir -p models/pdfium && tar -xzf models/pdfium-linux-x64.tgz -C models/pdfium; }
-[ -f models/onnxruntime/lib/libonnxruntime.so ] || {
-  mkdir -p models/onnxruntime && tar -xzf models/onnxruntime-linux-x64-1.28.0.tgz -C models/onnxruntime --strip-components=1
+# Unpack each verified archive into a directory named by its SHA-256 (what the code loads), via a
+# temporary directory so an interrupted unpack is never mistaken for a complete one.
+unpack() { # archive name [tar args]
+  local sha dir
+  sha=$(awk -F'\t' -v f="$1" '$2 == f { print $3 }' scripts/runtime-artifacts.tsv)
+  dir="models/$2-${sha:0:12}"
+  [ -d "$dir" ] && return
+  rm -rf "$dir.part" && mkdir -p "$dir.part"
+  tar -xzf "models/$1" -C "$dir.part" "${@:3}"
+  mv "$dir.part" "$dir"
 }
+unpack pdfium-linux-x64.tgz pdfium
+unpack onnxruntime-linux-x64-1.28.0.tgz onnxruntime --strip-components=1
 echo "models ok"

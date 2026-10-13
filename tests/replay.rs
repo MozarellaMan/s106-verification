@@ -145,6 +145,7 @@ fn eval_replay_matches_expected_summary() {
         ..EvalArgs::defaults(&root())
     };
     let summary = eval::evaluate_all(&args, &root()).unwrap();
+    assert!(eval::incomplete(&summary, &args).is_empty());
     let mut got = serde_json::to_value(&summary).unwrap();
     for deed in got.as_array_mut().unwrap() {
         for run in deed["runs"].as_array_mut().unwrap() {
@@ -170,4 +171,25 @@ fn eval_replay_matches_expected_summary() {
         "eval --replay summary changed (if intended: S106_BLESS=1 cargo test --test replay)\n\
          got:\n{got}"
     );
+}
+
+#[test]
+fn eval_fails_unless_every_selected_deed_completes() {
+    // a root with no PDFs: every deed is "corpus missing", so the command must not succeed
+    let empty = tempfile::tempdir().unwrap();
+    let args = EvalArgs {
+        replay: true,
+        out: empty.path().join("out"),
+        ..EvalArgs::defaults(&root())
+    };
+    let summary = eval::evaluate_all(&args, empty.path()).unwrap();
+    assert_eq!(eval::incomplete(&summary, &args).len(), summary.len());
+    let err = eval::run(&args, empty.path()).unwrap_err();
+    assert!(err.to_string().contains("9 of 9 deeds incomplete"), "{err}");
+
+    let unknown = EvalArgs {
+        only: vec!["no-such-deed".into()],
+        ..args
+    };
+    assert!(eval::evaluate_all(&unknown, empty.path()).is_err());
 }

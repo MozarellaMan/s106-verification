@@ -11,9 +11,12 @@ artifact with its provenance, so everything after it can be tested without re-ru
 | answer + page text -> checks | `fixtures/expected/<stem>.checks.json`, `fixtures/expected/eval-replay.json` | the code (reviewed in the diff) |
 
 A change to any key gives a new cache directory, and a snapshot or fixture recorded under the old
-key fails tier 2 until it is regenerated. Runtime artifacts that differ from their pins
-(`scripts/runtime-artifacts.tsv`) are refused before use, and the cache manifest is validated on
-read. Each image-only page is OCR'd on its own: oar-ocr pads a batch to a common size, and pages
+key fails tier 2 until it is regenerated. Model files that differ from their pins
+(`scripts/runtime-artifacts.tsv`) are refused before use; PDFium and ONNX Runtime are loaded from
+directories named by their verified archive's SHA-256, so the library loaded is the one the key
+names. The cache manifest is validated on read, and cache files are written through a temporary
+file unique to each writer. Snapshot comparison is exact: every page, its source, dimensions
+(page width decides which margin specks are dropped from the evidence text), lines and boxes. Each image-only page is OCR'd on its own: oar-ocr pads a batch to a common size, and pages
 recognised in batches of six read differently from the same pages read alone (5 of 9 TMBC pages,
 106 of 260 corpus pages). Page text is now a function of the page alone, so a partly warm cache, a
 partial load and a full cold run all agree.
@@ -32,11 +35,22 @@ partial load and a full cold run all agree.
 or touches the network, and the build no longer downloads ONNX Runtime (it is loaded at run time
 from `models/`, like PDFium). Tiers 3 and 4 fail with "corpus missing" rather than skip.
 
+Corpus downloads are checked before they are installed. `scripts/fetch-corpus.sh` exits 1 when a
+file fails its checksum (the weekly job fails) and 2 when a council site can't be reached (the
+weekly job skips the PDF tiers with a warning; third-party outages never fail CI). `s106 eval`
+fails, after writing its summary, unless every selected deed completed every requested run.
+
 Tiers 3 and 4 are what make tier 2 trustworthy. Everything after page text is deterministic, so
 "every snapshot reproduces from its PDF" (tier 4) plus "replay from snapshots gives these
 outcomes" (tier 2) covers what the old replay-from-PDF tests covered. It was checked directly:
 the Southwark audit and the nine-deed register evaluation give identical results from the PDFs
 and from the snapshots.
+
+What these tiers establish is repeatability: the same inputs give the same page text and the same
+outcomes, and changes to either are visible in review. They do not establish that the outcomes
+are correct. The expected outcomes were blessed from the pipeline's own output, and the OCR gold
+set helped choose the OCR model. Correctness claims still need independently annotated evidence,
+ideally on held-out deeds.
 
 ## Timings
 

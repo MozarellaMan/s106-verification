@@ -1,6 +1,6 @@
 //! Tier 4: full documents. Every deed in fixtures/corpus.tsv is read through the real pipeline
-//! (PDFium and OCR, via the page-text cache) and must reproduce its committed snapshot exactly
-//! (box positions within a pixel). Since everything downstream of page text is deterministic,
+//! (PDFium and OCR, via the page-text cache) and must reproduce its committed snapshot exactly:
+//! every page, with the same source, dimensions, lines and boxes. Since everything downstream of page text is deterministic,
 //! this is what licenses the replay tiers to stand in for the PDFs.
 //!
 //! With an empty cache this OCRs every image-only page (the 109-page Southwark scan dominates);
@@ -31,7 +31,7 @@ fn every_snapshot_reproduces_from_its_pdf() {
         );
         problems.extend(
             snapshot(&deed.id)
-                .compare(&doc, 1.0)
+                .compare_document(&doc)
                 .into_iter()
                 .map(|d| format!("{} {d}", deed.id)),
         );

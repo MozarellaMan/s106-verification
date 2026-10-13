@@ -74,12 +74,9 @@ enum Cmd {
         /// write `<dir>/<stem>.pages.json` for each PDF
         #[arg(long)]
         write: Option<PathBuf>,
-        /// compare with `<dir>/<stem>.pages.json`; exit 1 on any difference
+        /// compare with `<dir>/<stem>.pages.json` (every page, exactly); exit 1 on any difference
         #[arg(long)]
         check: Option<PathBuf>,
-        /// largest box movement accepted by --check (pixels or points)
-        #[arg(long, default_value_t = 1.0)]
-        tolerance: f32,
     },
     /// Score OCR model sets against a hand-verified gold file (only the gold pages are read).
     BenchOcr {
@@ -192,12 +189,7 @@ fn main() -> Result<()> {
                 &repo_root(),
             )
         }
-        Cmd::Pages {
-            pdfs,
-            write,
-            check,
-            tolerance,
-        } => {
+        Cmd::Pages { pdfs, write, check } => {
             let cfg = document::Config::from_env(&repo_root());
             let mut differ = 0;
             for pdf in &pdfs {
@@ -216,7 +208,7 @@ fn main() -> Result<()> {
                 }
                 if let Some(dir) = &check {
                     let path = Snapshot::path_for(dir, &pdf.file_name().unwrap().to_string_lossy());
-                    let diffs = Snapshot::read(&path)?.compare(&doc, tolerance);
+                    let diffs = Snapshot::read(&path)?.compare_document(&doc);
                     for d in &diffs {
                         println!("{}: {d}", pdf.display());
                     }
