@@ -56,9 +56,12 @@ disagrees with the deeds' dates. For each obligation a deed states:
 
 A variation's `Delete` (from the extraction's `variations`) becomes a `delete` event on each
 contribution whose key appears in the deleted target. It is applied, and the row is "removed by
-variation", only when its cited snippet is found on its page, says something is deleted (deleted,
-omitted, revoked, removed, struck out), names that contribution itself, and comes from a verified
-deed (below). A target that matches is not enough: the snippet is the evidence.
+variation", only when its cited snippet is found on its page, names that contribution, and comes from a
+verified deed (below). Every clause of the snippet (split at `.`, `;` and line breaks) that names
+the contribution must say it is deleted (deleted, omitted, revoked, removed, struck out), with no
+word that could keep it ("retained", "not", "except", "save", "but", "unless", "remains"). So "the
+Bus Contribution is retained. The Carbon Green Fund Contribution is deleted." is not proof that the
+Bus Contribution is deleted. A target that matches is not enough: the snippet is the evidence.
 Otherwise the event is kept in the history but not applied, and the row goes to "varied: compare
 by hand". A deletion that matches no obligation is reported as a warning, and every obligation
 stated before it goes to "varied: compare by hand", because it could be the one deleted.
@@ -148,9 +151,10 @@ committed: PLD is OGL v3. Analyses read snapshots, never the live API.
 
 `reconcile::delivery_from_pld` reads one saved `applications/_source/<id>` snapshot
 (`s106 reconcile … --pld <snapshot>`; there is no way to pass hand-written delivery JSON). It
-reads the record through a typed view of only the fields below. Each is required unless PLD
-genuinely leaves it null (status and dates before a scheme starts, a unit's number or tenure), so a
-renamed or retyped field is an error, not a table of indeterminate rows. Counts may be numbers or
+reads the record through a typed view of only the fields below. Every one must be present. Those
+PLD genuinely leaves null (status and dates before a scheme starts, a unit's number or tenure) may
+be null, but not missing. So a renamed or retyped field is an error, not a table of indeterminate
+rows or zero completions. Counts may be numbers or
 numeric strings; a non-whole count or a date that isn't dd/mm/yyyy is an error. The field names
 come from the 19/AP/1773 snapshot of 13 Oct 2026. Unit records are embedded in the application
 record (`application_details.residential_details.residential_units`), so no separate units index

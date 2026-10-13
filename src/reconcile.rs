@@ -348,15 +348,31 @@ fn says_deleted(snippet: &str) -> bool {
         .any(|w| s.contains(w))
 }
 
-/// Does a deletion's cited snippet itself name the obligation it is applied to? The target
-/// matching an obligation isn't enough: the snippet is the evidence.
-fn snippet_names(snippet: &str, m: &Measure) -> bool {
-    match m {
-        Measure::Contribution { key } => {
-            !key.is_empty()
-                && format!(" {} ", contribution_key(snippet)).contains(&format!(" {key} "))
-        }
-        _ => false,
+/// Does a deletion's cited snippet itself delete this obligation? The target matching is not
+/// enough: the snippet is the evidence. Each clause (split at `.`, `;` and line breaks) that names
+/// the obligation must say it is deleted, with no word that could keep it ("retained", "not",
+/// "except", "save", "but", "unless", "remains"). A snippet that names it only in a clause that
+/// deletes something else, or that names it both ways, is not proof. Err says why.
+fn deletes_named(snippet: &str, m: &Measure) -> std::result::Result<(), String> {
+    let Measure::Contribution { key } = m else {
+        return Err("only named contributions can be deleted".into());
+    };
+    const KEEP: [&str; 9] = [
+        "retain", "retained", "not", "except", "save", "but", "unless", "remain", "remains",
+    ];
+    let naming: Vec<String> = snippet
+        .split(['.', ';', '\n'])
+        .map(contribution_key)
+        .filter(|c| !key.is_empty() && format!(" {c} ").contains(&format!(" {key} ")))
+        .collect();
+    if naming.is_empty() {
+        return Err("doesn't name it".into());
+    }
+    let clean = |c: &String| says_deleted(c) && !c.split(' ').any(|w| KEEP.contains(&w));
+    if naming.iter().all(clean) {
+        Ok(())
+    } else {
+        Err("doesn't clearly say it is deleted".into())
     }
 }
 
@@ -627,16 +643,20 @@ impl Delivery {
 
 // --------------------------------------------------------------------------- PLD mapping
 
-/// The part of a PLD application record the mapping reads. Every field here is required unless
-/// it is an `Option`, and those are the ones PLD leaves null (dates and status before a scheme
+/// The part of a PLD application record the mapping reads. Every field here must be present. The
+/// `Option`s may be null, and they are the ones PLD leaves null (dates and status before a scheme
 /// starts, a unit's number or tenure), so a renamed or retyped field fails the read instead of
 /// turning every row indeterminate.
 #[derive(Debug, Deserialize)]
 struct PldApplication {
     id: String,
+    #[serde(deserialize_with = "nullable")]
     lpa_app_no: Option<String>,
+    #[serde(deserialize_with = "nullable")]
     status: Option<String>,
+    #[serde(deserialize_with = "nullable")]
     actual_commencement_date: Option<String>,
+    #[serde(deserialize_with = "nullable")]
     actual_completion_date: Option<String>,
     application_details: PldDetails,
 }
@@ -678,9 +698,20 @@ struct PldResidential {
 #[derive(Debug, Deserialize)]
 struct PldUnit {
     change_type: String,
+    #[serde(deserialize_with = "nullable")]
     tenure: Option<String>,
+    #[serde(deserialize_with = "nullable")]
     actual_completion_date: Option<String>,
+    #[serde(deserialize_with = "nullable")]
     unit_no: Option<serde_json::Value>,
+}
+
+/// A field that must be present but may be null. (Serde treats a missing `Option` field as
+/// None; with `deserialize_with` and no `default`, a missing field is an error instead.)
+fn nullable<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
+    d: D,
+) -> std::result::Result<Option<T>, D::Error> {
+    Option::<T>::deserialize(d)
 }
 
 /// A whole, non-negative count, given as a number or a numeric string.
@@ -1211,13 +1242,14 @@ pub fn reconcile(
             for m in hits {
                 // Grounded on its page, and the snippet names this obligation.
                 let grounding = match (&del.grounding, &del.evidence) {
-                    (Grounding::Grounded, Some(ev)) if !snippet_names(&ev.snippet, &m) => {
-                        Grounding::Ungrounded(format!(
-                            "its cited snippet on p{} doesn't name the {}",
+                    (Grounding::Grounded, Some(ev)) => match deletes_named(&ev.snippet, &m) {
+                        Ok(()) => Grounding::Grounded,
+                        Err(why) => Grounding::Ungrounded(format!(
+                            "its cited snippet on p{} {why}: the {}",
                             ev.page,
                             events[&m][0].label.trim_end_matches(" (£)")
-                        ))
-                    }
+                        )),
+                    },
                     (g, _) => g.clone(),
                 };
                 if grounding == Grounding::Grounded && verified[k] {

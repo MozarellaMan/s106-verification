@@ -966,7 +966,7 @@ fn a_deletion_snippet_must_name_what_it_deletes() {
     let b = row(&r, &bus());
     assert_eq!(b.status, RowStatus::Varied);
     assert!(
-        b.reason.contains("doesn't name the Bus Contribution"),
+        b.reason.contains("doesn't name it: the Bus Contribution"),
         "{}",
         b.reason
     );
@@ -1024,4 +1024,63 @@ fn a_verified_figure_clears_an_unverified_change() {
     assert_eq!(sr.status, RowStatus::CountsMatch);
     // The history still shows the unverified step.
     assert!(!sr.events[1].verified && sr.events[2].verified);
+}
+
+#[test]
+fn a_deletion_must_apply_to_the_named_obligation() {
+    let deleting = |snippet: &str| {
+        let mut v = dov();
+        let mut del = delete_bus(2);
+        del.evidence.as_mut().unwrap().snippet = snippet.into();
+        v.variations = vec![del];
+        let pages: Pages = [(2, snippet.to_string())].into_iter().collect();
+        let instruments = vec![
+            instrument_obligations(&southwark(), None),
+            instrument_obligations(&v, Some(&pages)),
+        ];
+        let r = reconcile(DEV, instruments, Some(full())).unwrap();
+        row(&r, &bus()).clone()
+    };
+    // The deletion is in a different clause from the one naming Bus Contribution.
+    let b = deleting(
+        "The Bus Contribution is retained. The Carbon Green Fund Contribution is deleted.",
+    );
+    assert_eq!(b.status, RowStatus::Varied);
+    assert!(
+        b.reason.contains("doesn't clearly say it is deleted"),
+        "{}",
+        b.reason
+    );
+    // One clause that keeps it and deletes something else.
+    let b =
+        deleting("The Carbon Green Fund Contribution is deleted but the Bus Contribution is not");
+    assert_eq!(b.status, RowStatus::Varied);
+    // One clause deleting both is proof for each.
+    let b = deleting("The Bus Contribution and the Carbon Green Fund Contribution are deleted");
+    assert_eq!(b.status, RowStatus::Removed);
+}
+
+#[test]
+fn pld_fields_must_be_present_even_when_null() {
+    let (snap, at) = pld_snapshot();
+    // Renamed: an error, not 253 units silently uncompleted.
+    let mut s = snap.clone();
+    let u = rd(&mut s.response)["residential_units"][0]
+        .as_object_mut()
+        .unwrap();
+    let v = u.remove("actual_completion_date").unwrap();
+    u.insert("completion_date".into(), v);
+    let e = format!("{:#}", delivery_from_pld(&s, at.clone()).unwrap_err());
+    assert!(e.contains("actual_completion_date"), "{e}");
+    let mut s = snap.clone();
+    s.response.as_object_mut().unwrap().remove("status");
+    assert!(delivery_from_pld(&s, at.clone()).is_err());
+    // An explicit null is a unit not yet completed.
+    let mut s = snap;
+    rd(&mut s.response)["residential_units"][0]["actual_completion_date"] = serde_json::Value::Null;
+    let d = delivery_from_pld(&s, at).unwrap();
+    assert_eq!(
+        d.units.iter().filter(|u| u.completed_on.is_none()).count(),
+        1
+    );
 }
