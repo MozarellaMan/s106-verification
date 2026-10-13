@@ -1,6 +1,0 @@
-[
-  {"deed": "southwark_s106_sample", "check": "F7.amt", "python": "REVIEW", "rust": "PASS",
-   "reason": "OCR improvement: PP-OCRv5 reads 'fifty pounds)' on p12; RapidOCR PP-OCRv4 read 'ftypounds', so the cited snippet could not be re-located"},
-  {"deed": "southwark_s106_sample", "check": "F7.words", "python": "REVIEW", "rust": "PASS",
-   "reason": "same OCR improvement as F7.amt"}
-]

@@ -1,13 +1,13 @@
 //! Tier 3: targeted real-PDF regression. Difficult pages are read afresh (PDFium text layer or
 //! OCR, into an empty cache) and must match their committed snapshots, and the hand-transcribed
-//! gold pages must meet the OCR thresholds. A few dozen pages rather than whole deeds, so this
+//! gold pages (`gold/` in the data repository) must meet the OCR thresholds. A few dozen pages rather than whole deeds, so this
 //! runs in under a minute; it needs the corpus (scripts/fetch-corpus.sh) and runtime artifacts
 //! (scripts/fetch-models.sh):
 //!     cargo test --release --test pdf_regression -- --ignored
 
 mod common;
 
-use common::{corpus, require_pdf, root, snapshot};
+use common::{corpus, data, require_pdf, root, snapshot};
 use s106::document::{self, Config};
 use s106::ocrbench::{Gold, Score, score};
 
@@ -22,7 +22,7 @@ fn fresh() -> (Config, tempfile::TempDir) {
 fn gold(gold: &str, id: &str) -> Score {
     let deed = corpus().into_iter().find(|d| d.id == id).unwrap();
     require_pdf(&deed.pdf);
-    let g = Gold::load(&root().join(gold)).unwrap();
+    let g = Gold::load(&data().join(gold)).unwrap();
     assert_eq!(g.sha256, deed.sha256, "{gold} describes another document");
     let (cfg, _dir) = fresh();
     let d = document::load_pages(&deed.pdf, &cfg, Some(&g.pages()), false).unwrap();
@@ -46,11 +46,11 @@ fn salford_text_layer_gold() {
     common::assert_salford_gold(&gold("gold/salford_20_75239.json", "salford-75239"));
 }
 
-/// fixtures/pages/difficult.tsv: deed, page, and why the page is hard.
+/// pages/difficult.tsv in the data repository: deed, page, and why the page is hard.
 #[test]
 #[ignore = "needs the corpus and runtime artifacts: cargo test --release --test pdf_regression -- --ignored"]
 fn difficult_pages_match_their_snapshots() {
-    let list = std::fs::read_to_string(root().join("fixtures/pages/difficult.tsv")).unwrap();
+    let list = std::fs::read_to_string(data().join("pages/difficult.tsv")).unwrap();
     let mut by_deed: std::collections::BTreeMap<String, Vec<usize>> = Default::default();
     for l in list
         .lines()
@@ -85,7 +85,7 @@ fn difficult_pages_match_their_snapshots() {
     assert!(
         problems.is_empty(),
         "fresh page text differs from the snapshots (if intended, bump PAGE_TEXT_LOGIC and \
-         regenerate with `s106 pages --write fixtures/pages`):\n{}",
+         regenerate with `s106 pages --write data/pages`):\n{}",
         problems.join("\n")
     );
 }

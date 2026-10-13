@@ -173,25 +173,26 @@ uses the stem), the recorded model fixture, the code revision and OCR configurat
 
 ```sh
 cargo run --release -- audit data/raw/southwark_s106_sample.pdf --llm-mode replay
-cargo run --release -- audit fixtures/pages/southwark_s106_sample.pages.json   # no PDF needed
+cargo run --release -- audit data/pages/southwark_s106_sample.pages.json   # no PDF needed
 cargo run --release -- eval --replay
-cargo test                    # tiers 1-2, see docs/testing.md
+cargo test                    # tier 1, no data needed; see docs/testing.md
+cargo test-data               # tier 2, needs the data checkout
 cargo test-pdf && cargo test-corpus
 ```
 
-`S106_FIXTURES`, `S106_MODELS` and `S106_OCR_CACHE` override locations. Fixtures live
-at `fixtures/llm/<stem>/<model>.extract.v2.json` and check PDF and prompt/schema
-hashes. When no v2 fixture exists, `llm-v1` can replay through an adapter; it does
+`S106_DATA` (or the global `--data <dir>` flag), `S106_MODELS` and `S106_OCR_CACHE` override locations. Fixtures live
+at `data/extractions/<stem>/<model>.extract.v2.json` and check PDF and prompt/schema
+hashes. When no v2 fixture exists, `extractions-v1` can replay through an adapter; it does
 not have the same prompt-hash validation. Page positions in old excerpts are mapped
 by their stored page list. No replay path requires credentials.
 
-The candidate list and the register rows for those deeds are committed under
-`fixtures/eval/` (see its README for where they came from); `--register` points the
-evaluation at a full download instead. `fixtures/corpus.tsv` is the retrieval manifest
+The candidate list and the register rows for those deeds are kept in the
+data repository's `eval/` (see its README for where they came from); `--register` points the
+evaluation at a full download instead. `corpus/manifest.tsv` in the data repository is the retrieval manifest
 for the deeds themselves.
 
 Page text lives at `data/interim/ocr/<sha256-prefix>-<ocr-version>/page_NNN.json` and,
-for the committed corpus, in `fixtures/pages/<stem>.pages.json` (one page per line).
+for the recorded corpus, in `data/pages/<stem>.pages.json` (one page per line).
 Open the cited page record, check the literal snippet and value, then inspect the
 original PDF page. If relocation fails, compare `Document::pages()`'s row text
 with the retained boxes. A matching amount elsewhere on a page is insufficient.

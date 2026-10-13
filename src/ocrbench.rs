@@ -1,4 +1,4 @@
-//! Score page text against a hand-transcribed gold set (`gold/*.json`).
+//! Score page text against a hand-transcribed gold set (`gold/*.json` in the data repository).
 //!
 //! * Line CER: for each gold line, the best semi-global alignment against any line on the same
 //!   page, or any row rebuilt from boxes whose vertical centres align (table cells come back as

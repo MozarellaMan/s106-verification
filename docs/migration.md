@@ -9,14 +9,14 @@ Figures below were re-run on the day of writing unless marked "recorded".
 | Criterion | Command | Result |
 |---|---|---|
 | Offline suite passes (no deeds, no credentials) | `cargo test` | 95 passed, 0 failed, 3 ignored (document 3, eval 15, evidence 13, extract 8, text 10, triggers 7, verify 39) |
-| Rust reproduces the frozen Python M1 outputs | `cargo test --release -- --ignored` (`golden_python_m1`; needs `data/raw` deeds and `models/`) | 195 Python checks compared: 193 identical, 2 documented improvements (`fixtures/golden-python-m1/expected-differences.json`: Southwark `F7.amt`, `F7.words`, REVIEW to PASS because PP-OCRv5 reads "fifty pounds)" where PP-OCRv4 read "ftypounds") |
+| Rust reproduces the frozen Python M1 outputs | `cargo test-data` (`golden_python_m1`; needs the data checkout) | 195 Python checks compared: 193 identical, 2 documented improvements (`data/golden-python-m1/expected-differences.json`: Southwark `F7.amt`, `F7.words`, REVIEW to PASS because PP-OCRv5 reads "fifty pounds)" where PP-OCRv4 read "ftypounds") |
 | OCR meets the gold thresholds | same command (`ocr_gold`: `southwark_scan`, `salford_text_layer`) | 2 passed |
 | Clean lints | `cargo clippy --all-targets -- -W clippy::all` | no warnings |
 
 ## OCR against hand-verified gold
 
-Gold: `gold/southwark_19_AP_1773.json`, 6 pages. Reproduce with
-`cargo run --release -- bench-ocr gold/southwark_19_AP_1773.json data/raw/southwark_s106_sample.pdf --models ppocrv5-en-mobile`.
+Gold: `data/gold/southwark_19_AP_1773.json`, 6 pages. Reproduce with
+`cargo run --release -- bench-ocr data/gold/southwark_19_AP_1773.json data/raw/southwark_s106_sample.pdf --models ppocrv5-en-mobile`.
 Python numbers are as recorded before retirement.
 
 | Measure | Python (RapidOCR PP-OCRv4) | Rust (PP-OCRv5 English) |
@@ -29,7 +29,7 @@ Python numbers are as recorded before retirement.
 
 ## Live v2 extraction (recorded)
 
-`fixtures/llm/*`: all ten deeds, Haiku 5.5 (`claude-haiku-5-5`), three calls per deed (instrument,
+`data/extractions/*`: all ten deeds, Haiku 5.5 (`claude-haiku-5-5`), three calls per deed (instrument,
 housing, contributions), whole deed attached, one attempt each, no cache hits. Cost is
 `llm::cost_usd` applied to each fixture's summed usage. It applies Haiku's higher tier when the
 summed prompt exceeds 100k tokens, whereas the tier is per call, so the larger deeds are somewhat
@@ -61,7 +61,7 @@ overstated.
 ## Decision: rules backend retired (confirmed by the maintainer, 13 Oct 2026)
 
 The Southwark-specific rules (regex) backend was **not** ported and is retired. Its last outputs
-are kept as history in `fixtures/golden-python-m1/*.rules.audit.json`; nothing reads them. If a
+are kept as history in `data/golden-python-m1/*.rules.audit.json`; nothing reads them. If a
 deterministic non-LLM baseline is wanted, it has to be written afresh.
 
 ## Open

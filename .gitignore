@@ -1,7 +1,4 @@
-# Source deeds and derived data stay local (fetch with the command in README)
-data/raw/
-data/interim/
-data/processed/
-data/reference/
+# The s106-data checkout (its own git repository): real deeds' data, PDFs and derived outputs
+/data
 /target
 /models

@@ -178,7 +178,7 @@ The research objectives and acceptance criteria are independent of implementatio
 - Record how each one states what it amends, its conditions and its triggers, with page
   references. M2's schema follows from these examples, not from assumptions.
 
-**M2: Schema v2 and provenance** (in the language M1.5 recommends) **Schema v2 implemented in Rust** (`src/schema.rs`, `src/wire.rs`, v2 checks in `src/verify.rs`, live fixtures for all ten deeds in `fixtures/llm/`). Remaining acceptance items are checked against the criteria below.
+**M2: Schema v2 and provenance** (in the language M1.5 recommends) **Schema v2 implemented in Rust** (`src/schema.rs`, `src/wire.rs`, v2 checks in `src/verify.rs`, live fixtures for all ten deeds in `extractions/` (now in the data repository)). Remaining acceptance items are checked against the criteria below.
 - **Changes:**
   - `schema_version`.
   - Document provenance: URL, SHA-256, retrieval date and document type (agreement, deed of
