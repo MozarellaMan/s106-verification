@@ -1,18 +1,25 @@
 """BootLoops-style programmatic gatekeeper for extracted S106 data.
 
-Every check is a hard, exact assertion over numbers. Nothing here is a model
-judgement. When a check fails, we re-locate each input value in the raw page text:
+Every check is a hard, exact assertion over numbers. Nothing here is a model judgement.
+Each check's inputs are also *grounded*: a value counts as supported only when it appears
+in its cited evidence snippet (digits, or number words) and that snippet re-locates on the
+cited page of the OCR text. Outcomes:
 
-  * PARSER_ERROR          an input is missing, or its evidence can't be found on the
-                          cited page. The extraction is suspect, so fix the parser
-                          before blaming the deed.
-  * DOCUMENT_DISCREPANCY  every input is verbatim in the deed and the numbers still
-                          disagree. The deed itself is inconsistent, so escalate to
-                          a planning officer.
+  * PASS                  the assertion holds and every input is grounded
+  * REVIEW                the assertion holds, but some input isn't grounded, so its
+                          correctness is unproven; needs a human or a better citation
+  * FAIL, PARSER_ERROR    an input is missing or ungrounded, and the assertion fails:
+                          suspect the extraction before the deed
+  * FAIL, DOCUMENT_DISCREPANCY
+                          the assertion fails although every input is grounded. This is
+                          what the deed *appears* to say through OCR, not an established
+                          error in the deed: confirm against the original before relying on it
+  * SKIP                  the deed doesn't state what the check needs
 """
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 from enum import Enum
@@ -25,6 +32,7 @@ PCT_TOLERANCE = Decimal("0.05")  # percentage points; deeds quote 2 dp
 
 class Status(str, Enum):
     PASS = "PASS"
+    REVIEW = "REVIEW"
     FAIL = "FAIL"
     SKIP = "SKIP"
 
@@ -215,19 +223,76 @@ def words_to_amount(text: str) -> Decimal | None:
     return Decimal(pounds) + Decimal(pence or 0) / 100
 
 
-def _classify(evs: list[Evidence | None], values: list, pages: dict[int, str]) -> tuple[ErrorClass, str]:
-    missing = [i for i, v in enumerate(values) if v is None]
-    if missing:
-        return ErrorClass.PARSER_ERROR, f"{len(missing)} input value(s) were not extracted"
-    unverified = [e for e in evs if not evidence_found(e, pages)]
-    if unverified:
-        where = ", ".join(f"p{e.page}" if e else "no evidence" for e in unverified)
-        return ErrorClass.PARSER_ERROR, f"evidence not re-locatable in source ({where})"
-    return ErrorClass.DOCUMENT_DISCREPANCY, "all inputs verified verbatim in the deed"
+# --------------------------------------------------------------------------- grounding
+
+@dataclass(frozen=True)
+class Input:
+    """One value a check depends on, with the evidence cited for it."""
+    label: str
+    value: object  # int | Decimal | str | None
+    evidence: Evidence | None
+
+
+_NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
+_WORD_RUN = re.compile(r"(?:(?:%s)[\s-]*)+" % "|".join(sorted(
+    [*_UNITS, *_TENS, *_SCALES, "hundred", "and"], key=len, reverse=True)), re.I)
+
+
+def numbers_in(text: str) -> set[Decimal]:
+    """Every number written in `text`, as digits ("£10,058.60", "5o%" via OCR repair) or words."""
+    out = {Decimal(m.replace(",", "")) for m in _NUMBER.findall(ocr_digits(text))}
+    for run in _WORD_RUN.findall(text):
+        run = re.sub(r"(?:\band\b|[\s-])+$", "", run.strip(), flags=re.I)
+        n = _words_to_int(run) if run else None
+        if n is not None:
+            out.add(Decimal(n))
+    return out
+
+
+def value_in_snippet(value, snippet: str) -> bool:
+    """Does the snippet state this value? Numbers compare numerically; text compares squashed."""
+    if isinstance(value, bool) or value is None:
+        return False
+    if isinstance(value, (int, Decimal, float)):
+        return Decimal(str(value)) in numbers_in(snippet)
+    return bool(squash(str(value))) and squash(str(value)) in squash(snippet)
+
+
+def grounding_problem(inp: Input, pages: dict[int, str]) -> str | None:
+    """Why `inp` isn't supported by its evidence, or None if it is."""
+    if inp.evidence is None:
+        return f"{inp.label}: no evidence cited"
+    if not value_in_snippet(inp.value, inp.evidence.snippet):
+        return f"{inp.label}: {inp.value} not stated in its cited snippet"
+    if not evidence_found(inp.evidence, pages):
+        return f"{inp.label}: cited snippet not re-locatable on p{inp.evidence.page}"
+    return None
 
 
 def _pages(evs) -> list[int]:
     return sorted({e.page for e in evs if e})
+
+
+def resolve(cid: str, desc: str, holds: bool, inputs: list[Input], pages: dict[int, str],
+            expected: str | None = None, actual: str | None = None, extra_problems: list[str] = ()) -> CheckResult:
+    """Turn an assertion result plus its inputs' grounding into a CheckResult."""
+    pg = _pages(i.evidence for i in inputs)
+    missing = [i.label for i in inputs if i.value is None]
+    if missing:
+        return CheckResult(cid, desc, Status.FAIL, expected, actual, ErrorClass.PARSER_ERROR,
+                           "not extracted: " + ", ".join(missing), pg)
+    problems = [p for p in (grounding_problem(i, pages) for i in inputs) if p] + list(extra_problems)
+    if holds:
+        if not problems:
+            return CheckResult(cid, desc, Status.PASS, expected, actual, pages=pg)
+        return CheckResult(cid, desc, Status.REVIEW, expected, actual, None,
+                           "holds, but not grounded: " + "; ".join(problems), pg)
+    if problems:
+        return CheckResult(cid, desc, Status.FAIL, expected, actual, ErrorClass.PARSER_ERROR,
+                           "ungrounded: " + "; ".join(problems), pg)
+    return CheckResult(cid, desc, Status.FAIL, expected, actual, ErrorClass.DOCUMENT_DISCREPANCY,
+                       "every input is stated in its cited snippet and the snippet re-locates in the OCR text; "
+                       "confirm against the original deed before relying on this", pg)
 
 
 # --------------------------------------------------------------------------- checks
@@ -235,39 +300,32 @@ def _pages(evs) -> list[int]:
 def check_unit_consistency(a: Section106Agreement, pages) -> CheckResult:
     h = a.housing
     cid, desc = "H1", "Market units + affordable units == total residential units"
-    vals = [h.total_units, h.market_units, h.affordable_units]
-    evs = [h.total_units_evidence, h.market_units_evidence, h.affordable_units_evidence]
-    if h.total_units is None or h.affordable_units is None:
-        cls, why = _classify(evs, vals, pages)
-        return CheckResult(cid, desc, Status.FAIL, error_class=cls, detail=why)
-    if h.market_units is None:
+    inputs = [Input("total units", h.total_units, h.total_units_evidence),
+              Input("market units", h.market_units, h.market_units_evidence),
+              Input("affordable units", h.affordable_units, h.affordable_units_evidence)]
+    if h.total_units is not None and h.affordable_units is not None and h.market_units is None:
         return CheckResult(cid, desc, Status.SKIP, detail="deed does not state market unit count separately",
-                           pages=_pages(evs))
-    got = h.market_units + h.affordable_units
-    if got == h.total_units:
-        return CheckResult(cid, desc, Status.PASS, str(h.total_units), str(got), pages=_pages(evs))
-    cls, why = _classify(evs, vals, pages)
-    return CheckResult(cid, desc, Status.FAIL, str(h.total_units), f"{h.market_units} + {h.affordable_units} = {got}",
-                       cls, why, _pages(evs))
+                           pages=_pages(i.evidence for i in inputs))
+    holds = None not in (h.total_units, h.market_units, h.affordable_units) and \
+        h.market_units + h.affordable_units == h.total_units
+    actual = (f"{h.market_units} + {h.affordable_units} = {h.market_units + h.affordable_units}"
+              if None not in (h.market_units, h.affordable_units) else None)
+    return resolve(cid, desc, holds, inputs, pages, str(h.total_units), actual)
 
 
 def check_tenure_units(a: Section106Agreement, pages) -> CheckResult:
     h = a.housing
     cid, desc = "H2", "Sum of tenure units == affordable units"
-    evs = [h.affordable_units_evidence] + [t.evidence for t in h.tenures]
-    vals = [h.affordable_units] + [t.units for t in h.tenures]
     if not h.tenures:
         return CheckResult(cid, desc, Status.FAIL, error_class=ErrorClass.PARSER_ERROR,
                            detail="no tenure breakdown extracted")
-    if any(v is None for v in vals):
-        cls, why = _classify(evs, vals or [None], pages)
-        return CheckResult(cid, desc, Status.FAIL, error_class=cls, detail=why)
+    inputs = [Input("affordable units", h.affordable_units, h.affordable_units_evidence)] + \
+             [Input(f"{t.tenure.value} units", t.units, t.evidence) for t in h.tenures]
+    if any(i.value is None for i in inputs):
+        return resolve(cid, desc, False, inputs, pages)
     got = sum(t.units for t in h.tenures)
     breakdown = " + ".join(f"{t.units} {t.tenure.value}" for t in h.tenures)
-    if got == h.affordable_units:
-        return CheckResult(cid, desc, Status.PASS, str(h.affordable_units), f"{breakdown} = {got}", pages=_pages(evs))
-    cls, why = _classify(evs, vals, pages)
-    return CheckResult(cid, desc, Status.FAIL, str(h.affordable_units), f"{breakdown} = {got}", cls, why, _pages(evs))
+    return resolve(cid, desc, got == h.affordable_units, inputs, pages, str(h.affordable_units), f"{breakdown} = {got}")
 
 
 def check_tenure_rooms(a: Section106Agreement, pages) -> CheckResult:
@@ -275,52 +333,55 @@ def check_tenure_rooms(a: Section106Agreement, pages) -> CheckResult:
     cid, desc = "H3", "Sum of tenure habitable rooms == affordable habitable rooms"
     if h.affordable_habitable_rooms is None or not any(t.habitable_rooms for t in h.tenures):
         return CheckResult(cid, desc, Status.SKIP, detail="habitable-room breakdown not stated")
-    evs = [h.affordable_units_evidence] + [t.evidence for t in h.tenures]
-    vals = [h.affordable_habitable_rooms] + [t.habitable_rooms for t in h.tenures]
-    if any(v is None for v in vals):
-        cls, why = _classify(evs, vals, pages)
-        return CheckResult(cid, desc, Status.FAIL, error_class=cls, detail=why)
+    inputs = [Input("affordable habitable rooms", h.affordable_habitable_rooms, h.affordable_units_evidence)] + \
+             [Input(f"{t.tenure.value} habitable rooms", t.habitable_rooms, t.evidence) for t in h.tenures]
+    if any(i.value is None for i in inputs):
+        return resolve(cid, desc, False, inputs, pages)
     got = sum(t.habitable_rooms for t in h.tenures)
     breakdown = " + ".join(f"{t.habitable_rooms} {t.tenure.value}" for t in h.tenures)
-    if got == h.affordable_habitable_rooms:
-        return CheckResult(cid, desc, Status.PASS, str(h.affordable_habitable_rooms), f"{breakdown} = {got}",
-                           pages=_pages(evs))
-    cls, why = _classify(evs, vals, pages)
-    return CheckResult(cid, desc, Status.FAIL, str(h.affordable_habitable_rooms), f"{breakdown} = {got}",
-                       cls, why, _pages(evs))
+    return resolve(cid, desc, got == h.affordable_habitable_rooms, inputs, pages,
+                   str(h.affordable_habitable_rooms), f"{breakdown} = {got}")
 
 
 def check_claimed_pct(a: Section106Agreement, pages) -> CheckResult:
     h = a.housing
     cid = "H4"
     basis = h.claimed_affordable_basis
-    desc = f"Claimed affordable % vs calculated % (basis: {basis.value if basis else '?'})"
+    desc = f"Claimed affordable % vs calculated % (basis: {basis.value if basis else 'not stated'})"
     if h.claimed_affordable_pct is None:
         return CheckResult(cid, desc, Status.SKIP, detail="no affordable % stated in the deed")
+    claimed = Input("claimed %", h.claimed_affordable_pct, h.claimed_affordable_evidence)
     if basis == AffordableBasis.HABITABLE_ROOMS:
-        num, den = h.affordable_habitable_rooms, h.total_habitable_rooms
+        num = Input("affordable habitable rooms", h.affordable_habitable_rooms, h.affordable_units_evidence)
+        # the schema carries no evidence for a scheme-wide habitable-room total
+        den = Input("total habitable rooms", h.total_habitable_rooms, None)
+    elif basis == AffordableBasis.UNITS:
+        num = Input("affordable units", h.affordable_units, h.affordable_units_evidence)
+        den = Input("total units", h.total_units, h.total_units_evidence)
     else:
-        num, den = h.affordable_units, h.total_units
-    evs = [h.claimed_affordable_evidence, h.affordable_units_evidence, h.total_units_evidence]
-    if basis == AffordableBasis.HABITABLE_ROOMS and num is not None and not den:
+        # Never fall back to units: a floorspace or unstated basis compared by units would be
+        # a different measure, and a match or mismatch would mean nothing.
+        why = ("floorspace basis: floorspace figures are not extracted" if basis == AffordableBasis.FLOORSPACE
+               else "the deed's basis for the % was not extracted")
+        return CheckResult(cid, desc, Status.SKIP, f"{h.claimed_affordable_pct}%", None, None,
+                           f"cannot compute: {why}", _pages([h.claimed_affordable_evidence]))
+    if basis == AffordableBasis.HABITABLE_ROOMS and num.value is not None and not den.value:
         # Deeds commonly quote the % by habitable room without the scheme-wide room count;
         # the check can't be closed from the deed alone. Report the implied denominator instead.
-        implied = (Decimal(num) * 100 / h.claimed_affordable_pct).quantize(Decimal("0.1"))
+        implied = (Decimal(num.value) * 100 / h.claimed_affordable_pct).quantize(Decimal("0.1"))
         return CheckResult(cid, desc, Status.SKIP, f"{h.claimed_affordable_pct}%", None, None,
-                           f"total habitable rooms not stated in the deed; implied total = {num}/"
+                           f"total habitable rooms not stated in the deed; implied total = {num.value}/"
                            f"{h.claimed_affordable_pct}% = {implied} rooms (confirm against the approved plans)",
-                           _pages(evs))
-    if num is None or not den:
-        cls, why = _classify(evs, [num, den], pages)
-        return CheckResult(cid, desc, Status.FAIL, f"{h.claimed_affordable_pct}%", None, cls, why, _pages(evs))
-    calc = (Decimal(num) * 100 / Decimal(den)).quantize(Decimal("0.01"), ROUND_HALF_UP)
+                           _pages([claimed.evidence, num.evidence]))
+    if num.value is None or not den.value:
+        return resolve(cid, desc, False, [claimed, num, den], pages, f"{h.claimed_affordable_pct}%")
+    calc = (Decimal(num.value) * 100 / Decimal(den.value)).quantize(Decimal("0.01"), ROUND_HALF_UP)
     diff = abs(calc - h.claimed_affordable_pct)
-    actual = f"{num}/{den} = {calc}%"
-    if diff <= PCT_TOLERANCE:
-        return CheckResult(cid, desc, Status.PASS, f"{h.claimed_affordable_pct}%", actual, pages=_pages(evs))
-    cls, why = _classify(evs, [num, den, h.claimed_affordable_pct], pages)
-    return CheckResult(cid, desc, Status.FAIL, f"{h.claimed_affordable_pct}%", actual, cls,
-                       f"{why}; off by {diff} pp", _pages(evs))
+    r = resolve(cid, desc, diff <= PCT_TOLERANCE, [claimed, num, den], pages, f"{h.claimed_affordable_pct}%",
+                f"{num.value}/{den.value} = {calc}%")
+    if r.status == Status.FAIL:
+        r.detail += f"; off by {diff} pp"
+    return r
 
 
 def check_contribution(c, pages, idx: int) -> list[CheckResult]:
@@ -336,23 +397,22 @@ def check_contribution(c, pages, idx: int) -> list[CheckResult]:
         return out
     if c.amount_gbp is None:
         return out
+    amount = Input("amount", c.amount_gbp, c.evidence)
+    out.append(resolve(cid + ".amt", f"{c.name}: amount stated in cited evidence", True, [amount], pages,
+                       actual=f"£{c.amount_gbp:,.2f}"))
     # figures vs words: the deed states every sum twice, so an exact cross-check is free
-    if c.amount_in_words:
+    desc = f"{c.name}: figures == words"
+    if not c.amount_in_words:
+        out.append(CheckResult(cid + ".words", desc, Status.SKIP, detail="no words form captured", pages=pg))
+    else:
         w = words_to_amount(c.amount_in_words)
-        desc = f"{c.name}: figures == words"
         if w is None:
             out.append(CheckResult(cid + ".words", desc, Status.FAIL, f"£{c.amount_gbp:,.2f}", c.amount_in_words,
                                    ErrorClass.PARSER_ERROR, "words form not parseable", pg))
-        elif w == c.amount_gbp:
-            out.append(CheckResult(cid + ".words", desc, Status.PASS, f"£{c.amount_gbp:,.2f}", f"£{w:,.2f}", pages=pg))
         else:
-            # Both forms come from the same snippet; if it's verbatim on the page the deed disagrees with itself.
-            cls = ErrorClass.DOCUMENT_DISCREPANCY if evidence_found(c.evidence, pages) else ErrorClass.PARSER_ERROR
-            out.append(CheckResult(cid + ".words", desc, Status.FAIL, f"£{c.amount_gbp:,.2f}", f"£{w:,.2f}", cls,
-                                   "figures and words disagree", pg))
-    else:
-        out.append(CheckResult(cid + ".words", f"{c.name}: figures == words", Status.SKIP,
-                               detail="no words form captured", pages=pg))
+            out.append(resolve(cid + ".words", desc, w == c.amount_gbp,
+                               [amount, Input("words form", c.amount_in_words, c.evidence)], pages,
+                               f"£{c.amount_gbp:,.2f}", f"£{w:,.2f}"))
     out.extend(check_trigger(c, pages, cid, pg))
     return out
 
@@ -409,46 +469,55 @@ def check_trigger(c, pages, cid: str, pg: list[int]) -> list[CheckResult]:
     return out
 
 
+def _row_on_page(counts: list[int], page: str | None) -> bool:
+    """Is there a line on the page stating all of these counts (repeats included)?"""
+    want = Counter(Decimal(n) for n in counts)
+    return page is not None and any(
+        not (want - Counter(Decimal(m.replace(",", "")) for m in _NUMBER.findall(ocr_digits(ln))))
+        for ln in page.splitlines())
+
+
 def check_mix_table(a: Section106Agreement, pages) -> list[CheckResult]:
-    """Schedule mix table is an independent restatement of the tenure counts: cross-check it."""
+    """Schedule mix table is an independent restatement of the tenure counts: cross-check it.
+
+    Cells carry no snippets of their own, so a row counts as grounded when a line on the
+    table's cited page states all of its counts.
+    """
     h, t = a.housing, a.housing.mix_table
     if t is None:
         return [CheckResult("H5", "Approved mix table: rows sum to subtotals", Status.SKIP,
                             detail="no mix table found")]
-    pg = _pages([t.evidence])
+    page = pages.get(t.evidence.page) if t.evidence else None
+    row_problems = [f"row '{r.unit_type}' not found on p{t.evidence.page if t.evidence else '?'}"
+                    for r in t.rows if not _row_on_page(list(r.units_by_tenure.values()), page)]
+    sub_problem = ([] if not t.subtotals or _row_on_page(list(t.subtotals.values()), page)
+                   else ["sub-total row not found on the cited page"])
+    total = Input("table total", t.total_units, t.evidence)
     out = []
     for ten, sub in t.subtotals.items():
         col = sum(r.units_by_tenure.get(ten, 0) for r in t.rows)
-        desc = f"Mix table: Σ {ten.value} rows == sub-total"
         parts = " + ".join(str(r.units_by_tenure.get(ten, 0)) for r in t.rows)
-        ok = col == sub
-        out.append(CheckResult("H5", desc, Status.PASS if ok else Status.FAIL, str(sub), f"{parts} = {col}",
-                               None if ok else _classify([t.evidence], [sub, col], pages)[0],
-                               "" if ok else "table rows and sub-total disagree", pg))
+        out.append(resolve("H5", f"Mix table: Σ {ten.value} rows == sub-total", col == sub, [], pages, str(sub),
+                           f"{parts} = {col}", row_problems + sub_problem))
     if t.subtotals:
-        desc = "Mix table: Σ sub-totals == table total"
         got = sum(t.subtotals.values())
-        ok = got == t.total_units
-        out.append(CheckResult("H5", desc, Status.PASS if ok else Status.FAIL, str(t.total_units), str(got),
-                               None if ok else _classify([t.evidence], [t.total_units], pages)[0], "", pg))
+        out.append(resolve("H5", "Mix table: Σ sub-totals == table total", got == t.total_units, [total], pages,
+                           str(t.total_units), str(got), sub_problem))
     for alloc in h.tenures:
         if alloc.tenure not in t.subtotals:
             continue
-        desc = f"Definitions vs mix table: {alloc.tenure.value} units"
-        ok = alloc.units == t.subtotals[alloc.tenure]
-        evs = [alloc.evidence, t.evidence]
-        out.append(CheckResult("H6", desc, Status.PASS if ok else Status.FAIL, f"{t.subtotals[alloc.tenure]} (schedule)",
-                               f"{alloc.units} (definition)", None if ok else _classify(evs, [alloc.units], pages)[0],
-                               "", _pages(evs)))
+        out.append(resolve("H6", f"Definitions vs mix table: {alloc.tenure.value} units",
+                           alloc.units == t.subtotals[alloc.tenure],
+                           [Input(f"{alloc.tenure.value} units", alloc.units, alloc.evidence)], pages,
+                           f"{t.subtotals[alloc.tenure]} (schedule)", f"{alloc.units} (definition)", sub_problem))
     for label, defn, tbl in (("units", h.affordable_units, t.total_units),
                              ("habitable rooms", h.affordable_habitable_rooms, t.total_habitable_rooms)):
         if defn is None or tbl is None:
             continue
-        evs = [h.affordable_units_evidence, t.evidence]
-        ok = defn == tbl
-        out.append(CheckResult("H6", f"Definitions vs mix table: affordable {label}", Status.PASS if ok else Status.FAIL,
-                               f"{tbl} (schedule)", f"{defn} (definition)",
-                               None if ok else _classify(evs, [defn, tbl], pages)[0], "", _pages(evs)))
+        out.append(resolve("H6", f"Definitions vs mix table: affordable {label}", defn == tbl,
+                           [Input(f"affordable {label} (definition)", defn, h.affordable_units_evidence),
+                            Input(f"affordable {label} (table)", tbl, t.evidence)], pages,
+                           f"{tbl} (schedule)", f"{defn} (definition)"))
     return out
 
 

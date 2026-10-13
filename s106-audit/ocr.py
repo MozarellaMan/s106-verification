@@ -1,12 +1,17 @@
 """Page text acquisition: pdfplumber text layer first, RapidOCR fallback for scans.
 
-Results are cached per page under data/interim/ocr/<pdf-stem>/page_NNN.txt so
-repeated audits don't re-OCR the deed.
+Results are cached per page under data/interim/ocr/<sha256[:16]>-<OCR_VERSION>/page_NNN.txt.
+The key is the PDF's content hash plus the OCR settings, so a different document saved
+under the same filename, or a change of OCR engine settings, never reuses stale text.
+Each cache directory has a manifest.json recording the source path, full hash and settings.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import sys
+from datetime import datetime, timezone
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -16,12 +21,30 @@ import pypdfium2 as pdfium
 MIN_TEXT_CHARS = 50  # below this a page is treated as image-only
 OCR_SCALE = 200 / 72  # render at 200 dpi
 THREADS_PER_WORKER = 2
+# Bump when anything that changes page text changes: renderer scale, OCR engine/options,
+# line reconstruction, MIN_TEXT_CHARS. Old cache directories are then ignored, not reused.
+OCR_VERSION = "v1-rapidocr-200dpi-nocls"
+CACHE_ROOT = Path(os.environ.get("S106_OCR_CACHE", Path(__file__).resolve().parent.parent / "data" / "interim" / "ocr"))
+
+
+def pdf_sha256(pdf_path: Path) -> str:
+    h = hashlib.sha256()
+    with open(pdf_path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def _cache_dir(pdf_path: Path) -> Path:
-    root = pdf_path.resolve().parent.parent  # data/raw -> data
-    d = root / "interim" / "ocr" / pdf_path.stem
+    digest = pdf_sha256(pdf_path)
+    d = CACHE_ROOT / f"{digest[:16]}-{OCR_VERSION}"
     d.mkdir(parents=True, exist_ok=True)
+    manifest = d / "manifest.json"
+    if not manifest.exists():
+        manifest.write_text(json.dumps({
+            "sha256": digest, "source_path": str(pdf_path.resolve()), "ocr_version": OCR_VERSION,
+            "ocr_scale": OCR_SCALE, "min_text_chars": MIN_TEXT_CHARS,
+            "created": datetime.now(timezone.utc).isoformat(timespec="seconds")}, indent=2) + "\n")
     return d
 
 

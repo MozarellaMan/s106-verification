@@ -133,16 +133,18 @@ def run_once(pdf: Path, model: str, mode: str, out: Path, client) -> dict:
     }, indent=2))
     tin, tout, _ = usage_from(agreement)
     return {"agreement": agreement, "results": results, "seconds": round(time.time() - t0, 1),
-            "tokens_in": tin, "tokens_out": tout, "cost_usd": cost(model, tin, tout)}
+            "tokens_in": tin, "tokens_out": tout, "cost_usd": 0.0 if mode == "replay" else cost(model, tin, tout)}
 
 
 def gate_summary(results) -> dict:
     return {"pass": sum(r.status == Status.PASS for r in results),
+            "review": sum(r.status == Status.REVIEW for r in results),
             "fail": sum(r.status == Status.FAIL for r in results),
             "skip": sum(r.status == Status.SKIP for r in results),
             "parser_errors": sum(r.error_class == ErrorClass.PARSER_ERROR for r in results),
             "document_discrepancies": sum(r.error_class == ErrorClass.DOCUMENT_DISCREPANCY for r in results),
-            "failures": [f"{r.check_id} {r.description}: {r.detail}" for r in results if r.status == Status.FAIL]}
+            "failures": [f"{r.check_id} {r.description}: {r.detail}" for r in results if r.status == Status.FAIL],
+            "reviews": [f"{r.check_id} {r.description}: {r.detail}" for r in results if r.status == Status.REVIEW]}
 
 
 def fingerprint(a) -> dict:
@@ -183,12 +185,14 @@ def agreement_across(runs: list[dict]) -> dict:
 
 # --------------------------------------------------------------------------- main
 
-def evaluate(row: dict, k: int, model: str, register, client) -> dict:
+def evaluate(row: dict, k: int, model: str, register, client, replay: bool = False) -> dict:
     pdf = RAW / f"{row['id']}.pdf"
     out = OUT / row["id"]
     out.mkdir(parents=True, exist_ok=True)
     # Run 1 records the fixture (and warms the OCR cache); the rest run in parallel.
-    runs = [run_once(pdf, model, "record", out / "run1.audit.json", client)]
+    if replay:  # re-verify the recorded run-1 response: free, offline, reproducible
+        k = 1
+    runs = [run_once(pdf, model, "replay" if replay else "record", out / "run1.audit.json", client)]
     with ThreadPoolExecutor(max_workers=k - 1 or 1) as pool:
         runs += list(pool.map(lambda i: run_once(pdf, model, "live", out / f"run{i}.audit.json", client),
                               range(2, k + 1)))
@@ -210,7 +214,7 @@ def evaluate(row: dict, k: int, model: str, register, client) -> dict:
 
 def markdown(summary: list[dict], model: str) -> str:
     lines = [f"# Register eval: {model}", "",
-             "| deed | pp | src | runs ok | gate (pass/fail/skip, parser err) | sums matched | register found | "
+             "| deed | pp | src | runs ok | gate (pass/review/fail/skip, parser err) | sums matched | register found | "
              "AH units (ours / register) | runs agree | cost |",
              "|---|---|---|---|---|---|---|---|---|---|"]
     total = 0.0
@@ -229,7 +233,7 @@ def markdown(summary: list[dict], model: str) -> str:
                  and not ag["contribution_names"]["only_some_runs"] else "no")
         units = f"{reg['affordable_units']} / {reg['register_affordable_units'] or '-'}"
         lines.append(f"| {d['id']} | {d['pages']} | {d['text_source']} | {len(ok)}/{len(d['runs'])} | "
-                     f"{g['pass']}/{g['fail']}/{g['skip']}, {g['parser_errors']} | "
+                     f"{g['pass']}/{g['review']}/{g['fail']}/{g['skip']}, {g['parser_errors']} | "
                      f"{reg['extracted_sums_matched']}/{reg['extracted_sums']} | "
                      f"{reg['register_amounts_found']}/{reg['register_amounts']} | {units} | {agree} | ${c:.3f} |")
     lines += ["", f"Total cost: ${total:.2f}", "", "Gate and register columns are for run 1; *runs agree* compares "
@@ -241,11 +245,14 @@ def markdown(summary: list[dict], model: str) -> str:
                 lines.append(f"- run {r['run']}: **error** {r['error']}")
                 continue
             reg = r["register"]
-            lines.append(f"- run {r['run']}: gate {r['gate']['pass']}/{r['gate']['fail']}/{r['gate']['skip']}; "
+            lines.append(f"- run {r['run']}: gate {r['gate']['pass']}/{r['gate']['review']}/{r['gate']['fail']}/"
+                         f"{r['gate']['skip']}; "
                          f"{r['contributions']} contributions; {r['tokens_in']:,} in / {r['tokens_out']:,} out; "
                          f"{r['seconds']}s")
             for f in r["gate"]["failures"]:
                 lines.append(f"  - FAIL {f}")
+            for f in r["gate"]["reviews"]:
+                lines.append(f"  - REVIEW {f}")
             if reg["unmatched_extracted"]:
                 lines.append(f"  - sums not in register: {', '.join(reg['unmatched_extracted'])}")
             if reg["missed_register"]:
@@ -269,18 +276,20 @@ def main() -> int:
     ap.add_argument("--runs", type=int, default=3)
     ap.add_argument("--model", default=PDF_DEFAULT_MODEL)
     ap.add_argument("--only", nargs="*", help="candidate ids to run")
+    ap.add_argument("--replay", action="store_true",
+                    help="re-verify each deed's recorded fixture instead of calling the API (one run per deed)")
     args = ap.parse_args()
 
     rows = list(csv.DictReader(open(REF / "candidates.tsv"), delimiter="\t"))
     if args.only:
         rows = [r for r in rows if r["id"] in args.only]
     register = load_register()
-    client = harness_client()  # same key file as run_audit; None falls back to SDK credential resolution
+    client = None if args.replay else harness_client()  # same key file as run_audit; None falls back to SDK credential resolution
     OUT.mkdir(parents=True, exist_ok=True)
     summary = []
     for row in rows:
         print(f"== {row['id']} ({row['council']} {row['planning_ref']})", file=sys.stderr, flush=True)
-        summary.append(evaluate(row, args.runs, args.model, register, client))
+        summary.append(evaluate(row, args.runs, args.model, register, client, args.replay))
         (OUT / "summary.json").write_text(json.dumps(summary, indent=2, default=str))
     (OUT / "summary.md").write_text(markdown(summary, args.model))
     print(markdown(summary, args.model))
