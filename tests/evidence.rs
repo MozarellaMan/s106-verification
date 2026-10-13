@@ -156,7 +156,7 @@ fn dropped_words_are_not_absorbed_by_a_gap() {
 
 #[test]
 fn joined_number_words_at_line_wrap_are_not_absorbed() {
-    // review repro: the snippet leaves out "and twenty", which OCR joined at the line start
+    // review repro: the snippet leaves out "and forty", which OCR joined at the line start
     let page =
         "means the sumoff9,140(nine thousand and one hundred\nandforty pounds)Index Linked\n";
     assert!(!found_in(
@@ -286,4 +286,14 @@ fn quoted_number_at_line_end_is_set_apart_from_the_next_clause_number() {
     ));
     // still a different number when the next line's digits are part of it
     assert!(!found_in("the number 182. Paragraph", "the number 18"));
+}
+
+#[test]
+fn a_grouping_comma_before_a_break_keeps_the_number_whole() {
+    // Only closing quotes and brackets are looked past; a comma still joins the digits.
+    assert!(found_in("the sum of f10, 000 shall be paid", "£10,000"));
+    assert!(found_in(
+        "the sum of £10,\n058.60 shall be paid",
+        "£10,058.60"
+    ));
 }
