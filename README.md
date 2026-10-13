@@ -7,6 +7,9 @@ supplemental deed) into a typed schema. A deterministic gate then checks every n
 the others **and** against the deed's own text: each value must appear in the passage the model
 cites, and that passage must be found on the cited page. Nothing in the gate is a model judgement.
 
+Architecture and contributor reading path: [docs/architecture.md](docs/architecture.md).
+Independent Rust review: [docs/rust-review.md](docs/rust-review.md).
+
 Scope, roadmap and open research questions: [docs/research-plan.md](docs/research-plan.md).
 Schema v2 and the real deeds behind it: [docs/schema-v2.md](docs/schema-v2.md).
 How the Rust harness was accepted against the former Python one: [docs/migration.md](docs/migration.md).
@@ -112,19 +115,20 @@ when one line on the table's page states all of its counts.
 | H5 | approved mix table: rows sum to each tenure's sub-total, sub-totals to the total |
 | H6 | mix table agrees with the definitions |
 | V1 | a variation or supplemental deed identifies its parent, and the citation is grounded |
-| V2.n | each variation's target (and new wording) is grounded in its citation |
+| V2.n | an identifying token from each variation's target is grounded; operation and new wording remain unverified |
 | F*.amt | a fixed or capped sum was extracted and is stated in its citation (SKIP for formula/rate/no figure) |
 | F*.words | the figure equals its words form ("£10,058.60 (ten thousand and fifty eight pounds and sixty pence)") |
 | F*.cond | a conditional sum's condition is the deed's own wording, found on its page |
 | F*.trig | the payment covenant and its trigger phrase are both in the deed, the phrase lies inside the covenant, and the covenant imposes a payment |
 | F*.tlabel | the trigger label follows from the cited phrase (fixed vocabulary in `triggers.rs`) |
-| F*.inst… | instalments: shares sum to 100%; the lead-in imposes payment; each instalment's phrase is in the deed and decides its label |
+| F*.inst… | instalments: grounded shares sum to 100%; the lead-in imposes payment; each instalment's phrase is in the deed and decides its label |
 
 ## Reproducibility
 
 - **Page text** is cached under `data/interim/ocr/<sha256[:16]>-<ocr version>/`, keyed by
   document content and OCR settings (renderer, model set, DPI), with a `manifest.json`. A
-  replaced PDF or a changed model never reuses old text.
+  replaced PDF or changed version string gets a different cache. Local model-file changes
+  are not detected automatically; invalidate the cache when changing runtime artifacts.
 - **Model responses** are recorded in `fixtures/llm/<stem>/<model>.extract.v2.json`, tied to the
   PDF's SHA-256 and to a hash of the prompts and schemas. A different deed or a changed prompt
   refuses to replay. v1 fixtures from the former Python harness (`fixtures/llm-v1/`) still replay.

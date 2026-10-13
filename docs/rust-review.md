@@ -119,6 +119,10 @@ This is a source review, not a fresh manual transcription of the legal corpus.
 - `Config::pdfium` performs binding before `OnceLock::set`, so simultaneous first
   callers can race, and the first model directory wins process-wide. Current CLI
   execution is sequential. Fix initialisation before offering parallel callers.
+- `data/reference/` is ignored and has no tracked files at the baseline, including
+  the candidate TSV and register CSVs required by `eval`. The local replay can run,
+  but a clean clone needs these inputs supplied separately. Commit an appropriate
+  retrieval manifest or document their reproducible acquisition in a follow-up.
 - `wire::money` turns malformed nonempty decimals into missing fields; H4 can then
   SKIP. Stronger input validation would require returning conversion errors rather
   than only `Option`, with a deliberate fixture compatibility policy.
@@ -147,7 +151,7 @@ candidate is accepted solely because its API looks shorter.
 
 | Existing code | Candidate crate | Expected benefit | Recommendation |
 |---|---|---|---|
-| `extract::to_agreement` JSON conversion | `serde_path_to_error` 0.1.20 | Exact nested failure location without handwritten traversal | Investigate with a valid/corrupt fixture trial |
+| `extract::to_agreement` JSON conversion | `serde_path_to_error` 0.1.20 | Exact nested failure location without handwritten traversal | Adopt after the valid/corrupt fixture trial below |
 | `text::words_to_int` / `words_to_amount` | `text2num` 2.8.0 | Maintained grammar for number words | Keep existing OCR and pounds/pence handling; investigate only a narrowly defined grammar replacement |
 | `report::gbp`, `verify::gbp`, `eval::thousands` | `num-format` 0.4.4 | Integer grouping and locale support | Keep existing; decimals/sign placement remain custom and no locale requirement exists |
 | `ocrbench::semi_global` | `bio` 4.0.1 / `rapidfuzz` 0.5.0 | Established alignment/string-distance implementations | Keep existing small character-based recurrence; global edit distance is not this metric |
@@ -156,11 +160,136 @@ The evidence matcher's number-preservation rules, OCR digit repair, margin filte
 trigger vocabulary, payment/assessment distinction, and basis/variation gating are
 project-specific. Generic fuzzy similarity must not replace them.
 
+### Ecosystem evidence and trials
+
+Checked on 13 October 2026 against the registry links, docs.rs release pages and
+upstream repositories. Popularity figures are GitHub stars, not quality guarantees.
+GitHub `pushed_at` is activity metadata, not evidence of a particular reviewed commit.
+The crates.io HTML pages require JavaScript; release/dependency details below come
+from their published docs.rs packages and the resolved local dependency tree.
+
+- **serde_path_to_error 0.1.20:** [published package](https://docs.rs/crate/serde_path_to_error/0.1.20),
+  [registry](https://crates.io/crates/serde_path_to_error),
+  [upstream](https://github.com/dtolnay/path-to-error). Releases since 2019; latest
+  published release shown is 15 September 2025; upstream last push 24 June 2026,
+  427 stars. MIT/Apache-2.0. Trialled on Rust 1.99 with this project's Serde types.
+  In the isolated trial, plain Serde reported `invalid type ... expected a string`;
+  the wrapper added `contributions[0].amount_gbp`. Both accepted the valid twin.
+  Adoption adds one lockfile package; `cargo tree -p serde_path_to_error` resolves
+  only existing `itoa` and `serde_core` beneath it. No native library or build
+  system. Two conversion call sites use it directly; no new abstraction layer.
+  `recorded_wire_outputs_deserialize_and_errors_identify_the_field` preserves a
+  valid/corrupt test over all ten v2 fixtures. The final test corrupts
+  `housing.total_units`, because some variation fixtures contain no contributions.
+
+- **text2num 2.8.0:** [published package](https://docs.rs/crate/text2num/2.8.0),
+  [registry](https://crates.io/crates/text2num),
+  [upstream](https://github.com/allo-media/text2num-rs). MIT; last release/push
+  21 August 2026, 9 stars; direct dependencies `bitflags`, `daachorse`, `phf`.
+  The isolated Rust trial returned 58 for `fifty eight`, but errors for
+  `fiftyeight`, `one hundred and`, and `ten pounds and twenty pence`. The current
+  code deliberately handles those OCR/currency cases. Adoption would still require
+  the tokenizer, currency split and evidence number vocabulary. Keep the existing
+  implementation and its new fail-closed overflow/pence handling. No claim that
+  the current word grammar validates every grammatical English numeral.
+
+- **num-format 0.4.4:** [published package](https://docs.rs/crate/num-format/0.4.4),
+  [registry](https://crates.io/crates/num-format),
+  [upstream](https://github.com/bcmyers/num-format). MIT/Apache-2.0, 129 stars;
+  last release shown 3 December 2022, last upstream push 26 June 2024. Default
+  dependencies are `arrayvec` and `itoa`; system locale support is optional and
+  adds platform machinery. Its integer-formatting API does not remove Decimal
+  rounding, fractional formatting or the existing sign-placement difference between
+  report and verifier. Replacing these small loops has no clear net benefit here;
+  no adoption trial was warranted after API inspection.
+
+- **Alignment candidates:** [bio 4.0.1](https://docs.rs/crate/bio/4.0.1) has a
+  [semiglobal aligner](https://docs.rs/bio/4.0.1/bio/alignment/pairwise/struct.Aligner.html),
+  MIT licensing, 1,840 upstream stars and an upstream push on 12 October 2026.
+  Its many normal dependencies and byte-based alignment API are disproportionate
+  to the small character-based `semi_global` recurrence. [RapidFuzz 0.5.0](https://docs.rs/crate/rapidfuzz/0.5.0)
+  has no normal dependencies, Apache-2.0 licensing, 72 upstream stars, last release
+  shown 1 December 2023 and last push 29 June 2024. Its documented global distance
+  is not the best-substring metric used here. Keep the existing recurrence; neither
+  library supplies the verifier's numeric-gap restrictions. No replacement trial
+  or performance claim was made for these rejected candidates.
+
+The existing `csv`, `clap`, `anyhow`, `regex`, `rust_decimal`, `schemars`, PDFium and
+OCR libraries already cover the substantial generic mechanics. Replacing those
+would incur fixture/runtime compatibility work without an identified maintenance
+benefit. No whole dependency-stack replacement was attempted.
+
 ## Implementation and validation record
 
-Pending focused implementation. Baseline `cargo test --offline` passed. A cached
+Baseline `cargo test --offline` passed. A cached
 Salford gold pilot passed in 0.02 seconds after a 0.35-second Cargo startup; this
 measures cached scoring, not fresh OCR. The corpus and runtime models are present.
 Tests and frozen outputs provide regression evidence, not independent proof of
 extraction accuracy. Existing OCR gold was used to select models; it is not held-out
-validation. Synthetic corruption controls will be run before replay comparisons.
+validation. Synthetic corruption controls were run before replay comparisons.
+
+### Completed changes
+
+- **Readability:** `resolve` now shows its four outcomes together and constructs the
+  result once. CLI and evaluation use one `Info::usage_note` implementation.
+- **Idiomatic Rust:** move owned response parts instead of cloning entire JSON
+  objects; deserialize from borrowed JSON. Checked number-word arithmetic returns
+  `None` on overflow instead of saturating.
+- **Organisation:** keep the current modules and single crate. Add one small method
+  on `Amount` to define which structures contribute a stated sum, shared by reporting
+  and register scoring. No trait hierarchy, framework, or new module tree.
+- **Comments/docs:** remove source-header migration narration, correct the three-call
+  and cache descriptions, correct the SDK-boundary claim and the migration document's
+  claim of escalation tests. Keep OCR/legal explanations. Add the architecture guide
+  and correct README/schema-v2's description of variation checking. Prompt-bearing
+  schema descriptions and all recorded fixtures remain unchanged.
+- **Dependency:** adopt only `serde_path_to_error`, following the isolated trial.
+- **Correctness:** retain decimal position/numeric boundaries in relocation, ground
+  instalment shares and require percentage wording, reject unreadable pence/overflow,
+  and exclude rates/formula parameters from stated totals and register sum scoring.
+  Behavioural work is separate from the readability commit.
+
+The new controls exposed false matches before the fixes (`50` in `150`, `£1.00`
+in `£100`), the stated-sum total test failed at 360 versus the intended 300, and
+`dwelling_numbers_do_not_ground_instalment_percentages` failed with PASS before the
+percentage-wording safeguard. Valid twins retain PASS; an actually grounded 50 + 40
+source retains Document Discrepancy; invented 50 + 40 is Parser Error and invented
+60 + 40 is REVIEW. The original discrepancy test was corrected to change both the
+source page and citation, not simply to bless a different result.
+
+### Final validation
+
+Executed on Rust 1.99.0 with the local corpus, models and existing OCR caches:
+
+| Command | Result |
+|---|---|
+| `cargo fmt --check` | Passed |
+| `cargo clippy --offline --all-targets -- -D warnings` | Passed |
+| `cargo test --offline` | 108 passed; 3 corpus tests ignored by default |
+| `cargo test --release --offline -- --ignored` | All 3 passed: frozen replay and two OCR gold evaluations |
+| `cargo run --release --offline -- eval --replay` | All 9 candidate audits completed without execution errors |
+| `target/release/s106 audit data/raw/southwark_s106_sample.pdf --llm-mode replay --quiet --out /tmp/s106-review-southwark.audit.json` | Audit written; exit 1 reflects its Parser Error/REVIEW findings |
+
+Built baseline `e938307` separately and replayed the same cached inputs. Comparing
+all 281 check IDs, descriptions, statuses and error classes across nine candidate
+audits found three PASS-to-REVIEW changes, all on North Tyneside page 15:
+`F8.inst2`, `F9.inst` and `F9.inst1`. Cached OCR has `8.1.2.25%` and `9.1.1.50%`,
+joining the clause number directly to the percentage. The stricter matcher cannot
+separate these from decimal numbers safely. This is an intentional conservative
+trade-off requiring source review, not evidence of incorrect deed arithmetic.
+
+The first comparison also exposed a refactoring regression where even a spaced
+clause number absorbed the following percentage. That was fixed and covered by
+`numbered_clauses_do_not_absorb_a_following_percentage`; changed amounts still fail
+the negative controls. No fixture or gold expectation was updated to force a pass.
+The corpus tests use cached OCR, so they do not validate fresh rendering/model
+execution. The README's older Rust minimum was not independently tested.
+
+### Deliberately deferred
+
+Findings 5–6 and the follow-up list remain open. This PR does not claim that
+escalation is lossless, all provenance is captured, every legal association is
+verified, or extraction is complete. Those need explicit contracts and labelled
+cases. The pure refactor changes no status definitions; the numerical fixes make
+unsupported claims less likely to pass. No live model calls, new OCR models,
+concurrency strategy or test-infrastructure redesign were introduced.
