@@ -156,7 +156,7 @@ s106 eval --runs 3              # 5 live model calls (costs money; manual only)
 Tier 2 (`cargo test-data`) needs the data checkout and fails with "data missing" without it.
 Tiers 3 and 4 also need `scripts/fetch-models.sh` and `scripts/fetch-corpus.sh`. They fail with
 "corpus missing" when deeds are absent; they never skip silently. CI runs `cargo test` on every push, plus a second job that checks out
-the data repository (secret `S106_DATA_TOKEN`) and runs `cargo test-data`; tiers 3-4 run weekly on
+the data repository (secret `S106_DATA_DEPLOY_KEY`) and runs `cargo test-data`; tiers 3-4 run weekly on
 a cold cache (also with the data checkout), and 5 only when started by hand (`.github/workflows/`).
 Only tiers 1-2 gate pull requests; the weekly job skips the PDF tiers with a warning when the
 council sites it downloads from are unreachable.
