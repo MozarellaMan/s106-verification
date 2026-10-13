@@ -174,3 +174,26 @@ fn overflowing_number_words_are_not_clamped() {
         None
     );
 }
+
+#[test]
+fn percentages_require_a_percentage_suffix() {
+    use s106::text::percentage_in_snippet;
+    for text in [
+        "50% prior to Occupation",
+        "5o%of the sum",
+        "50 per cent",
+        "fifty per cent",
+        "fiftypercent",
+    ] {
+        assert!(percentage_in_snippet(dec("50"), text), "{text}");
+    }
+    for text in [
+        "50th Dwelling",
+        "150%",
+        "50 pounds",
+        "5.0%",
+        "fifteen per cent",
+    ] {
+        assert!(!percentage_in_snippet(dec("50"), text), "{text}");
+    }
+}

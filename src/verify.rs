@@ -24,7 +24,9 @@ use crate::schema::{
     AffordableBasis, Agreement, AmountStructure, ConditionalityKind, Contribution, Evidence,
     Instalment, Tenure, Variation,
 };
-use crate::text::{Value, ocr_digits, squash, value_in_snippet, words_to_amount};
+use crate::text::{
+    Value, ocr_digits, percentage_in_snippet, squash, value_in_snippet, words_to_amount,
+};
 use crate::triggers::{classify, classify_cited, imposes_payment};
 
 /// Percentage points; deeds quote 2 dp.
@@ -1119,6 +1121,20 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
                 )
             })
             .collect();
+        let share_problems: Vec<String> = insts
+            .iter()
+            .enumerate()
+            .filter_map(|(n, inst)| {
+                let share = inst.share_pct?;
+                let evidence = inst.trigger_phrase.as_ref()?;
+                (!percentage_in_snippet(share, &evidence.snippet)).then(|| {
+                    format!(
+                        "instalment {} share: {share}% not stated as a percentage in its citation",
+                        n + 1
+                    )
+                })
+            })
+            .collect();
         let mut r = resolve(
             &id,
             &desc,
@@ -1127,7 +1143,7 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
             pages,
             Some("100%".to_string()),
             Some(format!("{parts} = {sum}%")),
-            &[],
+            &share_problems,
         );
         r.pages = all_pg.clone();
         out.push(r);

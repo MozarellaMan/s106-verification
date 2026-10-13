@@ -173,6 +173,26 @@ pub fn numbers_in(text: &str) -> BTreeSet<Decimal> {
     out
 }
 
+/// A share needs percentage wording: "50th Dwelling" does not state a 50% share.
+pub fn percentage_in_snippet(value: Decimal, snippet: &str) -> bool {
+    static SUFFIX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?i)^\s*(?:%|per\s*cent)").unwrap());
+    let text = ocr_digits(snippet);
+    NUMBER
+        .find_iter(&text)
+        .chain(WORD_RUN.find_iter(&text))
+        .any(|m| {
+            if !SUFFIX.is_match(&text[m.end()..]) {
+                return false;
+            }
+            let number = m.as_str().trim().replace(',', "");
+            let parsed = Decimal::from_str(&number)
+                .ok()
+                .or_else(|| words_to_int(&number).map(Decimal::from));
+            parsed == Some(value)
+        })
+}
+
 /// A value a check depends on.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {

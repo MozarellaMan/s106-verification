@@ -947,3 +947,13 @@ fn unreadable_pence_is_a_parser_error_even_when_the_quote_relocates() {
     assert_eq!(r.status, Status::Fail);
     assert_eq!(r.error_class, Some(ErrorClass::ParserError));
 }
+
+#[test]
+fn dwelling_numbers_do_not_ground_instalment_percentages() {
+    let mut c = instalment_contribution(["50", "50"], [E::PreOccupation, E::PreOccupation]);
+    for inst in &mut c.payment.instalments {
+        inst.trigger_phrase = Some(ev(30, "prior to Occupation of the 50th Dwelling"));
+    }
+    let rs = check_contribution(&c, &pages(&[(30, PAGE_30)]), 3);
+    assert_eq!(by_id(&rs)["F3.inst"].status, Status::Review);
+}
