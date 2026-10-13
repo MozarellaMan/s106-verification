@@ -632,6 +632,7 @@ fn decision_table() {
             unmatched_deletion: None,
             unproven_deletion: None,
             unverified_change: None,
+            partial_change: None,
             delivered: delivered(d),
             percentage: false,
             scheme_complete: complete(c),
@@ -657,6 +658,9 @@ fn decision_table() {
         f.unverified_change = Some("a deed".into());
         assert_eq!(decide(&f).0, Varied);
         f.unverified_change = None;
+        f.partial_change = Some("a Phase 2 deed".into());
+        assert_eq!(decide(&f).0, Varied);
+        f.partial_change = None;
         for (state, status) in [
             (Current::Removed, Removed),
             (Current::Conflict("two figures".into()), Indeterminate),
@@ -677,6 +681,7 @@ fn percentages_compare_within_the_verifier_tolerance() {
         unmatched_deletion: None,
         unproven_deletion: None,
         unverified_change: None,
+        partial_change: None,
         delivered: Counted {
             value: Some(dec(delivered)),
             basis: "x".into(),
@@ -1132,4 +1137,47 @@ fn deleting_words_inside_an_obligation_does_not_remove_it() {
         "The definition of Bus Contribution is deleted",
     );
     assert_eq!(b.status, RowStatus::Removed);
+}
+
+#[test]
+fn a_scoped_variation_is_recorded_but_not_applied() {
+    let scoped = |mut v: Agreement| {
+        v.instrument.scope = Some(Quoted {
+            text: "in so far as it relates to Phase 2".into(),
+            evidence: None,
+        });
+        v
+    };
+    // A grounded, whole deletion, but only for Phase 2.
+    let mut v = dov();
+    v.variations = vec![delete_bus(2)];
+    let r = with_pages(&[southwark()], &scoped(v), full());
+    let b = row(&r, &bus());
+    assert_eq!(b.status, RowStatus::Varied);
+    assert_eq!(b.current, Some(dec("683100")));
+    assert!(
+        b.reason
+            .contains("applies only \"in so far as it relates to Phase 2\""),
+        "{}",
+        b.reason
+    );
+    assert_eq!(
+        b.events.last().unwrap().scope.as_deref(),
+        Some("in so far as it relates to Phase 2")
+    );
+    // A scoped replacement doesn't change the whole-scheme figure either.
+    let mut v = dov();
+    v.housing.tenures = vec![sr_tenure(Some(50))];
+    let r = run(
+        &[southwark(), scoped(v)],
+        delivery(177, &[(SR, 50), (INT, 18)], true),
+    );
+    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
+    assert_eq!(sr.current, Some(dec("58")));
+    assert_eq!(sr.status, RowStatus::Varied);
+    // Obligations it doesn't touch are unaffected.
+    assert_eq!(
+        row(&r, &Measure::MarketUnits).status,
+        RowStatus::CountsMatch
+    );
 }

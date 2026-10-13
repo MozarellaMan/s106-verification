@@ -157,6 +157,10 @@ pub struct InstrumentObligations {
     /// a deed of variation or supplemental deed
     pub variation: bool,
     pub planning_references: Vec<String>,
+    /// a partial scope the deed states, e.g. "in so far as it relates to Phase 2"; what a scoped
+    /// deed changes is not applied to the whole development
+    #[serde(default)]
+    pub scope: Option<String>,
     pub statements: Vec<Statement>,
     pub deletions: Vec<Deletion>,
 }
@@ -193,6 +197,9 @@ pub struct ObligationEvent {
     /// planning reference); what it changes goes to review
     #[serde(default = "yes")]
     pub verified: bool,
+    /// the instrument's partial scope, when it has one; such an event is recorded, not applied
+    #[serde(default)]
+    pub scope: Option<String>,
 }
 
 fn yes() -> bool {
@@ -315,6 +322,7 @@ pub fn instrument_obligations(a: &Agreement, pages: Option<&Pages>) -> Instrumen
         },
         variation: a.instrument.kind.is_variation(),
         planning_references: a.metadata.planning_references.clone(),
+        scope: a.instrument.scope.as_ref().map(|q| q.text.clone()),
         statements: merge_duplicates(raw),
         deletions: a
             .variations
@@ -1006,6 +1014,8 @@ pub struct Facts {
     pub unproven_deletion: Option<String>,
     /// a deed whose link to the development is unchecked changed this obligation (which)
     pub unverified_change: Option<String>,
+    /// a deed limited to part of the development changed this obligation (which, and its scope)
+    pub partial_change: Option<String>,
     pub delivered: Counted,
     /// compare within the verifier's percentage tolerance rather than exactly
     pub percentage: bool,
@@ -1014,6 +1024,14 @@ pub struct Facts {
 
 /// The status rules, in order (see docs/reconciliation.md).
 pub fn decide(f: &Facts) -> (RowStatus, String) {
+    if let Some(which) = &f.partial_change
+        && f.current != Current::Removed
+    {
+        return (
+            RowStatus::Varied,
+            format!("changed by {which}; compare by hand"),
+        );
+    }
     let current = match &f.current {
         Current::Removed => {
             return (
@@ -1244,6 +1262,8 @@ pub fn reconcile(
                 },
             };
             match &op {
+                // A scoped deed's figures cover only part of the development: recorded, not applied.
+                _ if inst.scope.is_some() => {}
                 Op::Introduce { value } => {
                     current.insert(s.measure.clone(), *value);
                 }
@@ -1272,6 +1292,7 @@ pub fn reconcile(
                     note: s.note.clone(),
                     conflict: s.conflict.clone(),
                     verified: verified[k],
+                    scope: inst.scope.clone(),
                 });
         }
         for del in &inst.deletions {
@@ -1298,7 +1319,7 @@ pub fn reconcile(
                     }
                     (g, _) => g.clone(),
                 };
-                if grounding == Grounding::Grounded && verified[k] {
+                if grounding == Grounding::Grounded && verified[k] && inst.scope.is_none() {
                     current.insert(m.clone(), None);
                 }
                 let label = events[&m][0].label.clone();
@@ -1312,6 +1333,7 @@ pub fn reconcile(
                     note: Some(format!("deletes \"{}\"", del.target)),
                     conflict: None,
                     verified: verified[k],
+                    scope: inst.scope.clone(),
                 });
             }
         }
@@ -1335,7 +1357,20 @@ pub fn reconcile(
         let mut setter: Option<&ObligationEvent> = None;
         let mut unproven_deletion: Option<String> = None;
         let mut unverified_change: Option<String> = None;
+        let mut partial_change: Option<String> = None;
         for e in &evs {
+            let changes = matches!(e.op, Op::Introduce { .. } | Op::Replace { .. } | Op::Delete);
+            if let Some(scope) = &e.scope {
+                // Only part of the development: kept in the history, sent to review.
+                if changes {
+                    partial_change = Some(format!(
+                        "the {} dated {}, which applies only \"{scope}\"",
+                        e.instrument.kind,
+                        e.instrument.date.as_deref().unwrap_or("?")
+                    ));
+                }
+                continue;
+            }
             let sets = match e.op {
                 Op::Introduce { value: v } => Some(v),
                 Op::Restate { value: v } | Op::Replace { to: v, .. } => Some(Some(v)),
@@ -1363,9 +1398,9 @@ pub fn reconcile(
             }
             // Whatever an unverified deed introduces, replaces or deletes needs review, until a
             // verified deed states the figure again (the events keep the history).
-            let changes = matches!(e.op, Op::Introduce { .. } | Op::Replace { .. } | Op::Delete);
             if e.verified && (sets.is_some() || (e.op == Op::Delete && removed)) {
                 unverified_change = None;
+                partial_change = None;
             }
             if !e.verified && changes {
                 unverified_change = Some(format!(
@@ -1405,6 +1440,7 @@ pub fn reconcile(
             unmatched_deletion,
             unproven_deletion,
             unverified_change,
+            partial_change,
             delivered: match &delivery {
                 Some(d) => d.delivered(&m),
                 None => Counted::none("no PLD delivery data supplied"),

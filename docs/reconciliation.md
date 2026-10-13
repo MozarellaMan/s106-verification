@@ -89,6 +89,14 @@ the original. Within one deed, repeats with the same figure merge (a sum defined
 a schedule). Repeats with different figures (phased sums, or a misread) keep no figure and the row
 is indeterminate, naming the figures.
 
+### Partial scope
+
+A deed that states a partial scope (the extraction's `instrument.scope`, e.g. "in so far as it
+relates to Phase 2") covers only part of the development, while every row here is for the whole
+scheme. So what a scoped deed introduces, replaces or deletes is kept in the history with its
+scope but not applied: the figure stays as it was and the row goes to "varied: compare by hand",
+until an unscoped, verified deed states the figure again.
+
 ### Same development
 
 `reconcile` refuses a PLD record whose id isn't the `--development` given. Then every instrument
@@ -112,6 +120,7 @@ combination for a stated figure.
 | the current deed value isn't grounded on its page | indeterminate |
 | a later deed deletes it, but the deletion isn't grounded or its deed isn't verified | varied: compare by hand |
 | a deed with no planning reference changed it | varied: compare by hand |
+| a deed limited to part of the development changed it (checked first, unless removed) | varied: compare by hand |
 | a later deed deletes something unmatched | varied: compare by hand |
 | no delivered figure (no unit records, unrecognised or missing tenure, missing rooms, a contribution) | indeterminate |
 | delivered = current (percentages within the verifier's 0.05-point tolerance) | counts match |
