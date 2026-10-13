@@ -23,7 +23,7 @@ use crate::wire::{
     WireInstrumentPart,
 };
 
-/// Whole deeds are attached up to this length (Southwark's 109 pages is ~180k input tokens).
+/// Whole deeds are attached up to this length (a 109-page scan is ~180k input tokens).
 const MAX_PAGES: usize = 300;
 pub const FIXTURE_FORMAT: &str = "s106-llm-fixture/2";
 

@@ -3,7 +3,7 @@
 //! every page, with the same source, dimensions, lines and boxes. Since everything downstream of page text is deterministic,
 //! this is what licenses the replay tiers to stand in for the PDFs.
 //!
-//! With an empty cache this OCRs every image-only page (the 109-page Southwark scan dominates);
+//! With an empty cache this OCRs every image-only page (the longest scan dominates);
 //! with a warm cache it re-checks the cache against the snapshots in seconds. For a cold run:
 //!     S106_OCR_CACHE=$(mktemp -d) cargo test --release --test corpus -- --ignored --nocapture
 //! The register evaluation on the PDFs is a command, not a test: `s106 eval --replay`.

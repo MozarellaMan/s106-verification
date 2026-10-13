@@ -17,7 +17,7 @@ use common::{bless, corpus, data, root, snapshot};
 use s106::document::Config;
 use s106::eval::{self, EvalArgs};
 use s106::extract::{self, Fixture, Mode};
-use s106::ocrbench::{self, Gold};
+use s106::ocrbench;
 use s106::verify::verify;
 use serde_json::{Value, json};
 
@@ -126,23 +126,14 @@ fn replay_reproduces_expected_outcomes() {
 #[test]
 #[ignore = "data tier: needs the s106-data checkout; cargo test-data"]
 fn snapshot_ocr_meets_the_gold_thresholds() {
-    for (gold, id, check) in [
-        (
-            "gold/southwark_19_AP_1773.json",
-            "southwark_s106_sample",
-            common::assert_southwark_gold as fn(&ocrbench::Score),
-        ),
-        (
-            "gold/salford_20_75239.json",
-            "salford-75239",
-            common::assert_salford_gold,
-        ),
-    ] {
-        let g = Gold::load(&data().join(gold)).unwrap();
-        let doc = snapshot(id).document();
-        assert_eq!(doc.sha256, g.sha256, "{gold} describes another document");
-        check(&ocrbench::score(&g, &doc));
-    }
+    let results: Vec<_> = common::gold_sets()
+        .into_iter()
+        .map(|(path, g, deed)| {
+            let score = ocrbench::score(&g, &snapshot(&deed.id).document());
+            (path, g.thresholds.failures(&score))
+        })
+        .collect();
+    common::assert_gold(&results);
 }
 
 /// The register evaluation in replay mode, from snapshots: gate counts, register matches and

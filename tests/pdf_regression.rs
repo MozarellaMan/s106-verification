@@ -9,7 +9,7 @@ mod common;
 
 use common::{corpus, data, require_pdf, root, snapshot};
 use s106::document::{self, Config};
-use s106::ocrbench::{Gold, Score, score};
+use s106::ocrbench::score;
 
 /// The configured pipeline with an empty cache, so every page is really read.
 fn fresh() -> (Config, tempfile::TempDir) {
@@ -19,31 +19,21 @@ fn fresh() -> (Config, tempfile::TempDir) {
     (cfg, dir)
 }
 
-fn gold(gold: &str, id: &str) -> Score {
-    let deed = corpus().into_iter().find(|d| d.id == id).unwrap();
-    require_pdf(&deed.pdf);
-    let g = Gold::load(&data().join(gold)).unwrap();
-    assert_eq!(g.sha256, deed.sha256, "{gold} describes another document");
-    let (cfg, _dir) = fresh();
-    let d = document::load_pages(&deed.pdf, &cfg, Some(&g.pages()), false).unwrap();
-    let s = score(&g, &d);
-    eprintln!("{gold}\n{s}");
-    s
-}
-
 #[test]
 #[ignore = "needs the corpus and runtime artifacts: cargo test --release --test pdf_regression -- --ignored"]
-fn southwark_scan_gold() {
-    common::assert_southwark_gold(&gold(
-        "gold/southwark_19_AP_1773.json",
-        "southwark_s106_sample",
-    ));
-}
-
-#[test]
-#[ignore = "needs the corpus and runtime artifacts: cargo test --release --test pdf_regression -- --ignored"]
-fn salford_text_layer_gold() {
-    common::assert_salford_gold(&gold("gold/salford_20_75239.json", "salford-75239"));
+fn gold_pages_meet_their_thresholds() {
+    let results: Vec<_> = common::gold_sets()
+        .into_iter()
+        .map(|(path, g, deed)| {
+            require_pdf(&deed.pdf);
+            let (cfg, _dir) = fresh();
+            let d = document::load_pages(&deed.pdf, &cfg, Some(&g.pages()), false).unwrap();
+            let s = score(&g, &d);
+            eprintln!("{}\n{s}", path.display());
+            (path, g.thresholds.failures(&s))
+        })
+        .collect();
+    common::assert_gold(&results);
 }
 
 /// pages/difficult.tsv in the data repository: deed, page, and why the page is hard.

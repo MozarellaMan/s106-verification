@@ -521,8 +521,8 @@ pub fn load_pages(
         }
         let engine = ocr_engine(&cfg.ocr)?;
         // One page per call. oar-ocr pads a batch's images and text crops to a common size, so a
-        // page recognised alongside others can read differently (measured: 5 of 9 TMBC pages
-        // changed between batches of 6 and of 1). Alone, a page's text depends only on that page,
+        // page recognised alongside others can read differently (measured: 5 of 9 pages of one
+        // scanned deed changed between batches of 6 and of 1). Alone, a page's text depends only on that page,
         // whatever else is cached or requested. oar-ocr still parallelises within the page.
         for &n in &need_ocr {
             let page = doc.pages().get((n - 1) as i32)?;
