@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 use crate::document::Document;
 use crate::llm::{self, ExtractEffort, Usage};
 use crate::schema::*;
-use crate::verify::{CheckResult, ErrorClass, Status, verify};
+use crate::verify::{CheckResult, ErrorClass, Scope, Status, verify};
 use crate::wire::{
     self, PageMap, WireContributionsPart, WireExtraction, WireExtractionV1, WireHousingPart,
     WireInstrumentPart,
@@ -386,21 +386,11 @@ pub fn extract(
 // ------------------------------------------------------------------------------- escalation
 
 /// Which part of the agreement a check belongs to: "housing", "instrument" or a contribution name.
-fn field_of<'a>(a: &'a Agreement, r: &CheckResult) -> &'a str {
-    if let Some(rest) = r.check_id.strip_prefix('F') {
-        let n: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
-        if let Some(c) = n
-            .parse::<usize>()
-            .ok()
-            .and_then(|i| a.contributions.get(i - 1))
-        {
-            return &c.name;
-        }
-    }
-    if r.check_id.starts_with('V') {
-        "instrument"
-    } else {
-        "housing"
+pub fn field_of<'a>(a: &'a Agreement, r: &CheckResult) -> &'a str {
+    match r.scope {
+        Scope::Contribution(i) => a.contributions.get(i).map_or("housing", |c| &c.name),
+        Scope::Housing => "housing",
+        Scope::Instrument | Scope::Variation(_) => "instrument",
     }
 }
 

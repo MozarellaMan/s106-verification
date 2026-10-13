@@ -3,15 +3,12 @@
 //!
 //! Pages are short verbatim RapidOCR excerpts from the Southwark sample (19/AP/1773).
 
-use rust_decimal::Decimal;
 use s106::evidence::Pages;
+use s106::quantity;
 use s106::schema::*;
 use s106::text::Value;
 use s106::verify::*;
-
-fn dec(s: &str) -> Decimal {
-    s.parse().unwrap()
-}
+use s106::wire::observe;
 
 fn ev(page: usize, snippet: &str) -> Evidence {
     Evidence {
@@ -207,7 +204,7 @@ fn pct_base(basis: Option<AffordableBasis>) -> Agreement {
         total_units_evidence: Some(total()),
         affordable_units: Some(76),
         affordable_units_evidence: Some(affordable()),
-        claimed_affordable_pct: Some(dec("30.04")),
+        claimed_affordable_pct: observe("30.04", quantity::decimal),
         claimed_affordable_basis: basis,
         claimed_affordable_evidence: Some(ev(14, "35.75%affordable")),
         ..Housing::default()
@@ -245,7 +242,7 @@ fn units_basis_still_computes() {
 fn habitable_rooms_without_total_skips_with_implied_denominator() {
     let mut a = pct_base(Some(AffordableBasis::HabitableRooms));
     a.housing.affordable_habitable_rooms = Some(271);
-    a.housing.claimed_affordable_pct = Some(dec("35.75"));
+    a.housing.claimed_affordable_pct = observe("35.75", quantity::decimal);
     let r = check_claimed_pct(&a, &southwark_pages());
     assert_eq!(r.status, Status::Skip);
     assert!(
@@ -383,8 +380,8 @@ fn amount(
 ) -> Amount {
     Amount {
         structure,
-        value_gbp: value.map(dec),
-        words: words.map(str::to_string),
+        value_gbp: value.and_then(|v| observe(v, quantity::decimal)),
+        words: words.and_then(|w| observe(w, quantity::amount)),
         index_linked: false,
         evidence,
     }
@@ -795,12 +792,12 @@ fn instalment_contribution(shares: [&str; 2], events: [E; 2]) -> Contribution {
         trigger_phrase: None,
         instalments: vec![
             Instalment {
-                share_pct: Some(dec(shares[0])),
+                share_pct: observe(shares[0], quantity::decimal),
                 trigger_event: Some(events[0]),
                 trigger_phrase: Some(ev(30, "50% prior to Occupation of the 1st Dwelling")),
             },
             Instalment {
-                share_pct: Some(dec(shares[1])),
+                share_pct: observe(shares[1], quantity::decimal),
                 trigger_event: Some(events[1]),
                 trigger_phrase: Some(ev(30, "50% prior to Occupation of the 50th Dwelling")),
             },
@@ -956,4 +953,29 @@ fn dwelling_numbers_do_not_ground_instalment_percentages() {
     }
     let rs = check_contribution(&c, &pages(&[(30, PAGE_30)]), 3);
     assert_eq!(by_id(&rs)["F3.inst"].status, Status::Review);
+}
+
+#[test]
+fn unparseable_amount_does_not_suppress_instalment_checks() {
+    let mut c = instalment_contribution(["40", "40"], [E::PreOccupation, E::PreOccupation]);
+    c.amount.structure = AmountStructure::Rate;
+    c.amount.value_gbp = observe("banana", quantity::decimal);
+    c.payment.instalments[0]
+        .trigger_phrase
+        .as_mut()
+        .unwrap()
+        .snippet = "40% prior to Occupation of the 1st Dwelling".into();
+    c.payment.instalments[1]
+        .trigger_phrase
+        .as_mut()
+        .unwrap()
+        .snippet = "40% prior to Occupation of the 50th Dwelling".into();
+    let source = PAGE_30.replace("50%", "40%");
+    let rs = check_contribution(&c, &pages(&[(30, &source)]), 3);
+    let m = by_id(&rs);
+    assert_eq!(m["F3.amt"].status, Status::Fail);
+    assert!(!m.contains_key("F3.words"));
+    let r = m["F3.inst"];
+    assert_eq!(r.status, Status::Fail, "{}", r.detail);
+    assert_eq!(r.error_class, Some(ErrorClass::DocumentDiscrepancy));
 }

@@ -16,7 +16,7 @@ fn contribution(name: &str, value: Option<&str>, trigger: Option<TriggerEvent>) 
         name: name.into(),
         amount: Amount {
             structure: AmountStructure::Fixed,
-            value_gbp: value.map(d),
+            value_gbp: value.and_then(|v| s106::wire::observe(v, s106::quantity::decimal)),
             words: None,
             index_linked: false,
             evidence: None,
@@ -255,7 +255,7 @@ fn a_changed_trigger_label_is_reported() {
 fn changed_amount_housing_and_missing_contribution_are_reported() {
     let a = two_contribution_agreement(TriggerEvent::PreOccupation);
     let mut b = two_contribution_agreement(TriggerEvent::PreOccupation);
-    b.contributions[0].amount.value_gbp = Some(d("1200"));
+    b.contributions[0].amount.value_gbp = s106::wire::observe("1200", s106::quantity::decimal);
     b.contributions[0].amount.index_linked = true;
     b.housing.affordable_units = Some(5);
     b.contributions.pop();
@@ -272,7 +272,7 @@ fn changed_amount_housing_and_missing_contribution_are_reported() {
 #[test]
 fn instalment_trigger_labels_are_compared() {
     let inst = |t| Instalment {
-        share_pct: Some(d("50")),
+        share_pct: s106::wire::observe("50", s106::quantity::decimal),
         trigger_event: Some(t),
         trigger_phrase: None,
     };
@@ -309,6 +309,8 @@ fn check(id: &str, status: Status, class: Option<ErrorClass>) -> CheckResult {
         error_class: class,
         detail: "why".into(),
         pages: vec![],
+        findings: vec![],
+        scope: Default::default(),
     }
 }
 

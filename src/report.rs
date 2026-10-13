@@ -142,7 +142,13 @@ pub fn render(a: &Agreement, results: &[CheckResult]) -> String {
             pg(&t.evidence)
         );
     }
-    if let (Some(pct), Some(b)) = (h.claimed_affordable_pct, h.claimed_affordable_basis) {
+    if let (Some(pct), Some(b)) = (
+        h.claimed_affordable_pct
+            .as_ref()
+            .and_then(Observed::ok)
+            .copied(),
+        h.claimed_affordable_basis,
+    ) {
         let _ = writeln!(
             o,
             "   Claimed affordable        {pct}% by {b:?}  {}",
@@ -152,7 +158,12 @@ pub fn render(a: &Agreement, results: &[CheckResult]) -> String {
 
     let _ = writeln!(o, "\n FINANCIAL CONTRIBUTIONS");
     for c in &a.contributions {
-        let amt = c.amount.value_gbp.map_or("—".into(), gbp);
+        let amt = c
+            .amount
+            .value_gbp
+            .as_ref()
+            .and_then(Observed::ok)
+            .map_or("—".into(), |d| gbp(*d));
         let trig = if c.payment.instalments.is_empty() {
             c.payment
                 .trigger_event
@@ -164,7 +175,7 @@ pub fn render(a: &Agreement, results: &[CheckResult]) -> String {
                 .map(|i| {
                     format!(
                         "{}%:{}",
-                        opt(i.share_pct),
+                        opt(i.share_pct.as_ref().and_then(Observed::ok)),
                         i.trigger_event.map_or("?", |t| t.label())
                     )
                 })
@@ -216,6 +227,9 @@ pub fn render(a: &Agreement, results: &[CheckResult]) -> String {
             Status::Skip => "SKIP",
         };
         let _ = writeln!(o, "   [{tag}] {:<9} {}", r.check_id, r.description);
+        for f in &r.findings {
+            let _ = writeln!(o, "             {}", f.render());
+        }
         if r.status != Status::Pass || r.actual.is_some() {
             let mut bits = vec![];
             if let Some(e) = &r.expected {

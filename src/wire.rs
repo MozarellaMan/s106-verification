@@ -13,6 +13,7 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::quantity::{self, ParseError};
 use crate::schema::*;
 use crate::triggers::classify_cited;
 
@@ -240,8 +241,18 @@ impl PageMap {
     }
 }
 
-pub fn money(s: Option<&str>) -> Option<Decimal> {
-    crate::quantity::decimal(s?).ok()
+/// Keep what the extractor wrote (verbatim, untrimmed) with its parse outcome. `None` is a blank field.
+pub fn observe(
+    raw: &str,
+    parse: fn(&str) -> Result<Decimal, ParseError>,
+) -> Option<Observed<Decimal>> {
+    if raw.trim().is_empty() {
+        return None;
+    }
+    Some(Observed {
+        raw: raw.to_string(),
+        parsed: parse(raw),
+    })
 }
 
 fn nonempty(s: &str) -> Option<String> {
@@ -296,14 +307,14 @@ pub fn housing(w: &WireHousing, pm: &PageMap) -> Housing {
             })
             .collect(),
         mix_table: mix,
-        claimed_affordable_pct: money(Some(&w.claimed_affordable_pct)),
+        claimed_affordable_pct: observe(&w.claimed_affordable_pct, quantity::decimal),
         claimed_affordable_basis: w.claimed_affordable_basis,
         claimed_affordable_evidence: pm.ev(&w.claimed_affordable_evidence),
     }
 }
 
 pub fn contribution(w: &WireContribution, pm: &PageMap) -> Contribution {
-    let value = money(Some(&w.amount_gbp));
+    let value = observe(&w.amount_gbp, quantity::decimal);
     let phrase = pm.ev(&w.trigger_phrase);
     let covenant = nonempty(&w.covenant).map(|text| Quoted {
         text,
@@ -320,7 +331,7 @@ pub fn contribution(w: &WireContribution, pm: &PageMap) -> Contribution {
         .map(|i| {
             let p = pm.ev(&i.trigger_phrase);
             Instalment {
-                share_pct: money(Some(&i.share_pct)),
+                share_pct: observe(&i.share_pct, quantity::decimal),
                 trigger_event: crate::triggers::classify(p.as_ref().map(|e| e.snippet.as_str())),
                 trigger_phrase: p,
             }
@@ -336,7 +347,7 @@ pub fn contribution(w: &WireContribution, pm: &PageMap) -> Contribution {
                 w.amount_structure
             },
             value_gbp: value,
-            words: nonempty(&w.amount_in_words),
+            words: observe(&w.amount_in_words, quantity::amount),
             index_linked: w.index_linked,
             evidence: pm.ev(&w.amount_evidence),
         },
@@ -359,7 +370,10 @@ pub fn contribution(w: &WireContribution, pm: &PageMap) -> Contribution {
 /// v1 (Python harness) contribution -> v2. `contingent` meant "no fixed figure", so it maps to
 /// structure `none` with unknown conditionality; `is_cap` to structure `cap`.
 pub fn contribution_v1(w: &WireContributionV1, pm: &PageMap) -> Contribution {
-    let value = money(w.amount_gbp.as_deref());
+    let value = w
+        .amount_gbp
+        .as_deref()
+        .and_then(|s| observe(s, quantity::decimal));
     let phrase = pm.ev(&w.trigger_evidence);
     let covenant = w
         .trigger_clause
@@ -384,7 +398,10 @@ pub fn contribution_v1(w: &WireContributionV1, pm: &PageMap) -> Contribution {
         amount: Amount {
             structure,
             value_gbp: value,
-            words: w.amount_in_words.as_deref().and_then(nonempty),
+            words: w
+                .amount_in_words
+                .as_deref()
+                .and_then(|s| observe(s, quantity::amount)),
             index_linked: w.index_linked,
             evidence: pm.ev(&w.evidence),
         },

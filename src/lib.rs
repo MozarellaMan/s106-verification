@@ -4,6 +4,7 @@
 //! → `extract` (Claude reads the PDF into `wire` types, converted to `schema` v2)
 //! → `verify` (deterministic, evidence-grounded checks) → `report` / JSON.
 
+pub mod audit;
 pub mod document;
 pub mod eval;
 pub mod evidence;
