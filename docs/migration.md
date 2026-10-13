@@ -58,7 +58,7 @@ overstated.
 - **Three calls per deed:** one schema exceeds the compiled-grammar limit, and the PDF cannot be
   cached across different schemas (measured: 3 cache writes, 0 reads).
 
-## Decision for the maintainer to confirm: rules backend not ported
+## Decision: rules backend retired (confirmed by the maintainer, 13 Oct 2026)
 
 The Southwark-specific rules (regex) backend was **not** ported and is retired. Its last outputs
 are kept as history in `fixtures/golden-python-m1/*.rules.audit.json`; nothing reads them. If a
