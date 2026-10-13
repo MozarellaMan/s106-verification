@@ -55,9 +55,19 @@ disagrees with the deeds' dates. For each obligation a deed states:
 | stated | cites it with no figure | unchanged |
 
 A variation's `Delete` (from the extraction's `variations`) becomes a `delete` event on each
-contribution whose key appears in the deleted target, and the row is "removed by variation". A
-deletion that matches no obligation is reported as a warning, and every obligation stated before
-it goes to "varied: compare by hand", because it could be the one deleted.
+contribution whose key appears in the deleted target. It is applied, and the row is "removed by
+variation", only when its cited snippet is found on its page and its deed is verified (below).
+Otherwise the event is kept in the history but not applied, and the row goes to "varied: compare
+by hand". A deletion that matches no obligation is reported as a warning, and every obligation
+stated before it goes to "varied: compare by hand", because it could be the one deleted.
+
+A row's state is a fold over its events, so it doesn't depend on which event came last:
+
+- a figure (introduce, restate, replace) sets the current value and reinstates a removed
+  obligation;
+- an applied delete removes it, and a later `unchanged` citation leaves it removed;
+- a conflict (differing figures in one deed) lasts until a later deed states a figure without
+  one. The conflict stays in the event history either way.
 
 Contribution keys are their names in lower case with punctuation dropped and a leading "the"
 removed, so "the Bus Contribution" in a variation is the same obligation as "Bus Contribution" in
@@ -67,9 +77,12 @@ is indeterminate, naming the figures.
 
 ### Same development
 
-`reconcile` refuses a PLD record whose id isn't the `--development` given, or whose `lpa_app_no`
-matches none of the deeds' planning references (compared without case or separators). It warns
-when either side has no reference to compare.
+`reconcile` refuses a PLD record whose id isn't the `--development` given. Then every instrument
+is checked on its own against one reference: PLD's `lpa_app_no`, or the first deed's planning
+references when there is no PLD record (compared without case or separators). A deed citing a
+different reference is refused, naming the instrument. A later deed citing no reference is
+applied, with a warning, but every obligation it changes (replaces, deletes or introduces) goes to
+"varied: compare by hand".
 
 ## Status rules
 
@@ -82,6 +95,8 @@ combination for a stated figure.
 | the deed states differing figures for it | indeterminate |
 | no stated figure in the deed (formula, rate, none) | indeterminate |
 | the current deed value isn't grounded on its page | indeterminate |
+| a later deed deletes it, but the deletion isn't grounded or its deed isn't verified | varied: compare by hand |
+| a deed with no planning reference changed it | varied: compare by hand |
 | a later deed deletes something unmatched | varied: compare by hand |
 | no delivered figure (no unit records, unrecognised or missing tenure, missing rooms, a contribution) | indeterminate |
 | delivered = current (percentages within the verifier's 0.05-point tolerance) | counts match |

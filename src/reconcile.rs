@@ -25,7 +25,7 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::evidence::Pages;
+use crate::evidence::{Pages, evidence_found};
 use crate::pld::{Snapshot, SnapshotRef};
 use crate::schema::{
     AffordableBasis, Agreement, ConditionalityKind, Evidence, Tenure, VariationOp,
@@ -146,6 +146,8 @@ pub struct Statement {
 pub struct Deletion {
     pub target: String,
     pub evidence: Option<Evidence>,
+    /// whether the cited snippet is on its page; only a grounded deletion is applied
+    pub grounding: Grounding,
 }
 
 /// What one deed says, before it is set against the deeds before it.
@@ -187,6 +189,14 @@ pub struct ObligationEvent {
     pub grounding: Grounding,
     pub note: Option<String>,
     pub conflict: Option<String>,
+    /// false when the instrument's link to the development couldn't be checked (it states no
+    /// planning reference); what it changes goes to review
+    #[serde(default = "yes")]
+    pub verified: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 /// One statement per extracted measure of one deed. `pages` grounds each value.
@@ -313,6 +323,15 @@ pub fn instrument_obligations(a: &Agreement, pages: Option<&Pages>) -> Instrumen
             .map(|v| Deletion {
                 target: v.target.clone(),
                 evidence: v.evidence.clone(),
+                grounding: match (pages, &v.evidence) {
+                    (None, _) => Grounding::NotChecked,
+                    (Some(_), None) => Grounding::Ungrounded("no evidence cited".into()),
+                    (Some(p), Some(ev)) if evidence_found(Some(ev), p) => Grounding::Grounded,
+                    (Some(_), Some(ev)) => Grounding::Ungrounded(format!(
+                        "cited snippet not re-locatable on p{}",
+                        ev.page
+                    )),
+                },
             })
             .collect(),
     }
@@ -885,6 +904,10 @@ pub struct Facts {
     pub replaced: bool,
     /// a later deed deletes something not matched to any obligation
     pub unmatched_deletion: Option<String>,
+    /// a later deed deletes this obligation, but the deletion couldn't be applied (why)
+    pub unproven_deletion: Option<String>,
+    /// a deed whose link to the development is unchecked changed this obligation (which)
+    pub unverified_change: Option<String>,
     pub delivered: Counted,
     /// compare within the verifier's percentage tolerance rather than exactly
     pub percentage: bool,
@@ -916,6 +939,20 @@ pub fn decide(f: &Facts) -> (RowStatus, String) {
         return (
             RowStatus::Indeterminate,
             format!("deed value unproven: {why}"),
+        );
+    }
+    if let Some(why) = &f.unproven_deletion {
+        return (
+            RowStatus::Varied,
+            format!(
+                "a later deed deletes this, but the deletion isn't proven ({why}); compare by hand"
+            ),
+        );
+    }
+    if let Some(which) = &f.unverified_change {
+        return (
+            RowStatus::Varied,
+            format!("changed by {which}, which states no planning reference; compare by hand"),
         );
     }
     if let Some(target) = &f.unmatched_deletion {
@@ -1027,29 +1064,53 @@ pub fn reconcile(
                 d.record_id
             );
         }
-        let deed_refs: Vec<&String> = instruments
-            .iter()
-            .flat_map(|i| &i.planning_references)
-            .collect();
-        match &d.lpa_app_no {
-            Some(pld_ref) if !deed_refs.is_empty() => {
-                if !deed_refs.iter().any(|r| same_reference(r, pld_ref)) {
-                    bail!(
-                        "the deeds cite planning reference(s) {} but the PLD record is for {pld_ref}",
-                        deed_refs
-                            .iter()
-                            .map(|r| r.as_str())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    );
+        if d.lpa_app_no.is_none() {
+            warnings
+                .push("the PLD record has no planning reference to check the deeds against".into());
+        }
+    }
+    // Every instrument must be a deed for this development. The reference is PLD's planning
+    // reference, or failing that the first deed's. A deed citing another reference is refused; a
+    // later deed citing none is applied, but what it changes goes to review.
+    let reference: Vec<String> = match delivery.as_ref().and_then(|d| d.lpa_app_no.clone()) {
+        Some(r) => vec![r],
+        None => instruments
+            .first()
+            .map(|i| i.planning_references.clone())
+            .unwrap_or_default(),
+    };
+    let mut verified = vec![true; instruments.len()];
+    for (k, inst) in instruments.iter().enumerate() {
+        let refs = &inst.planning_references;
+        if refs.is_empty() {
+            if k == 0 {
+                if !reference.is_empty() {
+                    warnings.push(format!(
+                        "instrument 1 states no planning reference, so it could not be checked \
+                         against {}",
+                        reference.join(", ")
+                    ));
                 }
+            } else {
+                verified[k] = false;
+                warnings.push(format!(
+                    "instrument {} states no planning reference; what it changes goes to review",
+                    k + 1
+                ));
             }
-            Some(pld_ref) => warnings.push(format!(
-                "no deed states a planning reference, so it could not be checked against PLD's {pld_ref}"
-            )),
-            None => warnings.push(
-                "the PLD record has no planning reference to check the deeds against".into(),
-            ),
+        } else if !reference.is_empty()
+            && !refs
+                .iter()
+                .any(|r| reference.iter().any(|x| same_reference(r, x)))
+        {
+            bail!(
+                "instrument {} (sha256 {}) cites planning reference(s) {}, not {}: it is not a deed \
+                 for this development",
+                k + 1,
+                inst.instrument.sha256,
+                refs.join(", "),
+                reference.join(", ")
+            );
         }
     }
     let dates: Vec<Option<NaiveDate>> = instruments
@@ -1093,6 +1154,10 @@ pub fn reconcile(
                 }
                 Op::Unchanged | Op::Delete => {}
             }
+            if s.conflict.is_some() && op == Op::Unchanged {
+                // a conflicting restatement: the figure is no longer known
+                current.insert(s.measure.clone(), None);
+            }
             if !events.contains_key(&s.measure) {
                 order.push(s.measure.clone());
             }
@@ -1108,6 +1173,7 @@ pub fn reconcile(
                     grounding: s.grounding.clone(),
                     note: s.note.clone(),
                     conflict: s.conflict.clone(),
+                    verified: verified[k],
                 });
         }
         for del in &inst.deletions {
@@ -1119,8 +1185,11 @@ pub fn reconcile(
             if hits.is_empty() {
                 unmatched.push((k, del.target.clone()));
             }
+            let applies = del.grounding == Grounding::Grounded && verified[k];
             for m in hits {
-                current.insert(m.clone(), None);
+                if applies {
+                    current.insert(m.clone(), None);
+                }
                 let label = events[&m][0].label.clone();
                 events.entry(m.clone()).or_default().push(ObligationEvent {
                     measure: m,
@@ -1128,9 +1197,10 @@ pub fn reconcile(
                     op: Op::Delete,
                     instrument: inst.instrument.clone(),
                     evidence: del.evidence.clone(),
-                    grounding: Grounding::NotChecked,
+                    grounding: del.grounding.clone(),
                     note: Some(format!("deletes \"{}\"", del.target)),
                     conflict: None,
+                    verified: verified[k],
                 });
             }
         }
@@ -1145,14 +1215,51 @@ pub fn reconcile(
     let mut rows = vec![];
     for m in order {
         let evs = events.remove(&m).unwrap_or_default();
-        let removed = matches!(evs.last().map(|e| &e.op), Some(Op::Delete));
-        // The event that set the current figure: the last that states one.
-        let setter = evs.iter().rev().find(|e| {
-            matches!(
-                e.op,
-                Op::Introduce { .. } | Op::Restate { .. } | Op::Replace { .. }
-            )
-        });
+        // Fold the events. A delete applies only when its citation is grounded and its deed is
+        // verified; a later figure reinstates; an unchanged citation keeps the state as it was.
+        // A conflict lasts until a later deed states a figure without one.
+        let mut removed = false;
+        let mut value: Option<Decimal> = None;
+        let mut conflict: Option<String> = None;
+        let mut setter: Option<&ObligationEvent> = None;
+        let mut unproven_deletion: Option<String> = None;
+        let mut unverified_change: Option<String> = None;
+        for (k, e) in evs.iter().enumerate() {
+            let sets = match e.op {
+                Op::Introduce { value: v } => Some(v),
+                Op::Restate { value: v } | Op::Replace { to: v, .. } => Some(Some(v)),
+                Op::Unchanged | Op::Delete => None,
+            };
+            if let Some(v) = sets {
+                (removed, value, setter, unproven_deletion) = (false, v, Some(e), None);
+            }
+            if e.op == Op::Delete {
+                if e.grounding == Grounding::Grounded && e.verified {
+                    (removed, value, conflict, unproven_deletion) = (true, None, None, None);
+                } else {
+                    unproven_deletion = Some(match &e.grounding {
+                        _ if !e.verified => "its deed states no planning reference".into(),
+                        Grounding::Ungrounded(why) => why.clone(),
+                        _ => "its citation was not checked against the deed's pages".into(),
+                    });
+                }
+            }
+            if e.conflict.is_some() {
+                conflict = e.conflict.clone();
+                value = None;
+            } else if sets.is_some() {
+                conflict = None;
+            }
+            let changes = matches!(e.op, Op::Replace { .. } | Op::Delete)
+                || (k > 0 && matches!(e.op, Op::Introduce { .. }));
+            if !e.verified && changes {
+                unverified_change = Some(format!(
+                    "the {} dated {}",
+                    e.instrument.kind,
+                    e.instrument.date.as_deref().unwrap_or("?")
+                ));
+            }
+        }
         let first_instrument = instruments
             .iter()
             .position(|i| {
@@ -1164,12 +1271,7 @@ pub fn reconcile(
             .iter()
             .find(|(k, _)| *k > first_instrument)
             .map(|(_, t)| t.clone());
-        let value = if removed {
-            None
-        } else {
-            current.get(&m).copied().flatten()
-        };
-        let conflict = evs.iter().find_map(|e| e.conflict.clone());
+
         let facts = Facts {
             current: if removed {
                 Current::Removed
@@ -1186,6 +1288,8 @@ pub fn reconcile(
                 .unwrap_or(Grounding::NotChecked),
             replaced: evs.iter().any(|e| matches!(e.op, Op::Replace { .. })),
             unmatched_deletion,
+            unproven_deletion,
+            unverified_change,
             delivered: match &delivery {
                 Some(d) => d.delivered(&m),
                 None => Counted::none("no PLD delivery data supplied"),
