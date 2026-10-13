@@ -103,6 +103,14 @@ fn each_failure_mode_is_reported_as_built() {
     );
     // the page reads "£5o,000": found only by repairing an OCR letter, so unproven
     is(check(&r, "F2.amt", ""), Status::Review, None);
+    // the words agree with that figure, so the comparison holds but is unproven too
+    let words = check(&r, "F2.words", "");
+    is(words, Status::Review, None);
+    assert!(
+        words.detail.contains("page-digit substitution"),
+        "{}",
+        words.detail
+    );
     // a trigger phrase the deed does not contain
     is(
         check(&r, "F2.trig", ""),

@@ -31,11 +31,11 @@ fn sample_pages() -> Pages {
         ),
         (
             14,
-            "310 sqm ancillary plant and equipment; and 120 residential\napartments(C3),31.5%affordablebyhabitable room,andother",
+            "310 sqm ancillary plant and equipment; and 121 residential\napartments(C3),32.25%affordablebyhabitable room,andother",
         ),
         (
             22,
-            r#"3 "Market Housing Units" meansthe84ResidentialUnitsofMarketHousingcomprised"#,
+            r#"3 "Market Housing Units" meansthe85ResidentialUnitsofMarketHousingcomprised"#,
         ),
         (
             91,
@@ -46,10 +46,10 @@ fn sample_pages() -> Pages {
 }
 
 fn total() -> Evidence {
-    ev(14, "120 residential apartments")
+    ev(14, "121 residential apartments")
 }
 fn market() -> Evidence {
-    ev(22, "the 84 Residential Units of Market Housing")
+    ev(22, "the 85 Residential Units of Market Housing")
 }
 fn affordable() -> Evidence {
     ev(5, "the 36 Residential Units (126 Habitable Rooms)")
@@ -86,7 +86,7 @@ fn inp(label: &str, value: Option<Value>, evidence: Option<Evidence>) -> Input {
 }
 
 fn good() -> Vec<Input> {
-    vec![inp("total units", Some(120u32.into()), Some(total()))]
+    vec![inp("total units", Some(121u32.into()), Some(total()))]
 }
 
 // --------------------------------------------------------------------------- ResolveTest
@@ -138,8 +138,8 @@ fn resolve_missing_value_is_parser_error() {
 fn resolve_relocation_still_required() {
     let i = [inp(
         "total units",
-        Some(120u32.into()),
-        Some(ev(22, "120 residential apartments")),
+        Some(121u32.into()),
+        Some(ev(22, "121 residential apartments")),
     )];
     let r = resolve("X", "d", true, &i, &sample_pages(), None, None, &[]);
     assert_eq!(r.status, Status::Review);
@@ -150,7 +150,7 @@ fn resolve_relocation_still_required() {
 fn grounding_problem_messages() {
     let pg = sample_pages();
     assert_eq!(grounding_problem(&good()[0], &pg), None);
-    let no_ev = inp("total units", Some(120u32.into()), None);
+    let no_ev = inp("total units", Some(121u32.into()), None);
     assert_eq!(
         grounding_problem(&no_ev, &pg).as_deref(),
         Some("total units: no evidence cited")
@@ -183,31 +183,31 @@ fn arithmetic_alone_no_longer_passes() {
 
 #[test]
 fn true_values_pass() {
-    let a = agreement(unit_housing(120, 84, 36));
+    let a = agreement(unit_housing(121, 85, 36));
     let r = check_unit_consistency(&a, &sample_pages());
     assert_eq!(r.status, Status::Pass, "{}", r.detail);
-    assert_eq!(r.actual.as_deref(), Some("84 + 36 = 120"));
-    assert_eq!(r.expected.as_deref(), Some("120"));
+    assert_eq!(r.actual.as_deref(), Some("85 + 36 = 121"));
+    assert_eq!(r.expected.as_deref(), Some("121"));
 }
 
 // --------------------------------------------------------------------------- PercentageBasisTest
 
 fn pct_base(basis: Option<AffordableBasis>) -> Agreement {
     agreement(Housing {
-        total_units: Some(120),
+        total_units: Some(121),
         total_units_evidence: Some(total()),
         affordable_units: Some(36),
         affordable_units_evidence: Some(affordable()),
-        claimed_affordable_pct: observe("30.00", quantity::decimal),
+        claimed_affordable_pct: observe("29.75", quantity::decimal),
         claimed_affordable_basis: basis,
-        claimed_affordable_evidence: Some(ev(14, "31.5%affordable")),
+        claimed_affordable_evidence: Some(ev(14, "32.25%affordable")),
         ..Housing::default()
     })
 }
 
 #[test]
 fn floorspace_basis_skips() {
-    // 36/120 = 30.00%, so a silent units fallback would wrongly PASS this.
+    // 36/121 = 29.75% (rounded), so a silent units fallback would wrongly PASS this.
     let r = check_claimed_pct(
         &pct_base(Some(AffordableBasis::Floorspace)),
         &sample_pages(),
@@ -227,8 +227,8 @@ fn unstated_basis_skips() {
 #[test]
 fn units_basis_still_computes() {
     let r = check_claimed_pct(&pct_base(Some(AffordableBasis::Units)), &sample_pages());
-    assert_eq!(r.actual.as_deref(), Some("36/120 = 30.00%"));
-    // The cited snippet says 31.5, not 30.00, so the match is unproven rather than passed.
+    assert_eq!(r.actual.as_deref(), Some("36/121 = 29.75%"));
+    // The cited snippet says 32.25, not 29.75, so the match is unproven rather than passed.
     assert_eq!(r.status, Status::Review);
 }
 
@@ -236,11 +236,12 @@ fn units_basis_still_computes() {
 fn habitable_rooms_without_total_skips_with_implied_denominator() {
     let mut a = pct_base(Some(AffordableBasis::HabitableRooms));
     a.housing.affordable_habitable_rooms = Some(126);
-    a.housing.claimed_affordable_pct = observe("31.5", quantity::decimal);
+    a.housing.claimed_affordable_pct = observe("32.25", quantity::decimal);
     let r = check_claimed_pct(&a, &sample_pages());
     assert_eq!(r.status, Status::Skip);
     assert!(
-        r.detail.contains("implied total = 126/31.5% = 400.0 rooms"),
+        r.detail
+            .contains("implied total = 126/32.25% = 390.7 rooms"),
         "{}",
         r.detail
     );
@@ -323,7 +324,7 @@ fn mix_repeated_counts_need_repeats_on_the_line() {
     let mut pg = sample_pages();
     let t = pg[&91].replace("3bed 8 3", "3bed 8 8");
     pg.insert(91, t);
-    let a = mix_agreement(&[("1 bed", 10, 7), ("2 bed", 24, 5), ("3 bed", 8, 8)]);
+    let a = mix_agreement(&[("1 bed", 6, 4), ("2 bed", 10, 5), ("3 bed", 8, 8)]);
     let ok: String = check_mix_table(&a, &pg)
         .iter()
         .map(|r| r.detail.clone())
