@@ -244,7 +244,7 @@ pub fn score_against_register(agreement: &Agreement, reference: &Reference) -> R
     let sums: Vec<Decimal> = agreement
         .contributions
         .iter()
-        .filter_map(|c| c.amount.value_gbp)
+        .filter_map(|c| c.amount.stated_sum_gbp())
         .collect();
     let reg_amounts: Vec<Decimal> = reference.amounts.iter().map(|(_, a)| *a).collect();
     let reg_totals: Vec<Decimal> = reference.purpose_totals.values().copied().collect();
