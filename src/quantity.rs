@@ -681,28 +681,32 @@ impl<'a> Scanner<'a> {
                 Kind::Word("percent" | "cent" | "pence" | "penny") => true,
                 // "ten pounds and twenty pounds": the second amount states its own unit
                 Kind::Word("pound" | "pounds") if cut + 1 < pieces.len() => {
-                    pieces[cut + 1..]
-                        .iter()
-                        .any(|t| matches!(t.kind, Kind::Word("pound" | "pounds")))
-                        && quantity.parse(&pieces[cut + 1..]).is_ok()
+                    // the rest opens with a completed amount that states its own pounds
+                    (cut + 2..=pieces.len()).any(|k| {
+                        matches!(pieces[k - 1].kind, Kind::Word("pound" | "pounds"))
+                            && quantity.parse(&pieces[cut + 1..k]).is_ok()
+                    })
                 }
-                _ => {
-                    // only a quantity that can take pence is held back by a later pence clause
-                    cut + 1 == pieces.len()
-                        && prose_follows
-                        && !(unit == Unit::Gbp && self.pence_ahead(end))
-                }
+                _ => cut + 1 == pieces.len() && prose_follows && !self.pence_ahead(end),
             };
             ok.then_some((cut, value, unit))
         })
     }
 
-    /// Does a "pence" or "penny" follow before the end of the clause?
+    /// Is the next amount an attempted pence clause? True when "pence" or "penny" comes before
+    /// any number or number word and before the end of the clause ("and fourty pence"), so a
+    /// later, unrelated clause ("and the sum of ten pounds and twenty pence") does not count.
     fn pence_ahead(&self, from: usize) -> bool {
-        self.toks[from..]
-            .iter()
-            .take_while(|t| !matches!(t.kind, Kind::Sym('.' | ';' | ':' | '(' | ')')))
-            .any(|t| matches!(t.kind, Kind::Word("pence" | "penny")))
+        for t in &self.toks[from..] {
+            match t.kind {
+                Kind::Sym('.' | ';' | ':' | '(' | ')') | Kind::Num => return false,
+                Kind::Word("pence" | "penny") => return true,
+                Kind::Word("and") => {}
+                Kind::Word(_) => return false,
+                _ => {}
+            }
+        }
+        false
     }
 }
 

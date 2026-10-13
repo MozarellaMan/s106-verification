@@ -573,3 +573,31 @@ fn third_review_regressions_from_pr13() {
     assert!(found("ten pounds and unknown pence").is_empty());
     assert!(found("ten pounds and fifty").is_empty());
 }
+
+#[test]
+fn misspelt_pence_clauses_are_not_cut_at_and() {
+    for bad in [
+        "the sum of two hundred and fourty pence",
+        "one hundred and ninty pence",
+        "fifty and illegible pence",
+    ] {
+        assert!(found(bad).is_empty(), "{bad}");
+        assert!(!quantity::scan(bad).errors.is_empty(), "{bad}");
+    }
+    assert_eq!(
+        found("ten pounds and twenty pounds and thirty pounds"),
+        vec![
+            (d("10"), Unit::Gbp),
+            (d("20"), Unit::Gbp),
+            (d("30"), Unit::Gbp)
+        ]
+    );
+}
+
+#[test]
+fn pound_amount_then_prose_then_pounds_and_pence() {
+    assert_eq!(
+        found("ten pounds and the sum of five pounds and twenty pence"),
+        vec![(d("10"), Unit::Gbp), (d("5.20"), Unit::Gbp)]
+    );
+}
