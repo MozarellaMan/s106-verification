@@ -1181,3 +1181,27 @@ fn a_scoped_variation_is_recorded_but_not_applied() {
         RowStatus::CountsMatch
     );
 }
+
+#[test]
+fn an_unapplied_scoped_replacement_is_not_a_variation() {
+    // 58 → Phase 2-only 50 (not applied) → unscoped restatement of 58 → 48 delivered.
+    let mut phase2 = dov();
+    phase2.instrument.scope = Some(Quoted {
+        text: "in so far as it relates to Phase 2".into(),
+        evidence: None,
+    });
+    phase2.housing.tenures = vec![sr_tenure(Some(50))];
+    let mut restated = dov();
+    restated.provenance.sha256 = "dov2".into();
+    restated.metadata.agreement_date = Some("1 March 2024".into());
+    restated.housing.tenures = vec![sr_tenure(Some(58))];
+    let r = run(
+        &[southwark(), phase2, restated],
+        delivery(187, &[(SR, 48), (INT, 18)], true),
+    );
+    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
+    assert_eq!(sr.current, Some(dec("58")));
+    assert!(matches!(sr.events[1].op, Op::Replace { .. }));
+    assert_eq!(sr.events[2].op, Op::Restate { value: dec("58") });
+    assert_eq!(sr.status, RowStatus::DiffersReviewRequired);
+}

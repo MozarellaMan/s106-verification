@@ -1358,6 +1358,8 @@ pub fn reconcile(
         let mut unproven_deletion: Option<String> = None;
         let mut unverified_change: Option<String> = None;
         let mut partial_change: Option<String> = None;
+        // Only replacements the fold applies count; a scoped one is skipped above it.
+        let mut replaced = false;
         for e in &evs {
             let changes = matches!(e.op, Op::Introduce { .. } | Op::Replace { .. } | Op::Delete);
             if let Some(scope) = &e.scope {
@@ -1371,6 +1373,7 @@ pub fn reconcile(
                 }
                 continue;
             }
+            replaced |= matches!(e.op, Op::Replace { .. });
             let sets = match e.op {
                 Op::Introduce { value: v } => Some(v),
                 Op::Restate { value: v } | Op::Replace { to: v, .. } => Some(Some(v)),
@@ -1436,7 +1439,7 @@ pub fn reconcile(
             grounding: setter
                 .map(|e| e.grounding.clone())
                 .unwrap_or(Grounding::NotChecked),
-            replaced: evs.iter().any(|e| matches!(e.op, Op::Replace { .. })),
+            replaced,
             unmatched_deletion,
             unproven_deletion,
             unverified_change,
