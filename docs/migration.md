@@ -13,7 +13,7 @@ Figures below were re-run on the day of writing unless marked "recorded".
 | OCR meets the gold thresholds | same command (`ocr_gold`: `southwark_scan`, `salford_text_layer`) | 2 passed |
 | Clean lints | `cargo clippy --all-targets -- -W clippy::all` | no warnings |
 
-## OCR against hand-verified gold
+## OCR against agent-transcribed benchmark
 
 Gold: `gold/southwark_19_AP_1773.json`, 6 pages. Reproduce with
 `cargo run --release -- bench-ocr gold/southwark_19_AP_1773.json data/raw/southwark_s106_sample.pdf --models ppocrv5-en-mobile`.

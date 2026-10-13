@@ -1,0 +1,34 @@
+{
+  "planning_reference": "19/AP/1773",
+  "site_address": "227-255 Ilderton Road, London SE15 1NS",
+  "register_url": "https://planning.southwark.gov.uk/online-applications/applicationDetails.do?keyVal=ZZZV0MKBWR618&activeTab=documents",
+  "source_url": "https://planning.southwark.gov.uk/online-applications/files/CFCAC9FF6638E1A5FE9D3B098E9E71CD/pdf/19_AP_1773-AGREEMENT_28_01_2021-1089043.pdf",
+  "retrieved_at_utc": "2026-10-13T19:21:54Z",
+  "retrieval_date_europe_london": "2026-10-13",
+  "http_status": 200,
+  "content_type": "application/pdf",
+  "sha256": "0baed481b09feeb4e515d3752439448fee7e5993103d2085116da7854cb5f85b",
+  "bytes": 4245303,
+  "pdf_pages": 109,
+  "register_document_type": "Section 106 - Legal Agreements",
+  "register_description": "AGREEMENT 28/01/2021",
+  "register_published_date": "2021-02-03",
+  "legal_reference": "LEG/RP/PL/S106/RR020/80",
+  "apparent_execution_date": "2021-01-28",
+  "instrument_type": "Executed S106 agreement (agent-proposed identification)",
+  "identity_evidence_pdf_pages": [
+    1,
+    2,
+    6,
+    108,
+    109
+  ],
+  "identity_reason": "Cover and deed identify the site, application and 28 January 2021; execution blocks include Council seal and owner signatures (PDF108/printed86) and lender attorney/witness signatures (PDF109/printed87). Schedule1 contains a draft decision notice; that annex does not make this agreement a draft. No variation/supplemental instrument is identified in its operative opening.",
+  "uncertainties": [
+    "Signature authenticity, signatory authority and legal validity have not been independently authenticated.",
+    "Human provenance review is pending.",
+    "No conclusion about subsequent amendments, current obligations, actual delivery or compliance."
+  ],
+  "tls": "Verified with system trust plus Sectigo Public Server Authentication CA OV R36 intermediate; certificate checks were not disabled.",
+  "human_review_status": null
+}

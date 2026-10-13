@@ -5,3 +5,18 @@ data/processed/
 data/reference/
 /target
 /models
+
+# Python validation helpers
+__pycache__/
+*.pyc
+
+# Validation inputs are small records; source/cache/report/site artifacts stay local.
+/validation/*/source/
+/validation/*/evidence/
+/validation/*/runtime/
+/validation/*/results/
+/validation/*/history/
+/validation/*/dossier.html
+/validation/*/human-review.csv
+/validation/*/report.md
+/validation/*/source-evidence-sha256.json

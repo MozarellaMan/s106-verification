@@ -9,6 +9,8 @@ cites, and that passage must be found on the cited page. Nothing in the gate is 
 
 Architecture and contributor reading path: [docs/architecture.md](docs/architecture.md).
 
+Generate the Southwark review dossier on demand: [review tool and case inputs](validation/southwark-19-AP-1773/README.md). All annotations await human confirmation; existing OCR benchmarks and model fixtures are agent-produced, not independently human-verified ground truth.
+
 Scope, roadmap and open research questions: [docs/research-plan.md](docs/research-plan.md).
 Schema v2 and the real deeds behind it: [docs/schema-v2.md](docs/schema-v2.md).
 How the Rust harness was accepted against the former Python one: [docs/migration.md](docs/migration.md).
@@ -26,7 +28,7 @@ src/
   text.rs       number and words-to-amount reading
   report.rs     terminal report and JSON
   eval.rs       evaluation against the national S106 register (planning.data.gov.uk)
-  ocrbench.rs   OCR scored against hand-transcribed gold (gold/*.json)
+  ocrbench.rs   OCR scored against agent-transcribed benchmark (gold/*.json)
 ```
 
 ## Setup
@@ -139,7 +141,7 @@ when one line on the table's page states all of its counts.
 
 ```bash
 cargo test                                              # offline, no deeds, no credentials
-cargo test --release -- --ignored                       # also: OCR vs hand-verified gold, and the
+cargo test --release -- --ignored                       # also: OCR vs agent-transcribed benchmark, and the
                                                         # frozen Python M1 results (needs the deeds)
 ```
 

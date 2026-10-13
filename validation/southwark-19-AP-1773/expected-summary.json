@@ -1,0 +1,26 @@
+{
+  "reference_status": "awaiting_human_confirmation",
+  "agent_labelled": {
+    "compared_fields": 94,
+    "agree": 81,
+    "different": 2,
+    "missing": 11
+  },
+  "human_confirmed": null,
+  "human_metric_note": "No human-confirmed reference fields; accuracy unavailable.",
+  "contribution_coverage": {
+    "inventory_names": 14,
+    "represented": 12,
+    "missing": [
+      "Additional Affordable Housing Monitoring Payment",
+      "Delivery and Service Cash Deposit"
+    ],
+    "scope": "Only structured F01-F14; ancillary obligations and unrepresented qualifiers excluded. Not full-deed recall."
+  },
+  "verification_counts": {
+    "PASS": 53,
+    "REVIEW": 1,
+    "FAIL": 1,
+    "SKIP": 6
+  }
+}

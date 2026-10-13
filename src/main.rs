@@ -54,7 +54,7 @@ enum Cmd {
         #[arg(long, value_delimiter = ',')]
         only: Vec<String>,
     },
-    /// Score OCR model sets against a hand-verified gold file (only the gold pages are read).
+    /// Score OCR model sets against a agent-transcribed benchmark file (only the gold pages are read).
     BenchOcr {
         /// gold/*.json
         gold: PathBuf,
