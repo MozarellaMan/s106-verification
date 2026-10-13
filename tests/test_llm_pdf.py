@@ -65,7 +65,7 @@ class LlmPdfTest(unittest.TestCase):
 
     def test_replay_cli_exit_code(self):
         env = {k: v for k, v in os.environ.items() if not k.startswith("ANTHROPIC_")}
-        out = subprocess.run([sys.executable, "s106-audit/run_audit.py", "--backend", "llm-pdf", "-q",
+        out = subprocess.run([sys.executable, "s106-audit/run_audit.py", "--backend", "llm-pdf", "--llm-mode", "replay", "-q",
                               "--out", os.devnull], cwd=ROOT, env=env, capture_output=True, text=True)
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertIn("backend=llm-pdf:claude-haiku-5-5 (replay)", out.stdout)
