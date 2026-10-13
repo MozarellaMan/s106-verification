@@ -4,10 +4,11 @@
 //! * Each deed becomes an `InstrumentObligations`: one `Statement` per obligation it states, plus
 //!   the deletions it makes. Duplicates within one deed are merged, or flagged when their figures
 //!   differ.
-//! * `reconcile` replays the instruments in date order as operations on each obligation
-//!   (`Op::Introduce`, `Restate`, `Replace`, `Unchanged`, `Delete`). Nothing is overwritten; the
-//!   current obligation is the fold of its operations, so a restatement is not a change and a
-//!   deletion removes the obligation.
+//! * `reconcile` collects every deed's statements and deletions per obligation (`events`), in
+//!   the order given, without applying them. The first deed sets the figure. Anything a later deed
+//!   changes (a different figure, a deletion, a partial scope, no planning reference, differing
+//!   figures) adds a `ReviewReason` and the row goes to a person (`facts`). A restatement of the
+//!   same figure stays automatic.
 //! * Delivery comes from `Delivery`, read from one saved PLD application snapshot through a typed
 //!   view that fails when a field the mapping needs is missing. Every delivered figure cites that
 //!   snapshot.
@@ -25,7 +26,7 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::evidence::{Pages, evidence_found};
+use crate::evidence::Pages;
 use crate::pld::{Snapshot, SnapshotRef};
 use crate::schema::{
     AffordableBasis, Agreement, ConditionalityKind, Evidence, Tenure, VariationOp,
@@ -33,7 +34,7 @@ use crate::schema::{
 use crate::text::Value;
 use crate::verify::{Input, PCT_TOLERANCE, grounding_problem};
 
-pub const RECONCILE_VERSION: &str = "2";
+pub const RECONCILE_VERSION: &str = "3";
 /// Version of `delivery_from_pld`'s reading of PLD application records.
 pub const PLD_MAPPING_VERSION: &str = "1";
 
@@ -146,8 +147,6 @@ pub struct Statement {
 pub struct Deletion {
     pub target: String,
     pub evidence: Option<Evidence>,
-    /// whether the cited snippet is on its page; only a grounded deletion is applied
-    pub grounding: Grounding,
 }
 
 /// What one deed says, before it is set against the deeds before it.
@@ -157,47 +156,44 @@ pub struct InstrumentObligations {
     /// a deed of variation or supplemental deed
     pub variation: bool,
     pub planning_references: Vec<String>,
-    /// a partial scope the deed states, e.g. "in so far as it relates to Phase 2"; what a scoped
-    /// deed changes is not applied to the whole development
+    /// a partial scope the deed states, e.g. "in so far as it relates to Phase 2"; anything a
+    /// scoped deed says about an obligation goes to review
     #[serde(default)]
     pub scope: Option<String>,
     pub statements: Vec<Statement>,
     pub deletions: Vec<Deletion>,
 }
 
-/// What an instrument does to an obligation.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "op", rename_all = "snake_case")]
-pub enum Op {
-    /// first stated; None when it states no figure
-    Introduce { value: Option<Decimal> },
-    /// stated again with the same figure
-    Restate { value: Decimal },
-    /// stated with a different figure
-    Replace { from: Option<Decimal>, to: Decimal },
-    /// cited again without a figure: taken as unchanged
-    Unchanged,
-    /// removed by a variation
-    Delete,
+/// What a deed does with an obligation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Action {
+    /// states it, with a figure or without one
+    States,
+    /// deletes it (a variation's deletion whose target names it)
+    Deletes,
 }
 
+/// One deed's statement or deletion of one obligation, recorded as the deed gives it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ObligationEvent {
     #[serde(flatten)]
     pub measure: Measure,
     pub label: String,
-    #[serde(flatten)]
-    pub op: Op,
+    pub action: Action,
+    pub value: Option<Decimal>,
+    /// the instrument's position in the order given, from 1
+    pub instrument_no: usize,
     pub instrument: InstrumentRef,
     pub evidence: Option<Evidence>,
     pub grounding: Grounding,
     pub note: Option<String>,
     pub conflict: Option<String>,
-    /// false when the instrument's link to the development couldn't be checked (it states no
-    /// planning reference); what it changes goes to review
+    /// false when the instrument states no planning reference, so its link to the development
+    /// couldn't be checked
     #[serde(default = "yes")]
     pub verified: bool,
-    /// the instrument's partial scope, when it has one; such an event is recorded, not applied
+    /// the instrument's partial scope, when it has one
     #[serde(default)]
     pub scope: Option<String>,
 }
@@ -331,100 +327,8 @@ pub fn instrument_obligations(a: &Agreement, pages: Option<&Pages>) -> Instrumen
             .map(|v| Deletion {
                 target: v.target.clone(),
                 evidence: v.evidence.clone(),
-                grounding: match (pages, &v.evidence) {
-                    (None, _) => Grounding::NotChecked,
-                    (Some(_), None) => Grounding::Ungrounded("no evidence cited".into()),
-                    (Some(_), Some(ev)) if !says_deleted(&ev.snippet) => Grounding::Ungrounded(
-                        "cited snippet doesn't say anything is deleted".into(),
-                    ),
-                    (Some(p), Some(ev)) if evidence_found(Some(ev), p) => Grounding::Grounded,
-                    (Some(_), Some(ev)) => Grounding::Ungrounded(format!(
-                        "cited snippet not re-locatable on p{}",
-                        ev.page
-                    )),
-                },
             })
             .collect(),
-    }
-}
-
-/// Does a snippet say something is deleted (or omitted, revoked, removed)?
-fn says_deleted(snippet: &str) -> bool {
-    let s = snippet.to_lowercase();
-    ["delet", "omit", "revoke", "remove", "struck out"]
-        .iter()
-        .any(|w| s.contains(w))
-}
-
-/// Does a deletion remove this whole obligation? The target matching is not enough, and nor is a
-/// clause that deletes words inside it. Both the deed's target and each clause of the snippet
-/// (split at `.`, `;` and line breaks) that names the obligation must refer to it whole: the words
-/// just before its name, back to the start or an "and", must be one of `WHOLE` ("the definition
-/// of", "the obligation to pay", "all references to", or nothing). Each such clause must also say
-/// it is deleted, with no word that could keep it or narrow the deletion (`KEEP`, `PARTIAL`).
-/// Anything else is partial or ambiguous and goes to review. Err says why.
-fn deletes_whole(target: &str, snippet: &str, m: &Measure) -> std::result::Result<(), String> {
-    let Measure::Contribution { key } = m else {
-        return Err("only named contributions can be deleted".into());
-    };
-    if key.is_empty() {
-        return Err("names no contribution".into());
-    }
-    const WHOLE: [&str; 9] = [
-        "",
-        "definition of",
-        "definition of the",
-        "obligation to pay",
-        "obligation to pay the",
-        "references to",
-        "references to the",
-        "all references to",
-        "all references to the",
-    ];
-    const KEEP: [&str; 9] = [
-        "retain", "retained", "not", "except", "save", "but", "unless", "remain", "remains",
-    ];
-    const PARTIAL: [&str; 11] = [
-        "word", "words", "wording", "phrase", "sentence", "text", "figure", "part", "extent",
-        "far", "insofar",
-    ];
-    // The words before the name in a normalised phrase, back to its start or an "and"; None
-    // when the phrase doesn't name it.
-    let prefix = |phrase: &str| -> Option<String> {
-        let p = contribution_key(phrase);
-        let at = format!(" {p} ").find(&format!(" {key} "))?;
-        let before: Vec<&str> = p[..at].split_whitespace().collect();
-        let start = before
-            .iter()
-            .rposition(|w| *w == "and")
-            .map_or(0, |i| i + 1);
-        let words = &before[start..];
-        let words = words.strip_prefix(&["the"]).unwrap_or(words);
-        Some(words.join(" "))
-    };
-    let whole = |phrase: &str| prefix(phrase).is_some_and(|p| WHOLE.contains(&p.as_str()));
-    if !whole(target) {
-        return Err("deletes only part of it, or its target is unclear".into());
-    }
-    let naming: Vec<&str> = snippet
-        .split(['.', ';', '\n'])
-        .filter(|c| prefix(c).is_some())
-        .collect();
-    if naming.is_empty() {
-        return Err("doesn't name it".into());
-    }
-    let clean = |c: &&str| {
-        let n = contribution_key(c);
-        says_deleted(&n)
-            && whole(c)
-            && !n
-                .split(' ')
-                .any(|w| KEEP.contains(&w) || PARTIAL.contains(&w))
-    };
-    if naming.iter().all(clean) {
-        Ok(())
-    } else {
-        Err("doesn't clearly say the whole of it is deleted".into())
     }
 }
 
@@ -545,13 +449,25 @@ pub struct Counted {
     pub value: Option<Decimal>,
     /// how it was counted, or why it couldn't be
     pub basis: String,
+    /// why there is no value
+    #[serde(default)]
+    pub cause: Option<Cause>,
 }
 
 impl Counted {
-    pub fn none(basis: impl Into<String>) -> Counted {
+    pub fn some(value: Decimal, basis: impl Into<String>) -> Counted {
+        Counted {
+            value: Some(value),
+            basis: basis.into(),
+            cause: None,
+        }
+    }
+
+    pub fn none(cause: Cause, basis: impl Into<String>) -> Counted {
         Counted {
             value: None,
             basis: basis.into(),
+            cause: Some(cause),
         }
     }
 }
@@ -564,7 +480,7 @@ impl Delivery {
     fn count(&self, what: &str, f: impl Fn(&UnitTenure) -> bool, rooms: bool) -> Counted {
         let n_done = self.completed().count();
         if self.units.is_empty() {
-            return Counted::none("no PLD unit records");
+            return Counted::none(Cause::NoUnitRecords, "no PLD unit records");
         }
         if what != "all" {
             let missing = self
@@ -572,16 +488,20 @@ impl Delivery {
                 .filter(|u| u.tenure == UnitTenure::Missing)
                 .count();
             if missing > 0 {
-                return Counted::none(format!("{missing} completed unit record(s) give no tenure"));
+                return Counted::none(
+                    Cause::UnknownTenure,
+                    format!("{missing} completed unit record(s) give no tenure"),
+                );
             }
             let unknown = self
                 .completed()
                 .filter(|u| matches!(u.tenure, UnitTenure::Unrecognised(_)))
                 .count();
             if unknown > 0 {
-                return Counted::none(format!(
-                    "{unknown} completed unit record(s) have an unrecognised tenure"
-                ));
+                return Counted::none(
+                    Cause::UnknownTenure,
+                    format!("{unknown} completed unit record(s) have an unrecognised tenure"),
+                );
             }
         }
         let matching: Vec<&DeliveredUnit> = self.completed().filter(|u| f(&u.tenure)).collect();
@@ -591,27 +511,28 @@ impl Delivery {
                 .filter(|u| u.habitable_rooms.is_none())
                 .count();
             if missing > 0 {
-                return Counted::none(format!(
-                    "{missing} matching unit record(s) lack habitable rooms"
-                ));
+                return Counted::none(
+                    Cause::NoRooms,
+                    format!("{missing} matching unit record(s) lack habitable rooms"),
+                );
             }
             let sum: u32 = matching.iter().filter_map(|u| u.habitable_rooms).sum();
-            return Counted {
-                value: Some(Decimal::from(sum)),
-                basis: format!(
+            return Counted::some(
+                Decimal::from(sum),
+                format!(
                     "habitable rooms of {} {what} unit record(s) with a completion date",
                     matching.len()
                 ),
-            };
+            );
         }
-        Counted {
-            value: Some(Decimal::from(matching.len() as u64)),
-            basis: format!(
+        Counted::some(
+            Decimal::from(matching.len() as u64),
+            format!(
                 "{} {what} of {n_done} unit record(s) with a completion date ({} records in all)",
                 matching.len(),
                 self.units.len()
             ),
-        }
+        )
     }
 
     pub fn delivered(&self, m: &Measure) -> Counted {
@@ -638,24 +559,27 @@ impl Delivery {
                     AffordableBasis::Units => false,
                     AffordableBasis::HabitableRooms => true,
                     AffordableBasis::Floorspace => {
-                        return Counted::none("PLD unit records carry no floorspace basis");
+                        return Counted::none(
+                            Cause::NoFloorspaceBasis,
+                            "PLD unit records carry no floorspace basis",
+                        );
                     }
                 };
                 let num = self.count("affordable", affordable, rooms);
                 let den = self.count("all", |_| true, rooms);
                 match (num.value, den.value) {
-                    (Some(n), Some(d)) if !d.is_zero() => Counted {
-                        value: Some((n * Decimal::ONE_HUNDRED / d).round_dp(2)),
-                        basis: format!("{} / {}", num.basis, den.basis),
-                    },
-                    _ => Counted::none(if num.value.is_none() {
-                        num.basis
-                    } else {
-                        den.basis
-                    }),
+                    (Some(n), Some(d)) if !d.is_zero() => Counted::some(
+                        (n * Decimal::ONE_HUNDRED / d).round_dp(2),
+                        format!("{} / {}", num.basis, den.basis),
+                    ),
+                    (None, _) => num,
+                    (_, None) => den,
+                    _ => Counted::none(Cause::NoUnitRecords, "no completed units to divide by"),
                 }
             }
-            Measure::Contribution { .. } => Counted::none("PLD records no S106 payments"),
+            Measure::Contribution { .. } => {
+                Counted::none(Cause::NoPayments, "PLD records no S106 payments")
+            }
         }
     }
 
@@ -925,23 +849,23 @@ pub fn delivery_from_pld(snap: &Snapshot, at: SnapshotRef) -> Result<Delivery> {
 
 // --------------------------------------------------------------------------- reconciliation
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RowStatus {
-    /// PLD's completed-unit count equals the current obligation. Counts only: says nothing about
+    /// PLD's completed-unit count equals the deed's figure. Counts only: says nothing about
     /// tenure in use, rents or quality.
     CountsMatch,
+    /// a later deed changed the figure, and delivery equals the latest figure from a grounded,
+    /// verified, whole-scheme deed: a match either way, so no judgement is needed
+    CountsMatchVariedFigure,
     /// the scheme isn't complete and delivery is still short
     NotYetDue,
-    /// the obligation was replaced by a later deed, or a later deed deletes something that could
-    /// not be matched; compare by hand
+    /// a later deed did something that needs a person (see the row's `review` reasons)
     Varied,
-    /// a variation removed the obligation
-    Removed,
     /// delivery differs from the obligation: a human must check the borough's records.
     /// Never a finding that the obligation was unmet.
     DiffersReviewRequired,
-    /// something needed for a comparison is missing or unproven
+    /// something needed for a comparison is missing or unproven (see the row's `cause`)
     Indeterminate,
 }
 
@@ -949,11 +873,108 @@ impl RowStatus {
     pub fn label(self) -> &'static str {
         match self {
             RowStatus::CountsMatch => "counts match",
+            RowStatus::CountsMatchVariedFigure => "counts match (varied figure)",
             RowStatus::NotYetDue => "not yet due",
-            RowStatus::Varied => "varied",
-            RowStatus::Removed => "removed by variation",
+            RowStatus::Varied => "varied: compare by hand",
             RowStatus::DiffersReviewRequired => "differs: review",
             RowStatus::Indeterminate => "indeterminate",
+        }
+    }
+
+    /// decided without a person's judgement on the deeds (a "differs" row still goes to a
+    /// person, but on delivery, which is what the reconciliation is for)
+    pub fn decided(self) -> bool {
+        !matches!(self, RowStatus::Varied | RowStatus::Indeterminate)
+    }
+}
+
+/// Why a row is indeterminate, as a code a research loop can count.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Cause {
+    /// the deed states no figure (a formula, a rate, or none)
+    NoFigure,
+    /// the first deed states differing figures for it
+    Conflict,
+    /// the deed's figure isn't grounded on its page
+    Ungrounded,
+    /// no PLD record was supplied
+    NoDeliveryData,
+    NoUnitRecords,
+    /// PLD records no S106 payments
+    NoPayments,
+    /// unit records carry no habitable rooms
+    NoRooms,
+    /// a completed unit's tenure is missing or unrecognised
+    UnknownTenure,
+    /// PLD has no floorspace basis
+    NoFloorspaceBasis,
+    SchemeStatusUnknown,
+}
+
+/// Why a row needs a person: something a later deed did. Instruments are numbered from 1 in the
+/// order given.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "reason", rename_all = "snake_case")]
+pub enum ReviewReason {
+    /// states a different figure from the one before it
+    Replaced {
+        instrument: usize,
+        from: Option<Decimal>,
+        to: Decimal,
+    },
+    /// a deletion whose target names this obligation
+    Deleted { instrument: usize, target: String },
+    /// from a deed that applies to only part of the development
+    Scoped { instrument: usize, scope: String },
+    /// from a deed that states no planning reference
+    Unverified { instrument: usize },
+    /// the deed states differing figures for it
+    Conflict { instrument: usize, detail: String },
+    /// restates a figure that isn't grounded on its page
+    Ungrounded { instrument: usize, why: String },
+    /// a later deed deletes something that matches no obligation; it could be this one
+    UnmatchedDeletion { instrument: usize, target: String },
+}
+
+impl ReviewReason {
+    pub fn code(&self) -> &'static str {
+        match self {
+            ReviewReason::Replaced { .. } => "replaced",
+            ReviewReason::Deleted { .. } => "deleted",
+            ReviewReason::Scoped { .. } => "scoped",
+            ReviewReason::Unverified { .. } => "unverified",
+            ReviewReason::Conflict { .. } => "conflict",
+            ReviewReason::Ungrounded { .. } => "ungrounded",
+            ReviewReason::UnmatchedDeletion { .. } => "unmatched_deletion",
+        }
+    }
+
+    fn describe(&self) -> String {
+        match self {
+            ReviewReason::Replaced {
+                instrument,
+                from,
+                to,
+            } => format!("instrument {instrument} states {to} (was {})", num(*from)),
+            ReviewReason::Deleted { instrument, target } => {
+                format!("instrument {instrument} deletes \"{target}\"")
+            }
+            ReviewReason::Scoped { instrument, scope } => {
+                format!("instrument {instrument} applies only \"{scope}\"")
+            }
+            ReviewReason::Unverified { instrument } => {
+                format!("instrument {instrument} states no planning reference")
+            }
+            ReviewReason::Conflict { instrument, detail } => {
+                format!("instrument {instrument}: {detail}")
+            }
+            ReviewReason::Ungrounded { instrument, why } => {
+                format!("instrument {instrument}'s figure is unproven: {why}")
+            }
+            ReviewReason::UnmatchedDeletion { instrument, target } => {
+                format!("instrument {instrument} deletes \"{target}\", which matches no obligation")
+            }
         }
     }
 }
@@ -963,36 +984,76 @@ pub struct Row {
     #[serde(flatten)]
     pub measure: Measure,
     pub label: String,
-    /// as first stated
+    /// as the first deed states it
     pub agreed: Option<Decimal>,
-    /// after every later instrument (the fold of the events); None when removed or unstated
+    /// the latest figure any deed states (the agreed one unless a later deed states another)
     pub current: Option<Decimal>,
-    /// all events for this obligation, in instrument order
+    /// every deed's statement or deletion of this obligation, in instrument order
     pub events: Vec<ObligationEvent>,
     /// PLD's permission figure
     pub permitted: Option<Decimal>,
     pub delivered: Counted,
     pub status: RowStatus,
     pub reason: String,
+    /// set when the status is indeterminate
+    pub cause: Option<Cause>,
+    /// set when a later deed did something that needs a person
+    #[serde(default)]
+    pub review: Vec<ReviewReason>,
+}
+
+/// Counts for a research loop: how much was decided without a person, and what the rest waits on.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Summary {
+    pub rows: usize,
+    /// rows whose status is decided (`RowStatus::decided`)
+    pub decided: usize,
+    pub by_status: BTreeMap<RowStatus, usize>,
+    pub indeterminate_by_cause: BTreeMap<Cause, usize>,
+    /// review rows by reason code; a row with two reasons counts under each
+    pub review_by_reason: BTreeMap<String, usize>,
+}
+
+impl Summary {
+    pub fn of(rows: &[Row]) -> Summary {
+        let mut s = Summary {
+            rows: rows.len(),
+            ..Default::default()
+        };
+        for r in rows {
+            *s.by_status.entry(r.status).or_default() += 1;
+            s.decided += usize::from(r.status.decided());
+            if let Some(c) = r.cause {
+                *s.indeterminate_by_cause.entry(c).or_default() += 1;
+            }
+            let mut codes: Vec<&str> = r.review.iter().map(ReviewReason::code).collect();
+            codes.sort_unstable();
+            codes.dedup();
+            for c in codes {
+                *s.review_by_reason.entry(c.into()).or_default() += 1;
+            }
+        }
+        s
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Reconciliation {
     pub reconcile_version: String,
     pub development: String,
-    /// in the order they were applied
+    /// in the order given
     pub instruments: Vec<InstrumentRef>,
     pub delivery: Option<Delivery>,
     pub rows: Vec<Row>,
+    pub summary: Summary,
     /// things a reader should know that don't belong to one row
     #[serde(default)]
     pub warnings: Vec<String>,
 }
 
-/// The current state of an obligation after folding its events.
+/// The first deed's figure for an obligation.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Current {
-    Removed,
     /// the deed states it more than once with different figures
     Conflict(String),
     /// no figure (formula, rate, or none stated); the note says why when known
@@ -1004,42 +1065,45 @@ pub enum Current {
 #[derive(Debug, Clone)]
 pub struct Facts {
     pub current: Current,
-    /// the grounding of the event that set the current figure
+    /// the grounding of the first deed's figure
     pub grounding: Grounding,
-    /// some later deed replaced the figure
-    pub replaced: bool,
-    /// a later deed deletes something not matched to any obligation
-    pub unmatched_deletion: Option<String>,
-    /// a later deed deletes this obligation, but the deletion couldn't be applied (why)
-    pub unproven_deletion: Option<String>,
-    /// a deed whose link to the development is unchecked changed this obligation (which)
-    pub unverified_change: Option<String>,
-    /// a deed limited to part of the development changed this obligation (which, and its scope)
-    pub partial_change: Option<String>,
+    /// what later deeds did that needs a person
+    pub review: Vec<ReviewReason>,
+    /// the latest figure from a later deed that is grounded, verified and whole-scheme, when
+    /// the only review reasons are replacements
+    pub latest: Option<Decimal>,
     pub delivered: Counted,
     /// compare within the verifier's percentage tolerance rather than exactly
     pub percentage: bool,
     pub scheme_complete: Option<bool>,
 }
 
-/// The status rules, in order (see docs/reconciliation.md).
-pub fn decide(f: &Facts) -> (RowStatus, String) {
-    if let Some(which) = &f.partial_change
-        && f.current != Current::Removed
-    {
-        return (
-            RowStatus::Varied,
-            format!("changed by {which}; compare by hand"),
-        );
-    }
-    let current = match &f.current {
-        Current::Removed => {
+/// The status rules, in order (see docs/reconciliation.md): a status, the reason in words, and
+/// the cause code when indeterminate.
+pub fn decide(f: &Facts) -> (RowStatus, String, Option<Cause>) {
+    let same = |a: Decimal, b: Decimal| {
+        if f.percentage {
+            (a - b).abs() <= PCT_TOLERANCE
+        } else {
+            a == b
+        }
+    };
+    if !f.review.is_empty() {
+        if let (Some(latest), Some(d)) = (f.latest, f.delivered.value)
+            && same(d, latest)
+        {
             return (
-                RowStatus::Removed,
-                "a variation removes this obligation".into(),
+                RowStatus::CountsMatchVariedFigure,
+                format!("{}; {}", f.delivered.basis, join_reasons(&f.review)),
+                None,
             );
         }
-        Current::Conflict(why) => return (RowStatus::Indeterminate, why.clone()),
+        return (RowStatus::Varied, join_reasons(&f.review), None);
+    }
+    let current = match &f.current {
+        Current::Conflict(why) => {
+            return (RowStatus::Indeterminate, why.clone(), Some(Cause::Conflict));
+        }
         Current::NoFigure(note) => {
             return (
                 RowStatus::Indeterminate,
@@ -1047,6 +1111,7 @@ pub fn decide(f: &Facts) -> (RowStatus, String) {
                     Some(n) => format!("no stated figure ({n})"),
                     None => "no stated figure in the deed".into(),
                 },
+                Some(Cause::NoFigure),
             );
         }
         Current::Value(v) => *v,
@@ -1055,47 +1120,18 @@ pub fn decide(f: &Facts) -> (RowStatus, String) {
         return (
             RowStatus::Indeterminate,
             format!("deed value unproven: {why}"),
-        );
-    }
-    if let Some(why) = &f.unproven_deletion {
-        return (
-            RowStatus::Varied,
-            format!(
-                "a later deed deletes this, but the deletion isn't proven ({why}); compare by hand"
-            ),
-        );
-    }
-    if let Some(which) = &f.unverified_change {
-        return (
-            RowStatus::Varied,
-            format!("changed by {which}, which states no planning reference; compare by hand"),
-        );
-    }
-    if let Some(target) = &f.unmatched_deletion {
-        return (
-            RowStatus::Varied,
-            format!(
-                "a later deed deletes \"{target}\", which isn't matched to any obligation; \
-                 compare by hand"
-            ),
+            Some(Cause::Ungrounded),
         );
     }
     let Some(delivered) = f.delivered.value else {
-        return (RowStatus::Indeterminate, f.delivered.basis.clone());
-    };
-    let same = if f.percentage {
-        (delivered - current).abs() <= PCT_TOLERANCE
-    } else {
-        delivered == current
-    };
-    if same {
-        return (RowStatus::CountsMatch, f.delivered.basis.clone());
-    }
-    if f.replaced {
         return (
-            RowStatus::Varied,
-            format!("delivered {delivered} vs varied obligation {current}; compare by hand"),
+            RowStatus::Indeterminate,
+            f.delivered.basis.clone(),
+            Some(f.delivered.cause.unwrap_or(Cause::NoDeliveryData)),
         );
+    };
+    if same(delivered, current) {
+        return (RowStatus::CountsMatch, f.delivered.basis.clone(), None);
     }
     match f.scheme_complete {
         Some(true) => (
@@ -1104,20 +1140,34 @@ pub fn decide(f: &Facts) -> (RowStatus, String) {
                 "PLD reports the scheme complete with {delivered} against {current}; \
                  check the borough's records before drawing any conclusion"
             ),
+            None,
         ),
         Some(false) if delivered < current => (
             RowStatus::NotYetDue,
             format!("{delivered} of {current} so far; PLD does not report the scheme complete"),
+            None,
         ),
         Some(false) => (
             RowStatus::DiffersReviewRequired,
             format!("{delivered} delivered so far against {current}, scheme not complete"),
+            None,
         ),
         None => (
             RowStatus::Indeterminate,
             format!("{delivered} against {current}; PLD scheme status not established"),
+            Some(Cause::SchemeStatusUnknown),
         ),
     }
+}
+
+fn join_reasons(r: &[ReviewReason]) -> String {
+    format!(
+        "{}; compare by hand",
+        r.iter()
+            .map(ReviewReason::describe)
+            .collect::<Vec<_>>()
+            .join("; ")
+    )
 }
 
 /// Planning references compared without case, spaces or separators: "19/AP/1773" = "19-ap-1773".
@@ -1151,20 +1201,187 @@ fn parse_deed_date(s: &str) -> Option<NaiveDate> {
         })
 }
 
-/// A key for matching a deletion target against an obligation: the contribution key, or the
-/// measure's label normalised the same way.
+/// Does a deletion's target name this obligation? Only named contributions can be matched.
 fn deletion_matches(target: &str, m: &Measure) -> bool {
     let t = contribution_key(target);
-    let k = match m {
-        Measure::Contribution { key } => key.clone(),
-        _ => return false,
-    };
-    !k.is_empty() && format!(" {t} ").contains(&format!(" {k} "))
+    match m {
+        Measure::Contribution { key } => {
+            !key.is_empty() && format!(" {t} ").contains(&format!(" {key} "))
+        }
+        _ => false,
+    }
+}
+
+/// Obligations in first-stated order, their events, and deletions that matched nothing (with
+/// their instrument number).
+pub type Events = (
+    Vec<Measure>,
+    BTreeMap<Measure, Vec<ObligationEvent>>,
+    Vec<(usize, String)>,
+);
+
+/// Collect every deed's statements and matched deletions per obligation, in instrument order.
+/// No interpretation and no running state: that is `facts`. Also returns each deletion that
+/// matched no obligation stated before it, with its instrument number.
+pub fn events(instruments: &[InstrumentObligations], verified: &[bool]) -> Events {
+    let mut order: Vec<Measure> = vec![];
+    let mut by: BTreeMap<Measure, Vec<ObligationEvent>> = BTreeMap::new();
+    let mut unmatched = vec![];
+    for (k, inst) in instruments.iter().enumerate() {
+        let event = |measure: &Measure,
+                     label: &str,
+                     action: Action,
+                     value: Option<Decimal>,
+                     evidence: Option<Evidence>| ObligationEvent {
+            measure: measure.clone(),
+            label: label.into(),
+            action,
+            value,
+            instrument_no: k + 1,
+            instrument: inst.instrument.clone(),
+            evidence,
+            grounding: Grounding::NotChecked,
+            note: None,
+            conflict: None,
+            verified: verified[k],
+            scope: inst.scope.clone(),
+        };
+        for s in &inst.statements {
+            if !by.contains_key(&s.measure) {
+                order.push(s.measure.clone());
+            }
+            by.entry(s.measure.clone())
+                .or_default()
+                .push(ObligationEvent {
+                    grounding: s.grounding.clone(),
+                    note: s.note.clone(),
+                    conflict: s.conflict.clone(),
+                    ..event(
+                        &s.measure,
+                        &s.label,
+                        Action::States,
+                        s.value,
+                        s.evidence.clone(),
+                    )
+                });
+        }
+        for del in &inst.deletions {
+            let hits: Vec<Measure> = order
+                .iter()
+                .filter(|m| deletion_matches(&del.target, m))
+                .cloned()
+                .collect();
+            if hits.is_empty() {
+                unmatched.push((k + 1, del.target.clone()));
+            }
+            for m in hits {
+                let label = by[&m][0].label.clone();
+                by.entry(m.clone()).or_default().push(ObligationEvent {
+                    note: Some(format!("deletes \"{}\"", del.target)),
+                    ..event(&m, &label, Action::Deletes, None, del.evidence.clone())
+                });
+            }
+        }
+    }
+    (order, by, unmatched)
+}
+
+/// Read one obligation's events. The first deed sets the figure. A later event leaves the row
+/// automatic only when it is a grounded restatement of the same figure, or a bare citation, from
+/// a verified, whole-scheme deed; anything else adds a review reason. `unmatched` deletions from
+/// deeds after the first event reach this row too.
+pub fn facts(
+    evs: &[ObligationEvent],
+    unmatched: &[(usize, String)],
+    delivery: Option<&Delivery>,
+) -> Facts {
+    let first = &evs[0];
+    let mut review = vec![];
+    let mut prev = first.value;
+    let mut latest = None;
+    for e in &evs[1..] {
+        let n = e.instrument_no;
+        if !e.verified {
+            review.push(ReviewReason::Unverified { instrument: n });
+        }
+        if let Some(scope) = &e.scope {
+            review.push(ReviewReason::Scoped {
+                instrument: n,
+                scope: scope.clone(),
+            });
+        }
+        if e.action == Action::Deletes {
+            review.push(ReviewReason::Deleted {
+                instrument: n,
+                target: e
+                    .note
+                    .clone()
+                    .unwrap_or_default()
+                    .trim_start_matches("deletes ")
+                    .trim_matches('"')
+                    .into(),
+            });
+            continue;
+        }
+        if let Some(c) = &e.conflict {
+            review.push(ReviewReason::Conflict {
+                instrument: n,
+                detail: c.clone(),
+            });
+            continue;
+        }
+        let Some(v) = e.value else { continue };
+        if let Grounding::Ungrounded(why) = &e.grounding {
+            review.push(ReviewReason::Ungrounded {
+                instrument: n,
+                why: why.clone(),
+            });
+        }
+        if Some(v) != prev {
+            review.push(ReviewReason::Replaced {
+                instrument: n,
+                from: prev,
+                to: v,
+            });
+        }
+        prev = Some(v);
+        let trusted =
+            e.verified && e.scope.is_none() && !matches!(e.grounding, Grounding::Ungrounded(_));
+        latest = trusted.then_some(v);
+    }
+    for (n, target) in unmatched {
+        if *n > first.instrument_no {
+            review.push(ReviewReason::UnmatchedDeletion {
+                instrument: *n,
+                target: target.clone(),
+            });
+        }
+    }
+    let only_replaced = review
+        .iter()
+        .all(|r| matches!(r, ReviewReason::Replaced { .. }));
+    let m = &first.measure;
+    Facts {
+        current: match (&first.conflict, first.value) {
+            (Some(c), _) => Current::Conflict(c.clone()),
+            (None, Some(v)) => Current::Value(v),
+            (None, None) => Current::NoFigure(first.note.clone()),
+        },
+        grounding: first.grounding.clone(),
+        latest: if only_replaced { latest } else { None },
+        review,
+        delivered: match delivery {
+            Some(d) => d.delivered(m),
+            None => Counted::none(Cause::NoDeliveryData, "no PLD delivery data supplied"),
+        },
+        percentage: matches!(m, Measure::AffordablePct { .. }),
+        scheme_complete: delivery.and_then(|d| d.scheme_complete),
+    }
 }
 
 /// Set a development's deeds against PLD.
 ///
-/// `instruments` are applied in the order given, original first; a warning is raised when that
+/// `instruments` are read in the order given, original first; a warning is raised when that
 /// order disagrees with the deeds' dates. Fails when the PLD record is not the development named,
 /// or when the deeds' planning references and PLD's disagree.
 pub fn reconcile(
@@ -1187,7 +1404,7 @@ pub fn reconcile(
     }
     // Every instrument must be a deed for this development. The reference is PLD's planning
     // reference, or failing that the first deed's. A deed citing another reference is refused; a
-    // later deed citing none is applied, but what it changes goes to review.
+    // later deed citing none is recorded, and every obligation it mentions goes to review.
     let reference: Vec<String> = match delivery.as_ref().and_then(|d| d.lpa_app_no.clone()) {
         Some(r) => vec![r],
         None => instruments
@@ -1210,7 +1427,7 @@ pub fn reconcile(
             } else {
                 verified[k] = false;
                 warnings.push(format!(
-                    "instrument {} states no planning reference; what it changes goes to review",
+                    "instrument {} states no planning reference; what it says goes to review",
                     k + 1
                 ));
             }
@@ -1238,7 +1455,7 @@ pub fn reconcile(
             && b < a
         {
             warnings.push(format!(
-                "instrument {} is dated {b}, before instrument {} ({a}); instruments are applied \
+                "instrument {} is dated {b}, before instrument {} ({a}); instruments are read \
                  in the order given",
                 k + 2,
                 k + 1
@@ -1246,237 +1463,40 @@ pub fn reconcile(
         }
     }
 
-    // Replay the instruments as operations on each obligation.
-    let mut order: Vec<Measure> = vec![];
-    let mut events: BTreeMap<Measure, Vec<ObligationEvent>> = BTreeMap::new();
-    let mut current: BTreeMap<Measure, Option<Decimal>> = BTreeMap::new();
-    let mut unmatched: Vec<(usize, String)> = vec![];
-    for (k, inst) in instruments.iter().enumerate() {
-        for s in &inst.statements {
-            let op = match current.get(&s.measure) {
-                None => Op::Introduce { value: s.value },
-                Some(prev) => match s.value {
-                    None => Op::Unchanged,
-                    Some(v) if *prev == Some(v) => Op::Restate { value: v },
-                    Some(v) => Op::Replace { from: *prev, to: v },
-                },
-            };
-            // The replay's running figure must follow the row fold below exactly. A scoped deed's
-            // statements cover only part of the development: recorded, never applied, conflicts
-            // included.
-            if inst.scope.is_none() {
-                match &op {
-                    Op::Introduce { value } => {
-                        current.insert(s.measure.clone(), *value);
-                    }
-                    Op::Restate { value } | Op::Replace { to: value, .. } => {
-                        current.insert(s.measure.clone(), Some(*value));
-                    }
-                    Op::Unchanged | Op::Delete => {}
-                }
-                if s.conflict.is_some() && op == Op::Unchanged {
-                    // a conflicting restatement: the figure is no longer known
-                    current.insert(s.measure.clone(), None);
-                }
-            }
-            if !events.contains_key(&s.measure) {
-                order.push(s.measure.clone());
-            }
-            events
-                .entry(s.measure.clone())
-                .or_default()
-                .push(ObligationEvent {
-                    measure: s.measure.clone(),
-                    label: s.label.clone(),
-                    op,
-                    instrument: inst.instrument.clone(),
-                    evidence: s.evidence.clone(),
-                    grounding: s.grounding.clone(),
-                    note: s.note.clone(),
-                    conflict: s.conflict.clone(),
-                    verified: verified[k],
-                    scope: inst.scope.clone(),
-                });
-        }
-        for del in &inst.deletions {
-            let hits: Vec<Measure> = order
-                .iter()
-                .filter(|m| deletion_matches(&del.target, m))
-                .cloned()
-                .collect();
-            if hits.is_empty() {
-                unmatched.push((k, del.target.clone()));
-            }
-            for m in hits {
-                // Grounded on its page, and the target and snippet delete this whole obligation.
-                let grounding = match (&del.grounding, &del.evidence) {
-                    (Grounding::Grounded, Some(ev)) => {
-                        match deletes_whole(&del.target, &ev.snippet, &m) {
-                            Ok(()) => Grounding::Grounded,
-                            Err(why) => Grounding::Ungrounded(format!(
-                                "its cited snippet on p{} {why}: the {}",
-                                ev.page,
-                                events[&m][0].label.trim_end_matches(" (£)")
-                            )),
-                        }
-                    }
-                    (g, _) => g.clone(),
-                };
-                if grounding == Grounding::Grounded && verified[k] && inst.scope.is_none() {
-                    current.insert(m.clone(), None);
-                }
-                let label = events[&m][0].label.clone();
-                events.entry(m.clone()).or_default().push(ObligationEvent {
-                    measure: m,
-                    label,
-                    op: Op::Delete,
-                    instrument: inst.instrument.clone(),
-                    evidence: del.evidence.clone(),
-                    grounding,
-                    note: Some(format!("deletes \"{}\"", del.target)),
-                    conflict: None,
-                    verified: verified[k],
-                    scope: inst.scope.clone(),
-                });
-            }
-        }
-    }
-    for (k, target) in &unmatched {
+    let (order, mut by, unmatched) = events(&instruments, &verified);
+    for (n, target) in &unmatched {
         warnings.push(format!(
-            "instrument {} deletes \"{target}\", which isn't matched to any obligation",
-            k + 1
+            "instrument {n} deletes \"{target}\", which isn't matched to any obligation"
         ));
     }
-
     let mut rows = vec![];
     for m in order {
-        let evs = events.remove(&m).unwrap_or_default();
-        // Fold the events. A delete applies only when its citation is grounded and its deed is
-        // verified; a later figure reinstates; an unchanged citation keeps the state as it was.
-        // A conflict lasts until a later deed states a figure without one.
-        let mut removed = false;
-        let mut value: Option<Decimal> = None;
-        let mut conflict: Option<String> = None;
-        let mut setter: Option<&ObligationEvent> = None;
-        let mut unproven_deletion: Option<String> = None;
-        let mut unverified_change: Option<String> = None;
-        let mut partial_change: Option<String> = None;
-        // Only replacements the fold applies count; a scoped one is skipped above it.
-        let mut replaced = false;
-        for e in &evs {
-            let changes = matches!(e.op, Op::Introduce { .. } | Op::Replace { .. } | Op::Delete);
-            if let Some(scope) = &e.scope {
-                // Only part of the development: kept in the history, sent to review.
-                if changes {
-                    partial_change = Some(format!(
-                        "the {} dated {}, which applies only \"{scope}\"",
-                        e.instrument.kind,
-                        e.instrument.date.as_deref().unwrap_or("?")
-                    ));
-                }
-                continue;
-            }
-            replaced |= matches!(e.op, Op::Replace { .. });
-            let sets = match e.op {
-                Op::Introduce { value: v } => Some(v),
-                Op::Restate { value: v } | Op::Replace { to: v, .. } => Some(Some(v)),
-                Op::Unchanged | Op::Delete => None,
-            };
-            if let Some(v) = sets {
-                (removed, value, setter, unproven_deletion) = (false, v, Some(e), None);
-            }
-            if e.op == Op::Delete {
-                if e.grounding == Grounding::Grounded && e.verified {
-                    (removed, value, conflict, unproven_deletion) = (true, None, None, None);
-                } else {
-                    unproven_deletion = Some(match &e.grounding {
-                        _ if !e.verified => "its deed states no planning reference".into(),
-                        Grounding::Ungrounded(why) => why.clone(),
-                        _ => "its citation was not checked against the deed's pages".into(),
-                    });
-                }
-            }
-            if e.conflict.is_some() {
-                conflict = e.conflict.clone();
-                value = None;
-            } else if sets.is_some() {
-                conflict = None;
-            }
-            // Whatever an unverified deed introduces, replaces or deletes needs review, until a
-            // verified deed states the figure again (the events keep the history).
-            if e.verified && (sets.is_some() || (e.op == Op::Delete && removed)) {
-                unverified_change = None;
-                partial_change = None;
-            }
-            if !e.verified && changes {
-                unverified_change = Some(format!(
-                    "the {} dated {}",
-                    e.instrument.kind,
-                    e.instrument.date.as_deref().unwrap_or("?")
-                ));
-            }
-        }
-        let first_instrument = instruments
-            .iter()
-            .position(|i| {
-                evs.first()
-                    .is_some_and(|e| e.instrument.sha256 == i.instrument.sha256)
-            })
-            .unwrap_or(0);
-        let unmatched_deletion = unmatched
-            .iter()
-            .find(|(k, _)| *k > first_instrument)
-            .map(|(_, t)| t.clone());
-
-        let facts = Facts {
-            current: if removed {
-                Current::Removed
-            } else if let Some(c) = conflict {
-                Current::Conflict(c)
-            } else {
-                match value {
-                    Some(v) => Current::Value(v),
-                    None => Current::NoFigure(setter.and_then(|e| e.note.clone())),
-                }
-            },
-            grounding: setter
-                .map(|e| e.grounding.clone())
-                .unwrap_or(Grounding::NotChecked),
-            replaced,
-            unmatched_deletion,
-            unproven_deletion,
-            unverified_change,
-            partial_change,
-            delivered: match &delivery {
-                Some(d) => d.delivered(&m),
-                None => Counted::none("no PLD delivery data supplied"),
-            },
-            percentage: matches!(m, Measure::AffordablePct { .. }),
-            scheme_complete: delivery.as_ref().and_then(|d| d.scheme_complete),
-        };
-        let (status, reason) = decide(&facts);
+        let evs = by.remove(&m).unwrap_or_default();
+        let f = facts(&evs, &unmatched, delivery.as_ref());
+        let (status, reason, cause) = decide(&f);
+        let first = &evs[0];
         rows.push(Row {
-            label: evs
-                .first()
-                .map(|e| e.label.clone())
-                .unwrap_or_else(|| m.label()),
-            agreed: match evs.first().map(|e| &e.op) {
-                Some(Op::Introduce { value }) => *value,
-                _ => None,
-            },
-            current: value,
+            label: first.label.clone(),
+            agreed: first.value,
+            current: evs
+                .iter()
+                .rev()
+                .filter(|e| e.action == Action::States && e.conflict.is_none())
+                .find_map(|e| e.value)
+                .or(first.value),
             permitted: delivery.as_ref().and_then(|d| d.permitted(&m)),
-            delivered: facts.delivered,
+            delivered: f.delivered,
             events: evs,
             measure: m,
             status,
             reason,
+            cause,
+            review: f.review,
         });
     }
     if let Some(d) = &delivery {
         let deed_tenures: Vec<Tenure> = rows
             .iter()
-            .filter(|r| r.status != RowStatus::Removed)
             .filter_map(|r| match r.measure {
                 Measure::TenureUnits { tenure } => Some(tenure),
                 _ => None,
@@ -1492,14 +1512,14 @@ pub fn reconcile(
                     current: None,
                     events: vec![],
                     permitted: d.permitted(&Measure::TenureUnits { tenure }),
-                    delivered: Counted {
-                        value: Some(Decimal::from(n as u64)),
-                        basis: format!(
-                            "{n} completed unit record(s) with a tenure no deed tenure covers"
-                        ),
-                    },
+                    delivered: Counted::some(
+                        Decimal::from(n as u64),
+                        format!("{n} completed unit record(s) with a tenure no deed tenure covers"),
+                    ),
                     status: RowStatus::DiffersReviewRequired,
                     reason: "delivered in a tenure the deed does not provide for".into(),
+                    cause: None,
+                    review: vec![],
                 });
             }
         }
@@ -1509,6 +1529,7 @@ pub fn reconcile(
         development: development.into(),
         instruments: instruments.into_iter().map(|i| i.instrument).collect(),
         delivery,
+        summary: Summary::of(&rows),
         rows,
         warnings,
     })
@@ -1527,12 +1548,10 @@ fn cite(e: &ObligationEvent) -> String {
         Grounding::Ungrounded(_) => " (unproven)",
         Grounding::NotChecked => " (not checked)",
     };
-    let op = match e.op {
-        Op::Introduce { .. } => "",
-        Op::Restate { .. } => " restated",
-        Op::Replace { .. } => " replaced",
-        Op::Unchanged => " cited",
-        Op::Delete => " deleted",
+    let op = match (e.action, e.instrument_no) {
+        (Action::Deletes, _) => format!(" deleted by {}", e.instrument_no),
+        (_, 1) => String::new(),
+        _ => format!(" in {}", e.instrument_no),
     };
     match &e.evidence {
         Some(ev) => format!("p{}{op}{g}", ev.page),
@@ -1574,6 +1593,33 @@ pub fn markdown(r: &Reconciliation) -> String {
     for w in &r.warnings {
         s += &format!("- Warning: {w}\n");
     }
+    let sm = &r.summary;
+    s += &format!(
+        "- Summary: {} of {} rows decided without review of the deeds",
+        sm.decided, sm.rows
+    );
+    let causes: Vec<String> = sm
+        .indeterminate_by_cause
+        .iter()
+        .map(|(c, n)| {
+            format!(
+                "{} {n}",
+                serde_json::to_value(c).unwrap().as_str().unwrap_or("?")
+            )
+        })
+        .collect();
+    if !causes.is_empty() {
+        s += &format!("; indeterminate by cause: {}", causes.join(", "));
+    }
+    let reasons: Vec<String> = sm
+        .review_by_reason
+        .iter()
+        .map(|(c, n)| format!("{c} {n}"))
+        .collect();
+    if !reasons.is_empty() {
+        s += &format!("; review by reason: {}", reasons.join(", "));
+    }
+    s += "\n";
     s += "\n| Obligation | Agreed | Current | Deed source | PLD permitted | PLD delivered | Status | Why |\n";
     s += "|---|---|---|---|---|---|---|---|\n";
     for row in &r.rows {

@@ -1,6 +1,6 @@
 # Reconciliation: obligations against delivery (M5, first cut)
 
-Status: draft, 13 Oct 2026 (revised after the PR #12 review). Code: `src/reconcile.rs`, `src/pld.rs`; tests: `tests/reconcile.rs`.
+Status: draft, 13 Oct 2026 (revised after the PR #12 reviews: later deeds now go to review rather than being applied). Code: `src/reconcile.rs`, `src/pld.rs`; tests: `tests/reconcile.rs`.
 
 This sets what a development's deeds oblige against what the Planning London Datahub (PLD)
 records as permitted and delivered. It starts with 19/AP/1773 (227–255 Ilderton Road).
@@ -22,8 +22,11 @@ InstrumentObligations   what one deed says, before it meets the deeds before it
     note, conflict      a condition; differing repeats within the deed
   deletions[]           targets the variation deletes, as the deed names them
 
-ObligationEvent         one per obligation per instrument that touches it (never overwritten)
-  op                    introduce{value} | restate{value} | replace{from, to} | unchanged | delete
+ObligationEvent         one per obligation per instrument that states or deletes it (never overwritten)
+  action                states | deletes
+  value                 the figure this deed states, if any
+  instrument_no         position in the order given, from 1
+  verified, scope       whether the deed's planning reference was checked; its partial scope
 
 Delivery                PLD's view of one development, read from one saved snapshot
   record_id, lpa_app_no e.g. Southwark-19_AP_1773, 19/AP/1773
@@ -35,100 +38,85 @@ Delivery                PLD's view of one development, read from one saved snaps
                         habitable rooms, completion date
 
 Row                     one per obligation
-  agreed                the introducing figure
-  current               the fold of every event; none once deleted
-  events[]              every event, with its citation and grounding
+  agreed                the first deed's figure
+  current               the last figure any deed states (shown, not applied)
+  events[]              every deed's statement or deletion, with its citation and grounding
   permitted, delivered  PLD permission figure; count over unit records with a completion date
-  status, reason
+  status, reason        the status and why, in words
+  cause                 a code when indeterminate (below)
+  review[]              review reasons when a later deed did something (below)
+
+Reconciliation          instruments, delivery, rows, warnings, and a summary:
+  summary               rows; decided (rows not indeterminate or varied); rows by status;
+                        indeterminate rows by cause; review rows by reason code
 ```
 
-### Variations are operations
+### Later deeds are recorded, not applied
 
-Instruments are applied in the order given, original first. The output warns when that order
-disagrees with the deeds' dates. For each obligation a deed states:
+Instruments are read in the order given, original first. The output warns when that order
+disagrees with the deeds' dates. Every deed's statement of every obligation is kept as an event,
+and the first deed's figure is the one compared with delivery. A later event leaves the row
+automatic only when it restates the same figure, or cites the obligation with no figure, from a
+deed that is verified (below), covers the whole scheme, and whose figure is not ungrounded.
+Anything else adds a review reason, and the row becomes "varied: compare by hand":
 
-| Before | This deed | Event |
-|---|---|---|
-| not yet stated | any figure, or none | introduce |
-| stated | the same figure | restate (not a change) |
-| stated | a different figure | replace |
-| stated | cites it with no figure | unchanged |
+| Later event | Review reason (`reason`) |
+|---|---|
+| a different figure from the one before it | `replaced` (instrument, from, to) |
+| a deletion naming this obligation | `deleted` (instrument, target) |
+| from a deed with a partial scope (`instrument.scope`) | `scoped` (instrument, scope) |
+| from a deed with no planning reference | `unverified` (instrument) |
+| differing figures within that deed | `conflict` (instrument, figures) |
+| a figure not found on its cited page | `ungrounded` (instrument, why) |
+| a deletion matching no obligation (reaches every row stated before it) | `unmatched_deletion` (instrument, target) |
 
-A variation's `Delete` (from the extraction's `variations`) becomes a `delete` event on each
-contribution whose key appears in the deleted target. It is applied, and the row is "removed by
-variation", only when its cited snippet is found on its page, it comes from a verified deed
-(below), and both the target and the snippet delete the whole obligation:
+A deletion (the extraction's `variations` with op `Delete`) names a contribution when the
+contribution's key appears in the deleted target. Its wording is not interpreted: whether it
+deletes the whole obligation or some words of it is for the person reviewing the row.
 
-- In the target, and in every clause of the snippet (split at `.`, `;` and line breaks) that names
-  the contribution, the words just before its name (back to the start or an "and") must be nothing,
-  "the definition of", "the obligation to pay" or "all references to". "The words payable on
-  commencement in the definition of Bus Contribution" is a partial deletion.
-- Each of those clauses must say it is deleted (deleted, omitted, revoked, removed, struck out),
-  with no word that could keep it ("retained", "not", "except", "save", "but", "unless",
-  "remains") or narrow the deletion ("words", "phrase", "sentence", "text", "figure", "part",
-  "extent", "in so far").
+One exception keeps a match automatic: when every review reason is a replacement and delivery
+equals the latest figure from a verified, whole-scheme, grounded deed, the row is "counts match
+(varied figure)". A match either way needs no judgement.
 
-So "the Bus Contribution is retained. The Carbon Green Fund Contribution is deleted." does not
-delete the Bus Contribution. A partial or ambiguous deletion stays in the history, the obligation
-keeps its figure, and the row goes to "varied: compare by hand".
-Otherwise the event is kept in the history but not applied, and the row goes to "varied: compare
-by hand". A deletion that matches no obligation is reported as a warning, and every obligation
-stated before it goes to "varied: compare by hand", because it could be the one deleted.
-
-A row's state is a fold over its events, so it doesn't depend on which event came last:
-
-- a figure (introduce, restate, replace) sets the current value and reinstates a removed
-  obligation;
-- an applied delete removes it, and a later `unchanged` citation leaves it removed;
-- a conflict (differing figures in one deed) lasts until a later deed states a figure without
-  one. The conflict stays in the event history either way.
+This is deliberately conservative. What counts as the current obligation after a variation needs
+legal input (research plan, open question 3), and a wrong automatic answer would be a silent error
+while a review row is only a cost. Applying variations automatically later changes only
+`reconcile::facts`, not the event log; it should be built from the extraction's own variation
+operations, each citing its operative clause, once the summary shows variation rows are a large
+share of the review queue.
 
 Contribution keys are their names in lower case with punctuation dropped and a leading "the"
 removed, so "the Bus Contribution" in a variation is the same obligation as "Bus Contribution" in
 the original. Within one deed, repeats with the same figure merge (a sum defined, then restated in
-a schedule). Repeats with different figures (phased sums, or a misread) keep no figure and the row
-is indeterminate, naming the figures.
-
-### Partial scope
-
-A deed that states a partial scope (the extraction's `instrument.scope`, e.g. "in so far as it
-relates to Phase 2") covers only part of the development, while every row here is for the whole
-scheme. So what a scoped deed introduces, replaces or deletes is kept in the history with its
-scope but not applied: the figure stays as it was and the row goes to "varied: compare by hand",
-until an unscoped, verified deed states the figure again.
+a schedule). Repeats with different figures (phased sums, or a misread) keep no figure and carry a
+conflict: in the first deed the row is indeterminate, naming the figures; in a later deed it is a
+`conflict` review reason.
 
 ### Same development
 
 `reconcile` refuses a PLD record whose id isn't the `--development` given. Then every instrument
 is checked on its own against one reference: PLD's `lpa_app_no`, or the first deed's planning
 references when there is no PLD record (compared without case or separators). A deed citing a
-different reference is refused, naming the instrument. A later deed citing no reference is
-applied, with a warning, but every obligation it changes (replaces, deletes or introduces) goes to
-"varied: compare by hand", until a verified deed states the figure again. The events keep the
-unverified step either way.
+different reference is refused, naming the instrument. A later deed citing no reference is read,
+with a warning, and everything it says about an obligation is an `unverified` review reason.
 
 ## Status rules
 
-`reconcile::decide`, evaluated in order. `tests/reconcile.rs::decision_table` lists every
-combination for a stated figure.
+`reconcile::decide`, evaluated in order. `tests/reconcile.rs::decision_table` lists the cases.
 
-| Condition | Status |
-|---|---|
-| a variation deleted it | removed by variation |
-| the deed states differing figures for it | indeterminate |
-| no stated figure in the deed (formula, rate, none) | indeterminate |
-| the current deed value isn't grounded on its page | indeterminate |
-| a later deed deletes it, but the deletion isn't grounded or its deed isn't verified | varied: compare by hand |
-| a deed with no planning reference changed it | varied: compare by hand |
-| a deed limited to part of the development changed it (checked first, unless removed) | varied: compare by hand |
-| a later deed deletes something unmatched | varied: compare by hand |
-| no delivered figure (no unit records, unrecognised or missing tenure, missing rooms, a contribution) | indeterminate |
-| delivered = current (percentages within the verifier's 0.05-point tolerance) | counts match |
-| the figure was replaced and delivered ≠ current | varied: compare by hand |
-| PLD reports the scheme complete, delivered ≠ current | **differs: review** |
-| scheme not complete, delivered < current | not yet due |
-| scheme not complete, delivered > current | differs: review |
-| scheme status unknown | indeterminate |
+| Condition | Status | Cause |
+|---|---|---|
+| a later deed gave a review reason, and delivery equals a trusted latest replacement (above) | counts match (varied figure) | |
+| a later deed gave a review reason | varied: compare by hand | |
+| the first deed states differing figures for it | indeterminate | `conflict` |
+| no stated figure in the deed (formula, rate, none) | indeterminate | `no_figure` |
+| the deed value isn't grounded on its page | indeterminate | `ungrounded` |
+| no delivered figure | indeterminate | `no_delivery_data`, `no_unit_records`, `no_payments`, `no_rooms`, `unknown_tenure` or `no_floorspace_basis` |
+| delivered = agreed (percentages within the verifier's 0.05-point tolerance) | counts match | |
+| PLD reports the scheme complete, delivered ≠ agreed | **differs: review** | |
+| scheme not complete, delivered < agreed | not yet due | |
+| scheme not complete, delivered > agreed | differs: review | |
+| scheme status unknown | indeterminate | `scheme_status_unknown` |
 
 When the deed splits affordable housing by tenure, affordable units delivered in a tenure no deed
 tenure covers get their own "(not in deed)" row, marked "differs: review". A deed with only an
@@ -200,10 +188,11 @@ The table as run on 13 Oct 2026 is in [`reconciliation-19-AP-1773.md`](reconcili
 
 ## Not done yet
 
-- **Variation extraction as operations.** Replacements and restatements are worked out by
-  comparing figures, and deletions come from the extraction's `variations`. The extraction prompt
-  should ask a deed of variation for operations directly, each citing its operative clause, and
-  deletions of housing obligations (not only named contributions) need a target to match.
+- **Applying variations.** Later deeds go to review (above). When they are applied, it should be
+  from the extraction's `variations` operations (`Replace` and `Amend` with `new_text`), each
+  citing its operative clause, with the deed's `instrument.parent` as its identity check, which is
+  better than a planning reference that variations often omit. Deletions of housing obligations
+  (not only named contributions) also need a target to match.
 - **Alignment by clause.** Obligations are matched across deeds by measure and normalised name.
   Matching by defined term, clause reference and amount, shared with PR #10's obligation
   inventory, would let a replacement point at what it replaces.

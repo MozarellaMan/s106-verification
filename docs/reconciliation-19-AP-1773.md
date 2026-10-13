@@ -5,6 +5,7 @@
 - Instrument 1: Agreement dated 28 January 2021, LEG/RP/PL/S106/RR020/80; sha256 `0baed481b09feeb4e515d3752439448fee7e5993103d2085116da7854cb5f85b`
 - PLD record `Southwark-19_AP_1773` (19/AP/1773) as of 2026-10-13T20:51:14Z: status Completed, started 2022-05-23, completed 2025-07-19
   - snapshot `snapshots/pld/applications/Southwark-19_AP_1773/2026-10-13T20_51_14Z.json` retrieved 2026-10-13T20:51:14Z (sha256 `f6e4dcc97574dc89e3bdf366a37ac1f90a51692470a959083b7246965fd19b22`), PLD mapping v1
+- Summary: 4 of 21 rows decided without review of the deeds; indeterminate by cause: no_figure 4, ungrounded 2, no_payments 8, no_rooms 3
 
 | Obligation | Agreed | Current | Deed source | PLD permitted | PLD delivered | Status | Why |
 |---|---|---|---|---|---|---|---|

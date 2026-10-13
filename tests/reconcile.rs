@@ -138,40 +138,6 @@ fn dov() -> Agreement {
     d
 }
 
-/// The variation's page text: p2 carries the deletion clause.
-fn dov_pages() -> Pages {
-    [(
-        2,
-        "The definition of Bus Contribution is deleted. The definition of Carbon Green Fund \
-         Contribution is deleted."
-            .to_string(),
-    )]
-    .into_iter()
-    .collect()
-}
-
-/// `before`, unchecked, then `v` grounded against `dov_pages`.
-fn with_pages(before: &[Agreement], v: &Agreement, d: Delivery) -> Reconciliation {
-    let mut instruments: Vec<_> = before
-        .iter()
-        .map(|a| instrument_obligations(a, None))
-        .collect();
-    instruments.push(instrument_obligations(v, Some(&dov_pages())));
-    reconcile(DEV, instruments, Some(d)).unwrap()
-}
-
-fn delete_bus(page: usize) -> Variation {
-    Variation {
-        op: VariationOp::Delete,
-        target: "the definition of \"Bus Contribution\"".into(),
-        new_text: None,
-        evidence: Some(Evidence {
-            page,
-            snippet: "The definition of Bus Contribution is deleted".into(),
-        }),
-    }
-}
-
 fn sr_tenure(units: Option<u32>) -> TenureAllocation {
     TenureAllocation {
         tenure: SR,
@@ -376,107 +342,6 @@ fn unrecognised_or_missing_tenure_blocks_tenure_counts_but_not_the_total() {
 }
 
 #[test]
-fn a_replaced_figure_becomes_the_current_obligation() {
-    let mut v = dov();
-    v.housing.tenures = vec![sr_tenure(Some(50))];
-    let r = run(
-        &[southwark(), v.clone()],
-        delivery(177, &[(SR, 50), (INT, 18)], true),
-    );
-    assert_eq!(r.instruments.len(), 2);
-    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
-    assert_eq!((sr.agreed, sr.current), (Some(dec("58")), Some(dec("50"))));
-    assert_eq!(
-        sr.events[1].op,
-        Op::Replace {
-            from: Some(dec("58")),
-            to: dec("50")
-        }
-    );
-    assert_eq!(sr.status, RowStatus::CountsMatch);
-    // Other obligations the variation doesn't mention are unchanged.
-    assert_eq!(row(&r, &Measure::MarketUnits).events.len(), 1);
-
-    let r = run(
-        &[southwark(), v],
-        delivery(177, &[(SR, 45), (INT, 18)], true),
-    );
-    assert_eq!(
-        row(&r, &Measure::TenureUnits { tenure: SR }).status,
-        RowStatus::Varied
-    );
-}
-
-#[test]
-fn a_restated_figure_is_not_a_variation() {
-    let mut v = dov();
-    v.housing.tenures = vec![sr_tenure(Some(58))];
-    let r = run(
-        &[southwark(), v.clone()],
-        delivery(177, &[(SR, 48), (INT, 18)], true),
-    );
-    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
-    assert_eq!(sr.events[1].op, Op::Restate { value: dec("58") });
-    // A restatement doesn't hide a shortfall behind "compare by hand".
-    assert_eq!(sr.status, RowStatus::DiffersReviewRequired);
-
-    // Missing delivery data is indeterminate, restated or not.
-    let mut d = full();
-    d.units.clear();
-    let r = run(&[southwark(), v], d);
-    assert_eq!(
-        row(&r, &Measure::TenureUnits { tenure: SR }).status,
-        RowStatus::Indeterminate
-    );
-}
-
-#[test]
-fn a_variation_citing_an_obligation_without_a_figure_leaves_it_unchanged() {
-    let mut v = dov();
-    v.housing.tenures = vec![sr_tenure(None)];
-    let r = run(&[southwark(), v], full());
-    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
-    assert_eq!(sr.events[1].op, Op::Unchanged);
-    assert_eq!(sr.current, Some(dec("58")));
-    assert_eq!(sr.status, RowStatus::CountsMatch);
-}
-
-#[test]
-fn a_deletion_removes_the_obligation() {
-    let mut v = dov();
-    let mut del = delete_bus(2);
-    del.target = "the definition of \"Bus Contribution\" and paragraph 2 of Schedule 4".into();
-    v.variations = vec![del];
-    let r = with_pages(&[southwark()], &v, full());
-    let b = row(&r, &bus());
-    assert_eq!(b.status, RowStatus::Removed);
-    assert_eq!(b.current, None);
-    assert_eq!(b.events.last().unwrap().op, Op::Delete);
-    // Nothing else is touched.
-    assert_eq!(
-        row(&r, &Measure::MarketUnits).status,
-        RowStatus::CountsMatch
-    );
-    assert!(r.warnings.is_empty(), "{:?}", r.warnings);
-}
-
-#[test]
-fn an_unmatched_deletion_sends_earlier_obligations_to_review() {
-    let mut v = dov();
-    v.variations = vec![Variation {
-        op: VariationOp::Delete,
-        target: "paragraph 4.3 of Schedule 2".into(),
-        new_text: None,
-        evidence: None,
-    }];
-    let r = run(&[southwark(), v], full());
-    let market = row(&r, &Measure::MarketUnits);
-    assert_eq!(market.status, RowStatus::Varied);
-    assert!(market.reason.contains("paragraph 4.3 of Schedule 2"));
-    assert!(r.warnings.iter().any(|w| w.contains("isn't matched")));
-}
-
-#[test]
 fn duplicates_in_one_deed_merge_or_conflict() {
     let mut a = southwark();
     let mut again = a
@@ -507,26 +372,6 @@ fn duplicates_in_one_deed_merge_or_conflict() {
             .contains("different figures: 683100, 683100, 100000")
     );
     assert_eq!(b.agreed, None);
-}
-
-#[test]
-fn contribution_names_match_across_instruments_after_normalising() {
-    let mut v = dov();
-    let mut c = southwark()
-        .contributions
-        .into_iter()
-        .find(|c| c.name == "Bus Contribution")
-        .unwrap();
-    c.name = "the BUS contribution".into();
-    c.amount.value_gbp = Some(dec("700000"));
-    v.contributions = vec![c];
-    let r = run(&[southwark(), v], full());
-    let b = row(&r, &bus());
-    assert_eq!(
-        (b.agreed, b.current),
-        (Some(dec("683100")), Some(dec("700000")))
-    );
-    assert_eq!(r.rows.iter().filter(|x| x.measure == bus()).count(), 1);
 }
 
 #[test]
@@ -571,134 +416,6 @@ fn reconciliation_round_trips_as_json() {
 
 /// Every combination of the rules for a stated, grounded figure: replaced or not, delivered
 /// missing / short / equal / over, scheme complete / not / unknown.
-#[test]
-fn decision_table() {
-    use RowStatus::*;
-    let current = dec("10");
-    let delivered = |d: &str| match d {
-        "none" => Counted::none("no PLD unit records"),
-        "less" => Counted {
-            value: Some(dec("8")),
-            basis: "x".into(),
-        },
-        "equal" => Counted {
-            value: Some(dec("10")),
-            basis: "x".into(),
-        },
-        "more" => Counted {
-            value: Some(dec("12")),
-            basis: "x".into(),
-        },
-        _ => unreachable!(),
-    };
-    let complete = |c: &str| match c {
-        "yes" => Some(true),
-        "no" => Some(false),
-        _ => None,
-    };
-    #[rustfmt::skip]
-    let table: &[(bool, &str, &str, RowStatus)] = &[
-        // replaced, delivered, complete, expected
-        (false, "none",  "yes", Indeterminate),
-        (false, "none",  "no",  Indeterminate),
-        (false, "none",  "?",   Indeterminate),
-        (false, "less",  "yes", DiffersReviewRequired),
-        (false, "less",  "no",  NotYetDue),
-        (false, "less",  "?",   Indeterminate),
-        (false, "equal", "yes", CountsMatch),
-        (false, "equal", "no",  CountsMatch),
-        (false, "equal", "?",   CountsMatch),
-        (false, "more",  "yes", DiffersReviewRequired),
-        (false, "more",  "no",  DiffersReviewRequired),
-        (false, "more",  "?",   Indeterminate),
-        (true,  "none",  "yes", Indeterminate),
-        (true,  "none",  "no",  Indeterminate),
-        (true,  "none",  "?",   Indeterminate),
-        (true,  "less",  "yes", Varied),
-        (true,  "less",  "no",  Varied),
-        (true,  "less",  "?",   Varied),
-        (true,  "equal", "yes", CountsMatch),
-        (true,  "equal", "no",  CountsMatch),
-        (true,  "equal", "?",   CountsMatch),
-        (true,  "more",  "yes", Varied),
-        (true,  "more",  "no",  Varied),
-        (true,  "more",  "?",   Varied),
-    ];
-    for &(replaced, d, c, want) in table {
-        let mut f = Facts {
-            current: Current::Value(current),
-            grounding: Grounding::Grounded,
-            replaced,
-            unmatched_deletion: None,
-            unproven_deletion: None,
-            unverified_change: None,
-            partial_change: None,
-            delivered: delivered(d),
-            percentage: false,
-            scheme_complete: complete(c),
-        };
-        assert_eq!(
-            decide(&f).0,
-            want,
-            "replaced={replaced} delivered={d} complete={c}"
-        );
-        // Not checked against pages: the same as grounded.
-        f.grounding = Grounding::NotChecked;
-        assert_eq!(decide(&f).0, want);
-        // Every other state of the obligation wins over delivery.
-        f.grounding = Grounding::Ungrounded("why".into());
-        assert_eq!(decide(&f).0, Indeterminate);
-        f.grounding = Grounding::Grounded;
-        f.unmatched_deletion = Some("clause 9".into());
-        assert_eq!(decide(&f).0, Varied);
-        f.unmatched_deletion = None;
-        f.unproven_deletion = Some("not on p999".into());
-        assert_eq!(decide(&f).0, Varied);
-        f.unproven_deletion = None;
-        f.unverified_change = Some("a deed".into());
-        assert_eq!(decide(&f).0, Varied);
-        f.unverified_change = None;
-        f.partial_change = Some("a Phase 2 deed".into());
-        assert_eq!(decide(&f).0, Varied);
-        f.partial_change = None;
-        for (state, status) in [
-            (Current::Removed, Removed),
-            (Current::Conflict("two figures".into()), Indeterminate),
-            (Current::NoFigure(None), Indeterminate),
-        ] {
-            f.current = state;
-            assert_eq!(decide(&f).0, status);
-        }
-    }
-}
-
-#[test]
-fn percentages_compare_within_the_verifier_tolerance() {
-    let f = |deed: &str, delivered: &str| Facts {
-        current: Current::Value(dec(deed)),
-        grounding: Grounding::Grounded,
-        replaced: false,
-        unmatched_deletion: None,
-        unproven_deletion: None,
-        unverified_change: None,
-        partial_change: None,
-        delivered: Counted {
-            value: Some(dec(delivered)),
-            basis: "x".into(),
-        },
-        percentage: true,
-        scheme_complete: Some(true),
-    };
-    assert_eq!(decide(&f("35.7", "35.75")).0, RowStatus::CountsMatch);
-    assert_eq!(
-        decide(&f("36", "35.75")).0,
-        RowStatus::DiffersReviewRequired
-    );
-    let mut exact = f("35.7", "35.75");
-    exact.percentage = false;
-    assert_eq!(decide(&exact).0, RowStatus::DiffersReviewRequired);
-}
-
 #[test]
 fn snapshots_are_saved_verbatim_and_never_overwritten() {
     let dir = tempfile::tempdir().unwrap();
@@ -857,216 +574,6 @@ fn a_deed_for_another_development_is_refused() {
 }
 
 #[test]
-fn a_later_deed_without_a_planning_reference_goes_to_review() {
-    let mut v = dov();
-    v.metadata.planning_references.clear();
-    v.housing.tenures = vec![sr_tenure(Some(50))];
-    let r = run(
-        &[southwark(), v],
-        delivery(177, &[(SR, 50), (INT, 18)], true),
-    );
-    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
-    assert_eq!(sr.status, RowStatus::Varied);
-    assert!(
-        sr.reason.contains("states no planning reference"),
-        "{}",
-        sr.reason
-    );
-    assert!(
-        r.warnings
-            .iter()
-            .any(|w| w.contains("instrument 2 states no planning reference"))
-    );
-    // Obligations it doesn't touch are unaffected.
-    assert_eq!(
-        row(&r, &Measure::MarketUnits).status,
-        RowStatus::CountsMatch
-    );
-}
-
-#[test]
-fn an_unproven_deletion_is_not_applied() {
-    // Cites a page the deed doesn't have.
-    let mut v = dov();
-    v.variations = vec![delete_bus(999)];
-    let r = with_pages(&[southwark()], &v, full());
-    let b = row(&r, &bus());
-    assert_eq!(b.status, RowStatus::Varied);
-    assert_eq!(b.current, Some(dec("683100")));
-    assert!(
-        b.reason.contains("not re-locatable on p999"),
-        "{}",
-        b.reason
-    );
-    // Not checked against pages at all: also not applied.
-    let r = run(&[southwark(), v], full());
-    assert_eq!(row(&r, &bus()).status, RowStatus::Varied);
-}
-
-#[test]
-fn a_later_citation_without_a_figure_keeps_a_deletion() {
-    let mut v = dov();
-    v.variations = vec![delete_bus(2)];
-    let mut cited = dov();
-    cited.provenance.sha256 = "dov2".into();
-    cited.metadata.agreement_date = Some("1 March 2024".into());
-    let mut c = southwark()
-        .contributions
-        .into_iter()
-        .find(|c| c.amount.stated_sum_gbp().is_none() && c.amount.evidence.is_some())
-        .unwrap();
-    c.name = "Bus Contribution".into();
-    cited.contributions = vec![c];
-    let mut instruments = vec![
-        instrument_obligations(&southwark(), None),
-        instrument_obligations(&v, Some(&dov_pages())),
-    ];
-    instruments.push(instrument_obligations(&cited, None));
-    let r = reconcile(DEV, instruments, Some(full())).unwrap();
-    let b = row(&r, &bus());
-    let ops: Vec<&Op> = b.events.iter().map(|e| &e.op).collect();
-    assert!(
-        matches!(ops[..], [Op::Introduce { .. }, Op::Delete, Op::Unchanged]),
-        "{ops:?}"
-    );
-    assert_eq!(b.status, RowStatus::Removed);
-}
-
-#[test]
-fn a_later_figure_resolves_an_earlier_conflict() {
-    let mut a = southwark();
-    let mut other = sr_tenure(Some(60));
-    other.evidence = Some(Evidence {
-        page: 31,
-        snippet: "60 Social Rented Units".into(),
-    });
-    a.housing.tenures.push(other);
-    let mut v = dov();
-    v.housing.tenures = vec![sr_tenure(Some(50))];
-    let r = run(&[a.clone(), v], delivery(177, &[(SR, 50), (INT, 18)], true));
-    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
-    assert_eq!(sr.current, Some(dec("50")));
-    assert_eq!(sr.status, RowStatus::CountsMatch);
-    // The conflict stays in the history.
-    assert!(sr.events[0].conflict.as_deref().unwrap().contains("58, 60"));
-    // With no later figure it is still indeterminate.
-    let r = run(&[a], full());
-    assert_eq!(
-        row(&r, &Measure::TenureUnits { tenure: SR }).status,
-        RowStatus::Indeterminate
-    );
-}
-
-#[test]
-fn a_deletion_snippet_must_name_what_it_deletes() {
-    // The target says Bus Contribution, but the snippet is the Carbon Green Fund clause.
-    let mut v = dov();
-    let mut del = delete_bus(2);
-    del.evidence = Some(Evidence {
-        page: 2,
-        snippet: "The definition of Carbon Green Fund Contribution is deleted".into(),
-    });
-    v.variations = vec![del];
-    let r = with_pages(&[southwark()], &v, full());
-    let b = row(&r, &bus());
-    assert_eq!(b.status, RowStatus::Varied);
-    assert!(
-        b.reason.contains("doesn't name it: the Bus Contribution"),
-        "{}",
-        b.reason
-    );
-    // A bare "is deleted" names nothing.
-    let mut del = delete_bus(2);
-    del.evidence.as_mut().unwrap().snippet = "is deleted".into();
-    v.variations = vec![del];
-    let r = with_pages(&[southwark()], &v, full());
-    assert_eq!(row(&r, &bus()).status, RowStatus::Varied);
-    // A snippet that names it but doesn't delete anything isn't a deletion either.
-    let mut del = delete_bus(2);
-    del.evidence.as_mut().unwrap().snippet = "The definition of Bus Contribution".into();
-    v.variations = vec![del];
-    let r = with_pages(&[southwark()], &v, full());
-    assert!(
-        row(&r, &bus())
-            .reason
-            .contains("doesn't say anything is deleted")
-    );
-}
-
-#[test]
-fn an_obligation_introduced_by_an_unverified_deed_goes_to_review() {
-    let mut v = dov();
-    v.metadata.planning_references.clear();
-    let mut a = southwark();
-    a.housing.tenures.retain(|t| t.tenure != SR);
-    v.housing.tenures = vec![sr_tenure(Some(58))];
-    let r = run(&[a, v], full());
-    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
-    assert!(matches!(sr.events[0].op, Op::Introduce { .. }));
-    assert_eq!(sr.status, RowStatus::Varied);
-    assert!(
-        sr.reason.contains("states no planning reference"),
-        "{}",
-        sr.reason
-    );
-}
-
-#[test]
-fn a_verified_figure_clears_an_unverified_change() {
-    let mut unverified = dov();
-    unverified.metadata.planning_references.clear();
-    unverified.housing.tenures = vec![sr_tenure(Some(50))];
-    let mut verified = dov();
-    verified.provenance.sha256 = "dov2".into();
-    verified.metadata.agreement_date = Some("1 March 2024".into());
-    verified.housing.tenures = vec![sr_tenure(Some(55))];
-    let r = run(
-        &[southwark(), unverified, verified],
-        delivery(177, &[(SR, 55), (INT, 18)], true),
-    );
-    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
-    assert_eq!(sr.current, Some(dec("55")));
-    assert_eq!(sr.status, RowStatus::CountsMatch);
-    // The history still shows the unverified step.
-    assert!(!sr.events[1].verified && sr.events[2].verified);
-}
-
-#[test]
-fn a_deletion_must_apply_to_the_named_obligation() {
-    let deleting = |snippet: &str| {
-        let mut v = dov();
-        let mut del = delete_bus(2);
-        del.evidence.as_mut().unwrap().snippet = snippet.into();
-        v.variations = vec![del];
-        let pages: Pages = [(2, snippet.to_string())].into_iter().collect();
-        let instruments = vec![
-            instrument_obligations(&southwark(), None),
-            instrument_obligations(&v, Some(&pages)),
-        ];
-        let r = reconcile(DEV, instruments, Some(full())).unwrap();
-        row(&r, &bus()).clone()
-    };
-    // The deletion is in a different clause from the one naming Bus Contribution.
-    let b = deleting(
-        "The Bus Contribution is retained. The Carbon Green Fund Contribution is deleted.",
-    );
-    assert_eq!(b.status, RowStatus::Varied);
-    assert!(
-        b.reason
-            .contains("doesn't clearly say the whole of it is deleted"),
-        "{}",
-        b.reason
-    );
-    // One clause that keeps it and deletes something else.
-    let b =
-        deleting("The Carbon Green Fund Contribution is deleted but the Bus Contribution is not");
-    assert_eq!(b.status, RowStatus::Varied);
-    // One clause deleting both is proof for each.
-    let b = deleting("The Bus Contribution and the Carbon Green Fund Contribution are deleted");
-    assert_eq!(b.status, RowStatus::Removed);
-}
-
-#[test]
 fn pld_fields_must_be_present_even_when_null() {
     let (snap, at) = pld_snapshot();
     // Renamed: an error, not 253 units silently uncompleted.
@@ -1091,141 +598,310 @@ fn pld_fields_must_be_present_even_when_null() {
     );
 }
 
+fn bus_contribution(gbp: &str) -> Contribution {
+    let mut c = southwark()
+        .contributions
+        .into_iter()
+        .find(|c| c.name == "Bus Contribution")
+        .unwrap();
+    c.amount.value_gbp = Some(dec(gbp));
+    c
+}
+
+fn delete(target: &str) -> Variation {
+    Variation {
+        op: VariationOp::Delete,
+        target: target.into(),
+        new_text: None,
+        evidence: None,
+    }
+}
+
+fn codes(r: &Row) -> Vec<&'static str> {
+    r.review.iter().map(ReviewReason::code).collect()
+}
+
+/// Later deeds are recorded, not applied: each kind of later event, and each deed flag, gives
+/// one review reason and "varied: compare by hand". Only a restatement stays automatic.
 #[test]
-fn deleting_words_inside_an_obligation_does_not_remove_it() {
-    let deleting = |target: &str, snippet: &str| {
-        let mut v = dov();
-        v.variations = vec![Variation {
-            op: VariationOp::Delete,
-            target: target.into(),
-            new_text: None,
-            evidence: Some(Evidence {
-                page: 2,
-                snippet: snippet.into(),
-            }),
-        }];
-        let pages: Pages = [(2, snippet.to_string())].into_iter().collect();
-        let instruments = vec![
-            instrument_obligations(&southwark(), None),
-            instrument_obligations(&v, Some(&pages)),
-        ];
-        let r = reconcile(DEV, instruments, Some(full())).unwrap();
-        row(&r, &bus()).clone()
-    };
-    let words = "the words payable on commencement in the definition of Bus Contribution";
-    let b = deleting(
-        words,
-        "The words \"payable on Commencement\" in the definition of Bus Contribution are deleted",
-    );
-    assert_eq!(b.status, RowStatus::Varied);
-    assert_eq!(b.current, Some(dec("683100")));
-    assert!(b.reason.contains("deletes only part of it"), "{}", b.reason);
-    // A whole-sounding target with a partial snippet is still partial.
-    let b = deleting(
-        "the definition of Bus Contribution",
-        "The words \"payable on Commencement\" in the definition of Bus Contribution are deleted",
-    );
-    assert_eq!(b.status, RowStatus::Varied);
-    let b = deleting(
-        "the definition of Bus Contribution",
-        "The definition of Bus Contribution is deleted in so far as it relates to Phase 2",
-    );
-    assert_eq!(b.status, RowStatus::Varied);
-    // The whole definition, deleted: removed.
-    let b = deleting(
-        "the definition of Bus Contribution",
-        "The definition of Bus Contribution is deleted",
-    );
-    assert_eq!(b.status, RowStatus::Removed);
+fn later_deeds_go_to_review_by_reason() {
+    type Edit = fn(&mut Agreement);
+    let cases: &[(&str, Edit, &[&str])] = &[
+        (
+            "restates the figure",
+            |d| d.contributions.push(bus_contribution("683100")),
+            &[],
+        ),
+        (
+            "cites it without a figure",
+            |d| {
+                let mut c = bus_contribution("0");
+                c.amount.value_gbp = None;
+                d.contributions.push(c)
+            },
+            &[],
+        ),
+        (
+            "states a different figure",
+            |d| d.contributions.push(bus_contribution("700000")),
+            &["replaced"],
+        ),
+        (
+            "deletes it",
+            |d| d.variations.push(delete("the Bus Contribution")),
+            &["deleted"],
+        ),
+        (
+            "restates it with a partial scope",
+            |d| {
+                d.contributions.push(bus_contribution("683100"));
+                d.instrument.scope = Some(Quoted {
+                    text: "in so far as it relates to Phase 2".into(),
+                    evidence: None,
+                });
+            },
+            &["scoped"],
+        ),
+        (
+            "restates it with no planning reference",
+            |d| {
+                d.contributions.push(bus_contribution("683100"));
+                d.metadata.planning_references.clear();
+            },
+            &["unverified"],
+        ),
+        (
+            "states two figures",
+            |d| {
+                d.contributions.push(bus_contribution("683100"));
+                d.contributions.push(bus_contribution("700000"));
+            },
+            &["conflict"],
+        ),
+        (
+            "changes it with a partial scope",
+            |d| {
+                d.contributions.push(bus_contribution("700000"));
+                d.instrument.scope = Some(Quoted {
+                    text: "in so far as it relates to Phase 2".into(),
+                    evidence: None,
+                });
+            },
+            &["scoped", "replaced"],
+        ),
+    ];
+    let base = row(&run(&[southwark()], full()), &bus()).status;
+    for (what, edit, want) in cases {
+        let mut d = dov();
+        edit(&mut d);
+        let r = run(&[southwark(), d], full());
+        let b = row(&r, &bus());
+        assert_eq!(&codes(b), want, "a later deed that {what}");
+        let status = if want.is_empty() {
+            base
+        } else {
+            RowStatus::Varied
+        };
+        assert_eq!(b.status, status, "a later deed that {what}: {}", b.reason);
+        assert_eq!(
+            b.agreed,
+            Some(dec("683100")),
+            "the first deed's figure is kept"
+        );
+        assert!(b.events.len() >= 2, "every deed's statement is recorded");
+    }
 }
 
 #[test]
-fn a_scoped_variation_is_recorded_but_not_applied() {
-    let scoped = |mut v: Agreement| {
-        v.instrument.scope = Some(Quoted {
-            text: "in so far as it relates to Phase 2".into(),
-            evidence: None,
-        });
-        v
-    };
-    // A grounded, whole deletion, but only for Phase 2.
-    let mut v = dov();
-    v.variations = vec![delete_bus(2)];
-    let r = with_pages(&[southwark()], &scoped(v), full());
+fn an_unmatched_deletion_reaches_every_earlier_row() {
+    let mut d = dov();
+    d.variations.push(delete("the Library Contribution"));
+    let r = run(&[southwark(), d], full());
+    for x in &r.rows {
+        assert_eq!(codes(x), ["unmatched_deletion"], "{}", x.label);
+        assert_eq!(x.status, RowStatus::Varied);
+    }
+    assert!(row(&r, &bus()).reason.contains("Library Contribution"));
+}
+
+#[test]
+fn a_later_figure_matching_delivery_counts_match_as_varied() {
+    let mut d = dov();
+    d.housing.market_units = Some(170);
+    let r = run(
+        &[southwark(), d.clone()],
+        delivery(170, &[(SR, 58), (LSO, 18)], true),
+    );
+    let m = row(&r, &Measure::MarketUnits);
+    assert_eq!(m.status, RowStatus::CountsMatchVariedFigure);
+    assert_eq!(m.status.label(), "counts match (varied figure)");
+    assert_eq!(m.agreed, Some(dec("177")));
+    assert_eq!(m.current, Some(dec("170")));
+
+    // the same figure from a deed that couldn't be checked is not trusted
+    d.metadata.planning_references.clear();
+    let r = run(
+        &[southwark(), d],
+        delivery(170, &[(SR, 58), (LSO, 18)], true),
+    );
+    assert_eq!(row(&r, &Measure::MarketUnits).status, RowStatus::Varied);
+}
+
+#[test]
+fn a_conflict_in_the_first_deed_is_indeterminate() {
+    let mut a = southwark();
+    a.contributions.push(bus_contribution("700000"));
+    let r = run(&[a], full());
     let b = row(&r, &bus());
-    assert_eq!(b.status, RowStatus::Varied);
-    assert_eq!(b.current, Some(dec("683100")));
-    assert!(
-        b.reason
-            .contains("applies only \"in so far as it relates to Phase 2\""),
-        "{}",
-        b.reason
-    );
-    assert_eq!(
-        b.events.last().unwrap().scope.as_deref(),
-        Some("in so far as it relates to Phase 2")
-    );
-    // A scoped replacement doesn't change the whole-scheme figure either.
-    let mut v = dov();
-    v.housing.tenures = vec![sr_tenure(Some(50))];
-    let r = run(
-        &[southwark(), scoped(v)],
-        delivery(177, &[(SR, 50), (INT, 18)], true),
-    );
-    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
-    assert_eq!(sr.current, Some(dec("58")));
-    assert_eq!(sr.status, RowStatus::Varied);
-    // Obligations it doesn't touch are unaffected.
-    assert_eq!(
-        row(&r, &Measure::MarketUnits).status,
-        RowStatus::CountsMatch
-    );
+    assert_eq!(b.status, RowStatus::Indeterminate);
+    assert_eq!(b.cause, Some(Cause::Conflict));
 }
 
 #[test]
-fn an_unapplied_scoped_replacement_is_not_a_variation() {
-    // 58 → Phase 2-only 50 (not applied) → unscoped restatement of 58 → 48 delivered.
-    let mut phase2 = dov();
-    phase2.instrument.scope = Some(Quoted {
-        text: "in so far as it relates to Phase 2".into(),
-        evidence: None,
-    });
-    phase2.housing.tenures = vec![sr_tenure(Some(50))];
-    let mut restated = dov();
-    restated.provenance.sha256 = "dov2".into();
-    restated.metadata.agreement_date = Some("1 March 2024".into());
-    restated.housing.tenures = vec![sr_tenure(Some(58))];
-    let r = run(
-        &[southwark(), phase2, restated],
-        delivery(187, &[(SR, 48), (INT, 18)], true),
+fn the_summary_counts_statuses_causes_and_reasons() {
+    let mut d = dov();
+    d.contributions.push(bus_contribution("700000"));
+    let r = run(&[southwark(), d], full());
+    let s = &r.summary;
+    assert_eq!(s, &Summary::of(&r.rows));
+    assert_eq!(s.rows, r.rows.len());
+    assert_eq!(s.by_status.values().sum::<usize>(), s.rows);
+    assert_eq!(
+        s.decided,
+        r.rows.iter().filter(|x| x.status.decided()).count()
     );
-    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
-    assert_eq!(sr.current, Some(dec("58")));
-    assert!(matches!(sr.events[1].op, Op::Replace { .. }));
-    assert_eq!(sr.events[2].op, Op::Restate { value: dec("58") });
-    assert_eq!(sr.status, RowStatus::DiffersReviewRequired);
+    assert_eq!(s.review_by_reason.get("replaced"), Some(&1));
+    assert_eq!(s.by_status.get(&RowStatus::Varied), Some(&1));
+    let indeterminate = s
+        .by_status
+        .get(&RowStatus::Indeterminate)
+        .copied()
+        .unwrap_or(0);
+    assert_eq!(
+        s.indeterminate_by_cause.values().sum::<usize>(),
+        indeterminate
+    );
+    let json = serde_json::to_value(&r).unwrap();
+    assert_eq!(json["summary"]["review_by_reason"]["replaced"], 1);
+    assert!(json["rows"][0]["status"].is_string());
+}
+
+fn facts_with(current: Current, delivered: Option<&str>, complete: Option<bool>) -> Facts {
+    Facts {
+        current,
+        grounding: Grounding::Grounded,
+        review: vec![],
+        latest: None,
+        delivered: match delivered {
+            Some(v) => Counted::some(dec(v), "delivered"),
+            None => Counted::none(Cause::NoPayments, "no payments"),
+        },
+        percentage: false,
+        scheme_complete: complete,
+    }
 }
 
 #[test]
-fn a_scoped_conflict_does_not_touch_the_whole_scheme_figure() {
-    // 58 → Phase 2 deed stating 50 and 60 → unscoped restatement of 58 → 48 delivered.
-    let mut phase2 = dov();
-    phase2.instrument.scope = Some(Quoted {
-        text: "in so far as it relates to Phase 2".into(),
-        evidence: None,
-    });
-    phase2.housing.tenures = vec![sr_tenure(Some(50)), sr_tenure(Some(60))];
-    let mut restated = dov();
-    restated.provenance.sha256 = "dov2".into();
-    restated.metadata.agreement_date = Some("1 March 2024".into());
-    restated.housing.tenures = vec![sr_tenure(Some(58))];
-    let r = run(
-        &[southwark(), phase2, restated],
-        delivery(187, &[(SR, 48), (INT, 18)], true),
+fn decision_table() {
+    use Current::*;
+    let v = |s: &str| Value(dec(s));
+    let cases: Vec<(Facts, RowStatus, Option<Cause>)> = vec![
+        (
+            facts_with(v("10"), Some("10"), Some(true)),
+            RowStatus::CountsMatch,
+            None,
+        ),
+        (
+            facts_with(v("10"), Some("8"), Some(true)),
+            RowStatus::DiffersReviewRequired,
+            None,
+        ),
+        (
+            facts_with(v("10"), Some("8"), Some(false)),
+            RowStatus::NotYetDue,
+            None,
+        ),
+        (
+            facts_with(v("10"), Some("8"), None),
+            RowStatus::Indeterminate,
+            Some(Cause::SchemeStatusUnknown),
+        ),
+        (
+            facts_with(v("10"), None, Some(true)),
+            RowStatus::Indeterminate,
+            Some(Cause::NoPayments),
+        ),
+        (
+            facts_with(NoFigure(None), Some("10"), Some(true)),
+            RowStatus::Indeterminate,
+            Some(Cause::NoFigure),
+        ),
+        (
+            facts_with(Conflict("1 or 2".into()), Some("10"), Some(true)),
+            RowStatus::Indeterminate,
+            Some(Cause::Conflict),
+        ),
+        (
+            Facts {
+                grounding: Grounding::Ungrounded("not on page".into()),
+                ..facts_with(v("10"), Some("10"), Some(true))
+            },
+            RowStatus::Indeterminate,
+            Some(Cause::Ungrounded),
+        ),
+        (
+            Facts {
+                review: vec![ReviewReason::Unverified { instrument: 2 }],
+                ..facts_with(v("10"), Some("10"), Some(true))
+            },
+            RowStatus::Varied,
+            None,
+        ),
+        (
+            Facts {
+                review: vec![ReviewReason::Replaced {
+                    instrument: 2,
+                    from: Some(dec("10")),
+                    to: dec("8"),
+                }],
+                latest: Some(dec("8")),
+                ..facts_with(v("10"), Some("8"), Some(true))
+            },
+            RowStatus::CountsMatchVariedFigure,
+            None,
+        ),
+        (
+            Facts {
+                review: vec![ReviewReason::Replaced {
+                    instrument: 2,
+                    from: Some(dec("10")),
+                    to: dec("8"),
+                }],
+                latest: Some(dec("8")),
+                ..facts_with(v("10"), Some("9"), Some(true))
+            },
+            RowStatus::Varied,
+            None,
+        ),
+    ];
+    for (i, (f, status, cause)) in cases.iter().enumerate() {
+        let (s, reason, c) = decide(f);
+        assert_eq!((s, c), (*status, *cause), "case {i}: {reason}");
+        assert!(!reason.is_empty());
+    }
+}
+
+#[test]
+fn percentages_compare_within_the_verifier_tolerance() {
+    let f = |d: &str| Facts {
+        percentage: true,
+        ..facts_with(Current::Value(dec("30")), Some(d), Some(true))
+    };
+    let near = dec("30") + s106::verify::PCT_TOLERANCE;
+    assert_eq!(decide(&f(&near.to_string())).0, RowStatus::CountsMatch);
+    let far = near + dec("0.01");
+    assert_eq!(
+        decide(&f(&far.to_string())).0,
+        RowStatus::DiffersReviewRequired
     );
-    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
-    assert!(sr.events[1].conflict.is_some());
-    assert_eq!(sr.events[2].op, Op::Restate { value: dec("58") });
-    assert_eq!(sr.current, Some(dec("58")));
-    assert_eq!(sr.status, RowStatus::DiffersReviewRequired);
 }
