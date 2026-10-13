@@ -9,14 +9,60 @@ that every obligation has been found.
 ```mermaid
 flowchart LR
     PDF[Original PDF] --> D[document: text layer or OCR]
-    PDF --> L[llm: three structured extraction calls]
-    F[Recorded response] --> E[extract + wire: Agreement]
-    L --> E
-    D --> P[Pages: numbered text]
-    E --> V[verify: arithmetic and grounding]
+    PDF --> L[llm: optional live extraction]
+    F[Recorded fixture: offline replay] --> W[Wire extraction: original fields and citations]
+    L --> W
+    W --> E[extract + wire: conversion and retained failures]
+    D --> P[Pages: numbered text and source provenance]
+    E --> A[Agreement: values, evidence and run identities]
+    A --> V[verify: domain checks and evidence grounding]
     P --> V
-    V --> R[report: terminal and audit JSON]
+    V --> C[Check results: statuses and typed diagnostics]
+    A --> R[report: terminal and audit JSON]
+    C --> R
 ```
+
+## Numeric parsing and verification boundaries
+
+Numeric fields and cited prose enter the parser through different paths. Wire fields are
+already selected expressions; `text` locates candidates within citations. Both paths require
+complete expression parsing. OCR normalisation remains separate from syntax and interpretation.
+
+```mermaid
+flowchart TB
+    W[Selected wire field] --> G[numeric: named Winnow grammars]
+    S[Original citation] --> T[text: locate candidate expressions]
+    T --> G
+    G --> I[Rust interpretation: checked arithmetic and exact Decimal]
+    I --> V[verify: existing domain checks and assertion rules]
+    S --> E[evidence: bounded citation relocation]
+    P[Numbered page text] --> E
+    P --> O[OCR normalisation: substitution candidates]
+    O --> E
+    E --> V
+    G --> D[Typed diagnostics: input, cause, span and provenance reference]
+    I --> D
+    O --> D
+    V --> D
+    V --> C[Existing status and error class]
+    D --> R[Shared reporting facts]
+    C --> R
+    R --> CLI[Plain terminal renderer]
+    R --> JSON[Structured audit JSON]
+```
+
+The grammar identifies supported syntax; interpretation produces an exact value. Neither
+establishes evidence grounding or legal meaning. Numeric grounding must also work without
+page-digit substitution. A substitution candidate or a match that requires one preserves
+uncertainty rather than establishing a verified number.
+
+Diagnostics retain the original observed input and distinguish extraction/excerpt byte spans
+from claimed citation pages. Relocation supplies a Boolean, not a confirmed PDF character span.
+The enclosing audit carries document, extraction, parser and dependency identities so retry
+consumers can distinguish an input correction from a change in parser acceptance. Diagnostic
+categories remain separate from PASS, FAIL, REVIEW, SKIP and the existing error classes.
+See [Numeric parsing and diagnostics](numeric-parsing.md) for syntax, compatibility decisions
+and the consumer contract.
 
 ## The reading path
 
@@ -53,8 +99,10 @@ flowchart LR
    Empty citations become `None`; attachment positions pass through `PageMap`.
    Group contribution terms are removed; trigger labels come from the fixed
    vocabulary, with a covenant fallback for single triggers. The conversion does
-   not prove evidence. Malformed nonempty decimal strings currently become `None`;
-   that is a known input-validation limitation, distinct from JSON type errors.
+   not prove evidence. Numeric conversion uses complete Winnow expression syntax and exact
+   Decimal interpretation. Invalid nonempty fields retain their original input and typed
+   failure before becoming optional domain values. Empty optional fields remain absent;
+   JSON type errors still identify their nested wire field paths.
 
 5. **Verify.** `verify::verify` lists the checks in execution order. Each check
    computes its assertion and supplies `Input` values and citations to `resolve`.
@@ -62,7 +110,9 @@ flowchart LR
    `evidence_found` relocates that snippet on its cited page. Matching tolerates
    whitespace loss and bounded column interleaving. Decimal points and numeric
    boundaries are retained; numeric tokens cannot be skipped as garbled words.
-   No fuzzy-similarity score substitutes for these rules.
+   No fuzzy-similarity score substitutes for these rules. Numeric grounding additionally
+   requires relocation without page-digit substitution; a repair-dependent match requests
+   review. Parser, conversion and grounding diagnostics reach the resulting checks.
 
 6. **Optionally escalate.** With `--escalate`, Parser Errors trigger another
    complete extraction using the stronger model. `extract::escalate` groups check
@@ -70,10 +120,13 @@ flowchart LR
    when Parser Errors decrease, at least as many checks run and its implemented
    presence checks find no loss. These presence checks are incomplete (see below).
    The CLI re-verifies the merged agreement and records the merge log as a warning.
-   REVIEW alone does not trigger escalation.
+   Adopted groups replace their conversion diagnostics and retain the candidate extraction
+   and fixture identities in the enclosing run record. REVIEW alone does not trigger escalation.
 
 7. **Report.** `report::render` prints the agreement and check results;
-   `AuditJson` writes both to JSON. `report::exit_code` returns 2 for any Document
+   `AuditJson` writes both to JSON. Both renderers consume the same typed diagnostic facts;
+   agents do not need to parse terminal formatting. Money display preserves significant
+   fractional digits beyond two places. `report::exit_code` returns 2 for any Document
    Discrepancy, otherwise 1 for Parser Errors or REVIEW, otherwise 0. An all-SKIP
    result can therefore exit 0; exit 0 is not proof of completeness or compliance.
    The stated-sum total includes fixed sums and caps at their maxima, excluding
@@ -115,7 +168,9 @@ A PASS only concerns that check's assertion and current grounding mechanism.
 | `llm.rs` | `extract`, `schema_for`: SDK request/response and provider schema constraints |
 | `schema.rs` | `Agreement`: durable domain fields, evidence and provenance |
 | `verify.rs` | `verify`, `resolve`: check inventory and status decision |
-| `evidence.rs`, `text.rs`, `triggers.rs` | `evidence_found`: relocation; number reading; deterministic payment vocabulary |
+| `numeric.rs` | Complete expression grammars, checked interpretation, typed failures and parser/run identities |
+| `text.rs` | Prose candidate selection, OCR substitution candidates and compatibility helpers |
+| `evidence.rs`, `triggers.rs` | Bounded citation relocation; deterministic payment vocabulary |
 | `report.rs` | Terminal presentation and borrowed `AuditJson` view |
 | `eval.rs`, `ocrbench.rs` | Register comparison/run agreement; OCR against transcribed gold |
 
@@ -200,9 +255,10 @@ Record runtime artifacts and preserve the exact cached text used for a research 
   limitations, not permission to infer missing legal facts.
 - Model classification drives variation gating. Metadata, unconditional labels,
   indexing flags and complete obligation coverage are not independently verified.
-- Escalation's loss checks do not cover every field, and provenance retains the
-  original extraction label plus a warning rather than a per-field merge history.
-  Use it as a review aid, not an established safeguard against loss of obligations.
+- Escalation's loss checks do not cover every field. The original extraction label,
+  merge warning and adopted field-group identities are retained, but this is not a complete
+  per-value merge history. Use it as a review aid, not an established safeguard against
+  loss of obligations.
 - Register evaluation is a diagnostic cross-check, not an extraction gold set.
   Purpose totals, instalments and duplicate register rows complicate comparisons.
   Run agreement compares selected fields and does not compare complete agreements.
