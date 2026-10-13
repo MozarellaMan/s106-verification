@@ -80,6 +80,8 @@ pub struct Score {
     pub detail: Vec<(usize, f64, f64, String, String)>,
 }
 
+// Not `text::squash`: that keeps ASCII alphanumerics only (drops "£" and punctuation); the OCR
+// benchmark measures CER on everything but whitespace, after folding typographic quotes and dashes.
 fn norm(s: &str) -> String {
     let s = s
         .replace(['“', '”', '„'], "\"")
@@ -140,6 +142,9 @@ fn best_cer(gold: &str, candidates: &[String]) -> (f64, usize) {
 }
 
 /// Group boxes into rows: same row when vertical centres differ by < half the smaller height.
+/// Deliberately not shared with `document::page_text`: this sorts by centre and compares against the
+/// last box only, and keeps multi-box rows only (it measures table-cell rebuilding); page_text keeps
+/// every row and compares against any box in the row, over lines already in row order.
 fn rows_by_geometry(lines: &[Line]) -> Vec<String> {
     let mut items: Vec<&Line> = lines.iter().collect();
     items.sort_by(|a, b| (a.bbox[1] + a.bbox[3]).total_cmp(&(b.bbox[1] + b.bbox[3])));

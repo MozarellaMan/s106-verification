@@ -44,6 +44,8 @@ pub fn counts(results: &[CheckResult]) -> [usize; 6] {
     ]
 }
 
+// Same format as `verify::gbp` for non-negative amounts; this one has no sign handling (a negative
+// would print "£-5.00"), so the two are kept apart rather than risk changing check detail strings.
 fn gbp(d: rust_decimal::Decimal) -> String {
     let s = format!("{:.2}", d.round_dp(2));
     let (int, frac) = s.split_once('.').unwrap_or((&s, "00"));
@@ -171,12 +173,11 @@ pub fn render(a: &Agreement, results: &[CheckResult]) -> String {
         };
         let _ = writeln!(
             o,
-            "   {:<44}{:>14}  {:?}{}{}  {:?}  {}  {}",
+            "   {:<44}{:>14}  {:?}{}  {:?}  {}  {}",
             c.name.chars().take(43).collect::<String>(),
             amt,
             c.amount.structure,
             if c.amount.index_linked { " idx" } else { "" },
-            "",
             c.conditionality.kind,
             trig,
             pg(&c.amount.evidence)

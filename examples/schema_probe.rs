@@ -1,4 +1,8 @@
-//! Which output schemas does the API compile? Sends a tiny text request per schema.
+//! Diagnostic: which output schemas does the API compile? Sends one tiny text request per part schema.
+//!
+//! MAKES PAID API CALLS (three small requests, needs credentials, see README). Not part of any test.
+//!
+//!     cargo run --example schema_probe
 use rust_claude_sdk::{ContentBlockParam, Effort, MessageParam, MessagesRequest, OutputConfig};
 use s106::{llm, wire};
 use serde_json::json;
