@@ -1,6 +1,3 @@
-.venv/
-__pycache__/
-*.pyc
 # Source deeds and derived data stay local (fetch with the command in README)
 data/raw/
 data/interim/
@@ -8,3 +5,4 @@ data/processed/
 data/reference/
 /target
 /models
+.venv/
