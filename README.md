@@ -51,23 +51,15 @@ The JSON output goes to `data/processed/<stem>.audit.json`. Exit codes are `0` c
 
 ## LLM-PDF backend
 
-`--backend llm-pdf` replaces the OCR + regex reading layer with Claude reading the page images.
+`--backend llm-pdf` has Claude read the page images instead of the OCR + regex layer. RapidOCR
+still runs (cached): it picks the definitions and the payment and mix-table pages (42 of 109 for the
+sample), which are sent as one PDF document block to `claude-haiku-5-5` (change it with `--model`), and it
+stays the independent text the verifier uses to match snippets and classify failures. Model output is never
+used as the reference text.
 
-1. RapidOCR still runs (it's cached) and does three jobs. It locates the definitions clause and the
-   later pages that impose payments or hold the mix table, which is 42 of the 109 pages for the sample.
-   It feeds the rules pass for metadata. And it is the **independent corpus the verifier checks
-   against**.
-2. Those pages are split out with pypdfium2 and sent as one base64 PDF `document` block to
-   `client.messages.parse` with a Pydantic output schema (`WireExtraction`). The default model is
-   `claude-haiku-5-5`; pick another with `--model`.
-3. The model cites evidence by its page position in the attachment. That position is mapped back to
-   the deed page, and the verifier re-locates each snippet in the OCR text. It never checks against
-   anything the model wrote.
-
-`--cascade` takes every field with a Parser Error (the housing block, or a named contribution) and
-re-reads only those fields on `claude-opus-5-5` (`--cascade-model`). The Opus call enables server-side refusal
-fallbacks (`fallbacks="default"`). A replacement is kept only if the verifier then reports fewer
-Parser Errors for that field, so the cascade can't make a field worse.
+`--cascade` re-reads only the fields with Parser Errors on `claude-opus-5-5` (`--cascade-model`). A
+replacement is kept only if the verifier reports fewer Parser Errors for that field, runs at least as many
+of its checks, and no previously extracted value is lost.
 
 `--llm-mode` controls where responses come from:
 
@@ -76,7 +68,7 @@ Parser Errors for that field, so the cascade can't make a field worse.
 | `auto` (default) | live if Anthropic credentials resolve (key file, env key, auth token or `ant auth login` profile), otherwise replay |
 | `live` | always call the API; fails without credentials |
 | `record` | call the API and save the response to `s106-audit/fixtures/<stem>/<model>.<kind>.json` |
-| `replay` | load the saved response; errors if the page selection changed since it was recorded |
+| `replay` | load the saved response; errors if the PDF (sha256) or the page selection differs from the recording |
 
 **Credentials for unattended runs.** `run_audit.py` reads a key from `~/.config/s106/anthropic_key`
 (override the path with `S106_KEY_FILE`). The key goes straight to the client and is never exported, so
@@ -90,30 +82,25 @@ mkdir -p ~/.config/s106 && install -m 600 /dev/null ~/.config/s106/anthropic_key
 Paste the key into that file in your editor. Without the file, the SDK's normal resolution applies
 (`ANTHROPIC_API_KEY`, then an `ant auth login` profile), and `auto` mode falls back to replay.
 
-The committed Haiku fixture is a live `claude-haiku-5-5` recording of the sample deed. Re-record it
-after changing the prompt, the schema or the page selection:
+The committed fixture is a live Haiku recording of the sample deed. Re-record it after changing the
+prompt, the schema, the page selection or the deed:
 
 ```bash
-ANTHROPIC_API_KEY=... .venv/bin/python s106-audit/run_audit.py --backend llm-pdf --llm-mode record
+.venv/bin/python s106-audit/run_audit.py --backend llm-pdf --llm-mode record
 ```
 
-The report's warning line shows which source was used and, for live calls, the token usage.
-
-**Cost.** The recorded sample run used 70,216 input tokens (42 scanned pages, about 1.7k each) and
-14,553 output tokens (thinking included). That run took about 6 s.
+**Cost.** Scanned pages are billed as images, at roughly 1.7k input tokens each. The report's warning
+line shows the token usage of each live call.
 
 | call | rate (per MTok in / out) | per deed |
 |------|-------------------|----------|
-| Haiku 5.5 extraction | $0.10 / $0.50 under 100k prompt tokens, $0.50 / $2.50 above | **$0.014** measured |
-| Opus 5.5 cascade (only when Parser Errors remain) | $4 / $20 | ≈ $0.30–0.60 per call (estimate; same pages, more thinking) |
-
-A deed of over ~58 targeted pages crosses Haiku's 100k-token price step.
+| Haiku 5.5 extraction | $0.10 / $0.50 under 100k prompt tokens, $0.50 / $2.50 above | ≈ $0.015 |
+| Opus 5.5 cascade (only when Parser Errors remain) | $4 / $20 | ≈ $0.30–0.60 per call (estimate) |
 
 **Known limitation.** On two-column definition pages, OCR splices the left-column term into the
-right-column sentence wherever a line wraps. A clean snippet that the model read off the image then
-won't re-locate in the OCR text. In the live sample run, 7 of 31 cited snippets fail to re-locate, all of
-them figures-and-words snippets that wrap a line. Every check still passes, but if one of those fields failed it would be classed as a Parser Error, never a Document
-Discrepancy. That errs on the safe side, but it weakens the classification for the llm-pdf backend.
+right-column sentence wherever a line wraps, so a clean snippet the model read off the image may not
+match the OCR text. Failures on such fields can only be classed as Parser Errors, never Document
+Discrepancies. That errs on the safe side, but it weakens the classification.
 
 ## Checks
 

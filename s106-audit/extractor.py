@@ -5,13 +5,7 @@ Two backends fill the same Pydantic schema:
   * rules  (default) deterministic regexes over the definitions clause and schedules.
            Tolerant of OCR space-dropping: every pattern matches with optional
            whitespace between characters.
-  * llm-pdf Claude reads the scanned page images directly: the definitions and the
-           payment/mix pages are split out with pypdfium2 and sent as a base64 PDF
-           document block (default claude-haiku-5-5). The model cites evidence by
-           page; the verifier re-locates it in the independent RapidOCR text.
-           `cascade_llm_pdf` re-reads only the Parser Error fields on claude-opus-5-5.
-           Offline, responses replay from s106-audit/fixtures/. Values still go through
-           the same evidence-backed verifier, so the model is never trusted on its own.
+  * llm-pdf Claude reads the scanned page images (see the LLM section below).
 """
 from __future__ import annotations
 
@@ -362,10 +356,11 @@ def extract_metadata(pdf_path: Path, pages: dict[int, str], page_count: int, tex
 
 # --------------------------------------------------------------------------- LLM native-PDF backend
 #
-# Claude reads the page images directly instead of our OCR text, so OCR noise
-# ("f" for "£", "ftypounds") never reaches the extraction. The OCR cache stays as the
-# independent corpus: the verifier re-locates every evidence snippet the model cites
-# against RapidOCR's text, never against anything the model produced.
+# The definitions and payment/mix pages are split out with pypdfium2 and sent as a base64
+# PDF document block, so OCR noise ("f" for "£", "ftypounds") never reaches the extraction.
+# The model cites evidence by page; the verifier matches those snippets against the
+# independent RapidOCR text (never model output) to classify failures. Offline, responses
+# replay from s106-audit/fixtures/.
 
 PDF_DEFAULT_MODEL = "claude-haiku-5-5"
 CASCADE_MODEL = "claude-opus-5-5"
@@ -497,6 +492,11 @@ def pdf_subset_b64(pdf_path: Path, page_numbers: list[int]) -> str:
     return base64.standard_b64encode(buf.getvalue()).decode("ascii")
 
 
+def _pdf_digest(pdf_path: Path) -> str:
+    import hashlib
+    return hashlib.sha256(pdf_path.read_bytes()).hexdigest()
+
+
 def _fixture_path(pdf_path: Path, model: str, kind: str) -> Path:
     return FIXTURE_DIR / pdf_path.stem / f"{model}.{kind}.json"
 
@@ -559,12 +559,16 @@ def run_llm_pdf(pdf_path: Path, page_numbers: list[int], prompt: str, model: str
             if mode == "record":
                 fx.parent.mkdir(parents=True, exist_ok=True)
                 fx.write_text(json.dumps({"model": model, "served_by": served_by, "kind": kind, "provenance": "live",
-                                          "pages": page_numbers, "usage": usage,
+                                          "pdf_sha256": _pdf_digest(pdf_path), "pages": page_numbers, "usage": usage,
                                           "output": out.model_dump(mode="json")}, indent=2) + "\n")
             return out, info
     if not fx.exists():
         raise FileNotFoundError(f"no recorded response at {fx}; run live with ANTHROPIC_API_KEY set and --llm-mode record")
     rec = json.loads(fx.read_text())
+    # Fixtures are keyed by filename stem, so a revised deed under the same name must not reuse old values.
+    if rec.get("pdf_sha256") != _pdf_digest(pdf_path):
+        raise ValueError(f"{fx.name} was recorded from a different PDF than {pdf_path.name} (sha256 mismatch); "
+                         "re-record it")
     if rec["pages"] != page_numbers:
         raise ValueError(f"{fx.name} was recorded over pages {rec['pages']}, but this run selected {page_numbers}; "
                          "re-record it")
@@ -648,18 +652,57 @@ def _ranges(ns: list[int]) -> str:
     return ",".join(out)
 
 
+def _field_results(a: Section106Agreement, results) -> dict[str, list]:
+    """{'housing' or contribution name: its CheckResults}."""
+    out: dict[str, list] = {}
+    for r in results:
+        m = re.match(r"F(\d+)\.", r.check_id)
+        out.setdefault(a.contributions[int(m.group(1)) - 1].name if m else "housing", []).append(r)
+    return out
+
+
 def _failed_fields(a: Section106Agreement, results) -> dict[str, int]:
-    """{'housing' or contribution name: parser-error count} from verifier results."""
+    """{'housing' or contribution name: parser-error count}, omitting fields with none."""
     from verifier import ErrorClass
 
-    out: dict[str, int] = {}
-    for r in results:
-        if r.error_class != ErrorClass.PARSER_ERROR:
-            continue
-        m = re.match(r"F(\d+)\.", r.check_id)
-        key = a.contributions[int(m.group(1)) - 1].name if m else "housing"
-        out[key] = out.get(key, 0) + 1
-    return out
+    counts = {k: sum(r.error_class == ErrorClass.PARSER_ERROR for r in rs) for k, rs in _field_results(a, results).items()}
+    return {k: n for k, n in counts.items() if n}
+
+
+def _lost_values(old, new, path: str = "") -> list[str]:
+    """Paths that held a value in `old` but are null, empty or shorter in `new`."""
+    if isinstance(old, dict):
+        return [p for k, v in old.items() for p in _lost_values(v, (new or {}).get(k), f"{path}.{k}".lstrip("."))]
+    if isinstance(old, list):
+        return [path] if len(new or []) < len(old) else [
+            p for i, (o, n) in enumerate(zip(old, new)) for p in _lost_values(o, n, f"{path}[{i}]")]
+    return [path] if old not in (None, "", False) and new in (None, "") else []
+
+
+def _regressions(key: str, cur, cur_results, cand, cand_results) -> list[str]:
+    """Why `cand` is not a safe replacement for `key`, or [] if it is.
+
+    Fewer Parser Errors alone isn't enough: dropping a value can turn a FAIL into a SKIP.
+    So the field must keep its check coverage and must not lose any extracted value.
+    """
+    from verifier import Status
+
+    before, after = _field_results(cur, cur_results).get(key, []), _field_results(cand, cand_results).get(key, [])
+    why = []
+    if _failed_fields(cand, cand_results).get(key, 0) >= _failed_fields(cur, cur_results).get(key, 0):
+        why.append("no fewer Parser Errors")
+    if sum(r.status != Status.SKIP for r in after) < sum(r.status != Status.SKIP for r in before):
+        why.append("fewer checks run")
+    if key == "housing":
+        old, new = cur.housing, cand.housing
+    else:
+        old, new = (next(c for c in x.contributions if c.name == key) for x in (cur, cand))
+        if new.contingent and not old.contingent:
+            why.append("newly marked contingent")
+    lost = _lost_values(old.model_dump(mode="json"), new.model_dump(mode="json"))
+    if lost:
+        why.append("lost " + ", ".join(lost))
+    return why
 
 
 def cascade_llm_pdf(pdf_path: Path, a: Section106Agreement, pages: dict[int, str], results,
@@ -668,7 +711,8 @@ def cascade_llm_pdf(pdf_path: Path, a: Section106Agreement, pages: dict[int, str
     """Re-read only the fields with Parser Errors on a stronger model.
 
     A replacement is kept only if the verifier then reports fewer Parser Errors for that
-    field, so the cascade can't make a field worse and the verifier stays the judge.
+    field, runs at least as many of its checks, and no previously extracted value is lost
+    (see `_regressions`). The verifier stays the judge.
     """
     import hashlib
 
@@ -688,18 +732,20 @@ def cascade_llm_pdf(pdf_path: Path, a: Section106Agreement, pages: dict[int, str
     w, info = run_llm_pdf(pdf_path, page_map, prompt, model, kind, mode, effort="high", client=client,
                           verbose=verbose)
 
-    out = a.model_copy(deep=True)
+    out, out_results = a.model_copy(deep=True), results
     kept, rejected = [], []
 
     def try_replace(key: str, apply) -> None:
-        nonlocal out
+        nonlocal out, out_results
         cand = out.model_copy(deep=True)
         apply(cand)
-        if _failed_fields(cand, verify(cand, pages)).get(key, 0) < _failed_fields(out, verify(out, pages)).get(key, 0):
-            out = cand
-            kept.append(key)
+        cand_results = verify(cand, pages)
+        why = _regressions(key, out, out_results, cand, cand_results)
+        if why:
+            rejected.append(f"{key}: {'; '.join(why)}")
         else:
-            rejected.append(key)
+            out, out_results = cand, cand_results
+            kept.append(key)
 
     if "housing" in before:
         try_replace("housing", lambda c: setattr(c, "housing", wire_housing(w.housing, page_map)))
@@ -707,7 +753,7 @@ def cascade_llm_pdf(pdf_path: Path, a: Section106Agreement, pages: dict[int, str
     for name in names:
         new = by_name.get(squash_name(name))
         if new is None:
-            rejected.append(name)
+            rejected.append(f"{name}: not returned")
             continue
         idx = next(i for i, c in enumerate(out.contributions) if c.name == name)
 
@@ -716,9 +762,11 @@ def cascade_llm_pdf(pdf_path: Path, a: Section106Agreement, pages: dict[int, str
         try_replace(name, apply)
 
     out.extraction_backend += f" + cascade:{model}"
-    out.warnings.append(f"cascade: {_describe(info)}; re-read {len(before)} field(s) with Parser Errors, "
-                        f"kept {len(kept)}" + (f" ({', '.join(kept)})" if kept else "")
-                        + (f", rejected {len(rejected)} ({', '.join(rejected)})" if rejected else ""))
+    parts = [f"cascade: {_describe(info)}", f"re-read {len(before)} field(s) with Parser Errors"]
+    parts.append(f"kept {len(kept)}" + (f" ({', '.join(kept)})" if kept else ""))
+    if rejected:
+        parts.append(f"rejected {len(rejected)} ({' | '.join(rejected)})")
+    out.warnings.append("; ".join(parts))
     return out
 
 

@@ -119,6 +119,37 @@ class LlmPdfTest(unittest.TestCase):
         self.assertEqual([r.check_id for r in parser_errors(verify(out, pages))], ["F7.words"])
         self.assertIn("rejected 1", out.warnings[-1])
 
+    def test_cascade_rejects_dropped_value(self):
+        # Review repro: deleting the amount and marking it contingent turns the FAIL into a SKIP,
+        # which lowers the Parser Error count but must not count as an improvement.
+        _, pages = extract(PDF, backend="rules")
+        a, _ = extract(PDF, backend="llm-pdf", client=FakeClient(plain=self._broken_haiku()))
+        results = verify(a, pages)
+        opus = copy.deepcopy(self.wire)
+        opus["contributions"] = [c for c in opus["contributions"] if c["name"] == CYCLE]
+        opus["contributions"][0].update(amount_gbp=None, amount_in_words=None, contingent=True)
+        out = cascade_llm_pdf(PDF, a, pages, results, client=FakeClient(beta=opus))
+        self.assertEqual([r.check_id for r in parser_errors(verify(out, pages))], ["F7.words"])
+        self.assertIn("rejected 1", out.warnings[-1])
+        self.assertIn("newly marked contingent", out.warnings[-1])
+
+    def test_replay_rejects_different_pdf(self):
+        import tempfile
+
+        import extractor
+        rec = json.loads(FIXTURE.read_text())
+        rec["pdf_sha256"] = "0" * 64
+        with tempfile.TemporaryDirectory() as d:
+            fx = Path(d) / FIXTURE.parent.name / FIXTURE.name
+            fx.parent.mkdir()
+            fx.write_text(json.dumps(rec))
+            saved, extractor.FIXTURE_DIR = extractor.FIXTURE_DIR, Path(d)
+            try:
+                with self.assertRaisesRegex(ValueError, "different PDF"):
+                    extract(PDF, backend="llm-pdf", llm_mode="replay")
+            finally:
+                extractor.FIXTURE_DIR = saved
+
 
 if __name__ == "__main__":
     unittest.main()
