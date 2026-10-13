@@ -348,31 +348,75 @@ fn says_deleted(snippet: &str) -> bool {
         .any(|w| s.contains(w))
 }
 
-/// Does a deletion's cited snippet itself delete this obligation? The target matching is not
-/// enough: the snippet is the evidence. Each clause (split at `.`, `;` and line breaks) that names
-/// the obligation must say it is deleted, with no word that could keep it ("retained", "not",
-/// "except", "save", "but", "unless", "remains"). A snippet that names it only in a clause that
-/// deletes something else, or that names it both ways, is not proof. Err says why.
-fn deletes_named(snippet: &str, m: &Measure) -> std::result::Result<(), String> {
+/// Does a deletion remove this whole obligation? The target matching is not enough, and nor is a
+/// clause that deletes words inside it. Both the deed's target and each clause of the snippet
+/// (split at `.`, `;` and line breaks) that names the obligation must refer to it whole: the words
+/// just before its name, back to the start or an "and", must be one of `WHOLE` ("the definition
+/// of", "the obligation to pay", "all references to", or nothing). Each such clause must also say
+/// it is deleted, with no word that could keep it or narrow the deletion (`KEEP`, `PARTIAL`).
+/// Anything else is partial or ambiguous and goes to review. Err says why.
+fn deletes_whole(target: &str, snippet: &str, m: &Measure) -> std::result::Result<(), String> {
     let Measure::Contribution { key } = m else {
         return Err("only named contributions can be deleted".into());
     };
+    if key.is_empty() {
+        return Err("names no contribution".into());
+    }
+    const WHOLE: [&str; 9] = [
+        "",
+        "definition of",
+        "definition of the",
+        "obligation to pay",
+        "obligation to pay the",
+        "references to",
+        "references to the",
+        "all references to",
+        "all references to the",
+    ];
     const KEEP: [&str; 9] = [
         "retain", "retained", "not", "except", "save", "but", "unless", "remain", "remains",
     ];
-    let naming: Vec<String> = snippet
+    const PARTIAL: [&str; 11] = [
+        "word", "words", "wording", "phrase", "sentence", "text", "figure", "part", "extent",
+        "far", "insofar",
+    ];
+    // The words before the name in a normalised phrase, back to its start or an "and"; None
+    // when the phrase doesn't name it.
+    let prefix = |phrase: &str| -> Option<String> {
+        let p = contribution_key(phrase);
+        let at = format!(" {p} ").find(&format!(" {key} "))?;
+        let before: Vec<&str> = p[..at].split_whitespace().collect();
+        let start = before
+            .iter()
+            .rposition(|w| *w == "and")
+            .map_or(0, |i| i + 1);
+        let words = &before[start..];
+        let words = words.strip_prefix(&["the"]).unwrap_or(words);
+        Some(words.join(" "))
+    };
+    let whole = |phrase: &str| prefix(phrase).is_some_and(|p| WHOLE.contains(&p.as_str()));
+    if !whole(target) {
+        return Err("deletes only part of it, or its target is unclear".into());
+    }
+    let naming: Vec<&str> = snippet
         .split(['.', ';', '\n'])
-        .map(contribution_key)
-        .filter(|c| !key.is_empty() && format!(" {c} ").contains(&format!(" {key} ")))
+        .filter(|c| prefix(c).is_some())
         .collect();
     if naming.is_empty() {
         return Err("doesn't name it".into());
     }
-    let clean = |c: &String| says_deleted(c) && !c.split(' ').any(|w| KEEP.contains(&w));
+    let clean = |c: &&str| {
+        let n = contribution_key(c);
+        says_deleted(&n)
+            && whole(c)
+            && !n
+                .split(' ')
+                .any(|w| KEEP.contains(&w) || PARTIAL.contains(&w))
+    };
     if naming.iter().all(clean) {
         Ok(())
     } else {
-        Err("doesn't clearly say it is deleted".into())
+        Err("doesn't clearly say the whole of it is deleted".into())
     }
 }
 
@@ -1240,16 +1284,18 @@ pub fn reconcile(
                 unmatched.push((k, del.target.clone()));
             }
             for m in hits {
-                // Grounded on its page, and the snippet names this obligation.
+                // Grounded on its page, and the target and snippet delete this whole obligation.
                 let grounding = match (&del.grounding, &del.evidence) {
-                    (Grounding::Grounded, Some(ev)) => match deletes_named(&ev.snippet, &m) {
-                        Ok(()) => Grounding::Grounded,
-                        Err(why) => Grounding::Ungrounded(format!(
-                            "its cited snippet on p{} {why}: the {}",
-                            ev.page,
-                            events[&m][0].label.trim_end_matches(" (£)")
-                        )),
-                    },
+                    (Grounding::Grounded, Some(ev)) => {
+                        match deletes_whole(&del.target, &ev.snippet, &m) {
+                            Ok(()) => Grounding::Grounded,
+                            Err(why) => Grounding::Ungrounded(format!(
+                                "its cited snippet on p{} {why}: the {}",
+                                ev.page,
+                                events[&m][0].label.trim_end_matches(" (£)")
+                            )),
+                        }
+                    }
                     (g, _) => g.clone(),
                 };
                 if grounding == Grounding::Grounded && verified[k] {

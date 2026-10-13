@@ -1047,7 +1047,8 @@ fn a_deletion_must_apply_to_the_named_obligation() {
     );
     assert_eq!(b.status, RowStatus::Varied);
     assert!(
-        b.reason.contains("doesn't clearly say it is deleted"),
+        b.reason
+            .contains("doesn't clearly say the whole of it is deleted"),
         "{}",
         b.reason
     );
@@ -1083,4 +1084,52 @@ fn pld_fields_must_be_present_even_when_null() {
         d.units.iter().filter(|u| u.completed_on.is_none()).count(),
         1
     );
+}
+
+#[test]
+fn deleting_words_inside_an_obligation_does_not_remove_it() {
+    let deleting = |target: &str, snippet: &str| {
+        let mut v = dov();
+        v.variations = vec![Variation {
+            op: VariationOp::Delete,
+            target: target.into(),
+            new_text: None,
+            evidence: Some(Evidence {
+                page: 2,
+                snippet: snippet.into(),
+            }),
+        }];
+        let pages: Pages = [(2, snippet.to_string())].into_iter().collect();
+        let instruments = vec![
+            instrument_obligations(&southwark(), None),
+            instrument_obligations(&v, Some(&pages)),
+        ];
+        let r = reconcile(DEV, instruments, Some(full())).unwrap();
+        row(&r, &bus()).clone()
+    };
+    let words = "the words payable on commencement in the definition of Bus Contribution";
+    let b = deleting(
+        words,
+        "The words \"payable on Commencement\" in the definition of Bus Contribution are deleted",
+    );
+    assert_eq!(b.status, RowStatus::Varied);
+    assert_eq!(b.current, Some(dec("683100")));
+    assert!(b.reason.contains("deletes only part of it"), "{}", b.reason);
+    // A whole-sounding target with a partial snippet is still partial.
+    let b = deleting(
+        "the definition of Bus Contribution",
+        "The words \"payable on Commencement\" in the definition of Bus Contribution are deleted",
+    );
+    assert_eq!(b.status, RowStatus::Varied);
+    let b = deleting(
+        "the definition of Bus Contribution",
+        "The definition of Bus Contribution is deleted in so far as it relates to Phase 2",
+    );
+    assert_eq!(b.status, RowStatus::Varied);
+    // The whole definition, deleted: removed.
+    let b = deleting(
+        "the definition of Bus Contribution",
+        "The definition of Bus Contribution is deleted",
+    );
+    assert_eq!(b.status, RowStatus::Removed);
 }

@@ -56,12 +56,21 @@ disagrees with the deeds' dates. For each obligation a deed states:
 
 A variation's `Delete` (from the extraction's `variations`) becomes a `delete` event on each
 contribution whose key appears in the deleted target. It is applied, and the row is "removed by
-variation", only when its cited snippet is found on its page, names that contribution, and comes from a
-verified deed (below). Every clause of the snippet (split at `.`, `;` and line breaks) that names
-the contribution must say it is deleted (deleted, omitted, revoked, removed, struck out), with no
-word that could keep it ("retained", "not", "except", "save", "but", "unless", "remains"). So "the
-Bus Contribution is retained. The Carbon Green Fund Contribution is deleted." is not proof that the
-Bus Contribution is deleted. A target that matches is not enough: the snippet is the evidence.
+variation", only when its cited snippet is found on its page, it comes from a verified deed
+(below), and both the target and the snippet delete the whole obligation:
+
+- In the target, and in every clause of the snippet (split at `.`, `;` and line breaks) that names
+  the contribution, the words just before its name (back to the start or an "and") must be nothing,
+  "the definition of", "the obligation to pay" or "all references to". "The words payable on
+  commencement in the definition of Bus Contribution" is a partial deletion.
+- Each of those clauses must say it is deleted (deleted, omitted, revoked, removed, struck out),
+  with no word that could keep it ("retained", "not", "except", "save", "but", "unless",
+  "remains") or narrow the deletion ("words", "phrase", "sentence", "text", "figure", "part",
+  "extent", "in so far").
+
+So "the Bus Contribution is retained. The Carbon Green Fund Contribution is deleted." does not
+delete the Bus Contribution. A partial or ambiguous deletion stays in the history, the obligation
+keeps its figure, and the row goes to "varied: compare by hand".
 Otherwise the event is kept in the history but not applied, and the row goes to "varied: compare
 by hand". A deletion that matches no obligation is reported as a warning, and every obligation
 stated before it goes to "varied: compare by hand", because it could be the one deleted.
