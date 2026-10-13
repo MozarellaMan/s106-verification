@@ -94,21 +94,22 @@ enum Cmd {
         #[arg(long)]
         detail: bool,
     },
-    /// Fetch Planning London Datahub records and save them verbatim under snapshots/pld/.
+    /// Fetch Planning London Datahub records and save them verbatim under <data>/snapshots/pld/.
     Pld {
         #[command(subcommand)]
         cmd: PldCmd,
     },
-    /// Set a development's deeds (oldest first, replayed from fixtures) against PLD delivery.
-    /// Writes data/processed/<development>.reconcile.{json,md}.
+    /// Set a development's deeds (oldest first, replayed from recorded extractions) against PLD
+    /// delivery. Writes <data>/processed/<development>.reconcile.{json,md}.
     Reconcile {
         /// the executed deeds, original first, then any variations in date order
         #[arg(required = true)]
         pdfs: Vec<PathBuf>,
-        /// PLD record id, e.g. Southwark-19_AP_1773; must match the snapshot's record
+        /// PLD record id (`<borough>-<reference>`); must match the snapshot's record
         #[arg(long)]
         development: String,
-        /// a saved PLD application snapshot (snapshots/pld/applications/<id>/<time>.json)
+        /// a saved PLD application snapshot, relative to <data>
+        /// (snapshots/pld/applications/<id>/<time>.json)
         #[arg(long)]
         pld: Option<PathBuf>,
         #[arg(long, default_value = llm::DEFAULT_MODEL)]
@@ -118,13 +119,13 @@ enum Cmd {
 
 #[derive(Subcommand)]
 enum PldCmd {
-    /// GET <index>/_source/<id>, e.g. `applications Southwark-19_AP_1773`
+    /// GET <index>/_source/<id>, e.g. `applications <borough>-<reference>`
     Get { index: String, id: String },
     /// POST <index>/_search with an Elasticsearch query from a JSON file
     Search {
         index: String,
         query: PathBuf,
-        /// names the snapshot directory, e.g. `19_AP_1773-units`
+        /// names the snapshot directory, e.g. `<reference>-units`
         #[arg(long)]
         subject: String,
     },
@@ -307,7 +308,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Cmd::Pld { cmd } => {
-            let root = repo_root();
+            let root = s106::data::root();
             let (index, subject, snap) = match cmd {
                 PldCmd::Get { index, id } => {
                     let snap = pld::get_source(&index, &id)?;
@@ -345,7 +346,7 @@ fn main() -> Result<()> {
             }
             let delivery = match pld_snapshot {
                 Some(p) => {
-                    let (snap, at) = pld::load(&repo_root(), &p)?;
+                    let (snap, at) = pld::load(&s106::data::root(), &p)?;
                     Some(reconcile::delivery_from_pld(&snap, at)?)
                 }
                 None => None,
@@ -353,7 +354,7 @@ fn main() -> Result<()> {
             let r = reconcile::reconcile(&development, instruments, delivery)?;
             let md = reconcile::markdown(&r);
             println!("{md}");
-            let dir = repo_root().join("data/processed");
+            let dir = s106::data::processed();
             std::fs::create_dir_all(&dir)?;
             let name = pld::safe(&development);
             std::fs::write(

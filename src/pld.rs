@@ -37,14 +37,15 @@ pub struct Snapshot {
 /// Where a snapshot lives and what it hashed to, for citing it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SnapshotRef {
-    /// repo-relative path
+    /// path relative to the data root (`s106::data::root`)
     pub path: String,
     pub sha256: String,
     pub retrieved_at: String,
 }
 
-pub fn snapshots_root(repo_root: &Path) -> PathBuf {
-    repo_root.join("snapshots/pld")
+/// `snapshots/pld` under the data root.
+pub fn snapshots_root(data_root: &Path) -> PathBuf {
+    data_root.join("snapshots/pld")
 }
 
 /// Native TLS with the system's roots, so a corporate or sandbox proxy CA installed there works.
@@ -80,7 +81,7 @@ fn send(req: &Request) -> Result<Value> {
         .with_context(|| format!("{} returned non-JSON", req.url))
 }
 
-/// `GET {index}/_source/{id}`: one document, e.g. `applications`, `Southwark-19_AP_1773`.
+/// `GET {index}/_source/{id}`: one document, e.g. `applications` and a record id.
 pub fn get_source(index: &str, id: &str) -> Result<Snapshot> {
     let request = Request {
         method: "GET".into(),
@@ -122,9 +123,9 @@ pub fn safe(name: &str) -> String {
         .collect()
 }
 
-/// Write `snapshots/pld/<index>/<subject>/<retrieved_at>.json`. Never overwrites.
-pub fn save(repo_root: &Path, index: &str, subject: &str, snap: &Snapshot) -> Result<SnapshotRef> {
-    let dir = snapshots_root(repo_root)
+/// Write `<data root>/snapshots/pld/<index>/<subject>/<retrieved_at>.json`. Never overwrites.
+pub fn save(data_root: &Path, index: &str, subject: &str, snap: &Snapshot) -> Result<SnapshotRef> {
+    let dir = snapshots_root(data_root)
         .join(safe(index))
         .join(safe(subject));
     std::fs::create_dir_all(&dir)?;
@@ -139,7 +140,7 @@ pub fn save(repo_root: &Path, index: &str, subject: &str, snap: &Snapshot) -> Re
     std::fs::write(&path, &bytes)?;
     Ok(SnapshotRef {
         path: path
-            .strip_prefix(repo_root)
+            .strip_prefix(data_root)
             .unwrap_or(&path)
             .display()
             .to_string(),
@@ -148,19 +149,20 @@ pub fn save(repo_root: &Path, index: &str, subject: &str, snap: &Snapshot) -> Re
     })
 }
 
-/// Read a saved snapshot back, with the reference that cites it.
-pub fn load(repo_root: &Path, path: &Path) -> Result<(Snapshot, SnapshotRef)> {
+/// Read a saved snapshot back, with the reference that cites it. A relative `path` is taken
+/// from the data root.
+pub fn load(data_root: &Path, path: &Path) -> Result<(Snapshot, SnapshotRef)> {
     let full = if path.is_absolute() {
         path.to_path_buf()
     } else {
-        repo_root.join(path)
+        data_root.join(path)
     };
     let bytes = std::fs::read(&full).with_context(|| format!("reading {}", full.display()))?;
     let snap: Snapshot = serde_json::from_slice(&bytes)
         .with_context(|| format!("{} is not a PLD snapshot", full.display()))?;
     let r = SnapshotRef {
         path: full
-            .strip_prefix(repo_root)
+            .strip_prefix(data_root)
             .unwrap_or(&full)
             .display()
             .to_string(),

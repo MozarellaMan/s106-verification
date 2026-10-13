@@ -417,9 +417,9 @@ pub struct Permitted {
 /// PLD's view of one development, read from one saved application snapshot.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Delivery {
-    /// PLD record id, e.g. `Southwark-19_AP_1773`
+    /// PLD record id, `<borough>-<reference>`
     pub record_id: String,
-    /// the borough's planning reference, e.g. `19/AP/1773`
+    /// the borough's planning reference
     pub lpa_app_no: Option<String>,
     /// the snapshot every figure here was read from
     pub snapshot: SnapshotRef,
@@ -1182,7 +1182,7 @@ fn join_reasons(r: &[ReviewReason]) -> String {
     )
 }
 
-/// Planning references compared without case, spaces or separators: "19/AP/1773" = "19-ap-1773".
+/// Planning references compared without case, spaces or separators: "EX/23/0456" = "ex-23-0456".
 fn same_reference(a: &str, b: &str) -> bool {
     let norm = |s: &str| {
         s.chars()

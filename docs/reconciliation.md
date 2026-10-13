@@ -1,9 +1,10 @@
 # Reconciliation: obligations against delivery (M5, first cut)
 
-Status: draft, 13 Oct 2026 (revised after the PR #12 reviews: later deeds now go to review rather than being applied). Code: `src/reconcile.rs`, `src/pld.rs`; tests: `tests/reconcile.rs`.
+Status: draft, 13 Oct 2026. Code: `src/reconcile.rs`, `src/pld.rs`; tests: `tests/reconcile.rs`,
+on an invented deed and an invented PLD record (`tests/synthetic/`).
 
 This sets what a development's deeds oblige against what the Planning London Datahub (PLD)
-records as permitted and delivered. It starts with 19/AP/1773 (227–255 Ilderton Road).
+records as permitted and delivered, for one development at a time.
 
 ## Data model
 
@@ -29,7 +30,7 @@ ObligationEvent         one per obligation per instrument that states or deletes
   verified, scope       whether the deed's planning reference was checked; its partial scope
 
 Delivery                PLD's view of one development, read from one saved snapshot
-  record_id, lpa_app_no e.g. Southwark-19_AP_1773, 19/AP/1773
+  record_id, lpa_app_no PLD's `<borough>-<reference>` id, and the borough's planning reference
   snapshot, as_of       path, sha256, retrieved_at; every figure cites it
   mapping_version       the version of the PLD reading below
   status, started_on, completed_on, scheme_complete
@@ -139,21 +140,24 @@ A deed tenure covers a delivered tenure when they're equal, or the deed uses an 
 
 Social Rent does **not** cover London Affordable Rent or Affordable Rent. Their rents differ, so a
 swap is a difference to review. Discount Market Sale and First Homes are not treated as
-intermediate unless the deed says so. This matters for 19/AP/1773: the deed says "Intermediate",
-and PLD's application record says "London Shared Ownership".
+intermediate unless the deed says so. This matters in practice: deeds often say "Intermediate"
+where PLD's records say "London Shared Ownership".
 
 ### Bases
 
-Every percentage carries its basis. The deed's 35.75% is by habitable room; it is compared only
-with a delivered percentage by habitable room, which needs rooms on every unit record. PLD's
-application-level 30.04% (by units) is not compared with it.
+Every percentage carries its basis. A deed percentage by habitable room is compared only with a
+delivered percentage by habitable room, which needs rooms on every unit record; PLD's
+application-level percentage (by units) is not compared with it.
 
 ## PLD access
 
 `s106 pld get <index> <id>` and `s106 pld search <index> <query.json> --subject <label>` save each
 response verbatim, with its request and retrieval time, to
-`snapshots/pld/<index>/<subject>/<retrieved_at>.json`. Snapshots are never overwritten. They are
-committed: PLD is OGL v3. Analyses read snapshots, never the live API.
+`<data>/snapshots/pld/<index>/<subject>/<retrieved_at>.json`, where `<data>` is the s106-data
+checkout (`--data`, `S106_DATA`, or `data/` here). Snapshots are never overwritten, and they are
+committed to the data repository, not this one (PLD is OGL v3). Analyses read snapshots, never the
+live API. `--pld` paths are relative to `<data>`, and each reconciliation cites its snapshot by that
+path and its SHA-256.
 
 ## PLD → `Delivery` mapping (v1)
 
@@ -164,7 +168,8 @@ PLD genuinely leaves null (status and dates before a scheme starts, a unit's num
 be null, but not missing. So a renamed or retyped field is an error, not a table of indeterminate
 rows or zero completions. Counts may be numbers or
 numeric strings; a non-whole count or a date that isn't dd/mm/yyyy is an error. The field names
-come from the 19/AP/1773 snapshot of 13 Oct 2026. Unit records are embedded in the application
+come from a real application snapshot taken 13 Oct 2026; `tests/synthetic/pld/application.json` is
+an invented record with the same fields. Unit records are embedded in the application
 record (`application_details.residential_details.residential_units`), so no separate units index
 is read. `PLD_MAPPING_VERSION` is stamped into each reconciliation, and `as_of` is the snapshot's
 retrieval time: a later snapshot is a new data point, not a correction.
@@ -180,13 +185,13 @@ retrieval time: a later snapshot is a new data point, not a correction.
 | `units[]` | `residential_units[]` with `change_type` "Gain" (a "Loss" is an existing home, not delivery) |
 | unit tenure | `tenure`: "Market for sale"/"Market for rent" are market; an affordable tenure only when spelled as a deed tenure (any case); null or empty is missing; anything else is unrecognised and kept verbatim |
 | unit completion | `actual_completion_date` |
-| unit id | `unit_no` when set, else `residential_units[<index>]` (19/AP/1773's records have no `unit_no`) |
+| unit id | `unit_no` when set, else `residential_units[<index>]` (records often have no `unit_no`) |
 | habitable rooms | none: PLD unit records give `no_bedrooms`, not habitable rooms, so room-based rows stay indeterminate |
 
-## 19/AP/1773 result
+## Output
 
-`data/processed/Southwark-19_AP_1773.reconcile.md` is the output (not committed: `data/` is local).
-The table as run on 13 Oct 2026 is in [`reconciliation-19-AP-1773.md`](reconciliation-19-AP-1773.md).
+`s106 reconcile` prints the table and writes `<data>/processed/<development>.reconcile.{json,md}`.
+Tables for real developments are kept in the data repository.
 
 ## Not done yet
 
@@ -201,9 +206,8 @@ The table as run on 13 Oct 2026 is in [`reconciliation-19-AP-1773.md`](reconcili
 - **Triggers.** "Not yet due" only means the scheme isn't complete. Housing triggers (for example
   no more than 50% of market units occupied before the affordable units are delivered) can be
   checked against PLD's per-unit completion dates once the extraction records them.
-- **Snapshot size.** The full snapshot is committed (OGL v3, about 4,100 lines), because its hash
-  is what the table cites. With many schemes, full snapshots could move to Git LFS or a data
-  branch, with a mapped-field excerpt and the full file's hash committed for tests.
+- **Compressed snapshots.** `pld::load` reads plain JSON; large search snapshots in the data
+  repository may be gzipped, and would need reading through a decompressor.
 - **Amendments.** Non-material amendments (NMAs) and S106 discharge notices are linked to the
   parent only in PLD free text, and deeds of variation come from Idox. Each becomes events when it
   is extracted.
