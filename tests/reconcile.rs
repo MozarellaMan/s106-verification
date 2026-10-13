@@ -1205,3 +1205,27 @@ fn an_unapplied_scoped_replacement_is_not_a_variation() {
     assert_eq!(sr.events[2].op, Op::Restate { value: dec("58") });
     assert_eq!(sr.status, RowStatus::DiffersReviewRequired);
 }
+
+#[test]
+fn a_scoped_conflict_does_not_touch_the_whole_scheme_figure() {
+    // 58 → Phase 2 deed stating 50 and 60 → unscoped restatement of 58 → 48 delivered.
+    let mut phase2 = dov();
+    phase2.instrument.scope = Some(Quoted {
+        text: "in so far as it relates to Phase 2".into(),
+        evidence: None,
+    });
+    phase2.housing.tenures = vec![sr_tenure(Some(50)), sr_tenure(Some(60))];
+    let mut restated = dov();
+    restated.provenance.sha256 = "dov2".into();
+    restated.metadata.agreement_date = Some("1 March 2024".into());
+    restated.housing.tenures = vec![sr_tenure(Some(58))];
+    let r = run(
+        &[southwark(), phase2, restated],
+        delivery(187, &[(SR, 48), (INT, 18)], true),
+    );
+    let sr = row(&r, &Measure::TenureUnits { tenure: SR });
+    assert!(sr.events[1].conflict.is_some());
+    assert_eq!(sr.events[2].op, Op::Restate { value: dec("58") });
+    assert_eq!(sr.current, Some(dec("58")));
+    assert_eq!(sr.status, RowStatus::DiffersReviewRequired);
+}

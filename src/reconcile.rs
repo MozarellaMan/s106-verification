@@ -1261,20 +1261,23 @@ pub fn reconcile(
                     Some(v) => Op::Replace { from: *prev, to: v },
                 },
             };
-            match &op {
-                // A scoped deed's figures cover only part of the development: recorded, not applied.
-                _ if inst.scope.is_some() => {}
-                Op::Introduce { value } => {
-                    current.insert(s.measure.clone(), *value);
+            // The replay's running figure must follow the row fold below exactly. A scoped deed's
+            // statements cover only part of the development: recorded, never applied, conflicts
+            // included.
+            if inst.scope.is_none() {
+                match &op {
+                    Op::Introduce { value } => {
+                        current.insert(s.measure.clone(), *value);
+                    }
+                    Op::Restate { value } | Op::Replace { to: value, .. } => {
+                        current.insert(s.measure.clone(), Some(*value));
+                    }
+                    Op::Unchanged | Op::Delete => {}
                 }
-                Op::Restate { value } | Op::Replace { to: value, .. } => {
-                    current.insert(s.measure.clone(), Some(*value));
+                if s.conflict.is_some() && op == Op::Unchanged {
+                    // a conflicting restatement: the figure is no longer known
+                    current.insert(s.measure.clone(), None);
                 }
-                Op::Unchanged | Op::Delete => {}
-            }
-            if s.conflict.is_some() && op == Op::Unchanged {
-                // a conflicting restatement: the figure is no longer known
-                current.insert(s.measure.clone(), None);
             }
             if !events.contains_key(&s.measure) {
                 order.push(s.measure.clone());
