@@ -1,0 +1,31 @@
+{
+  "locator_checks": {
+    "housing.total_units_evidence.page": [
+      14,
+      45
+    ],
+    "housing.market_units_evidence.page": [
+      22
+    ],
+    "housing.affordable_units_evidence.page": [
+      5,
+      91
+    ],
+    "housing.claimed_affordable_evidence.page": [
+      14,
+      45
+    ],
+    "housing.mix_table.evidence.page": [
+      91
+    ],
+    "tenure.Social Rent.evidence.page": [
+      30,
+      91
+    ],
+    "tenure.Intermediate.evidence.page": [
+      21,
+      91
+    ]
+  },
+  "coverage_scope": "Only structured F01-F14; ancillary obligations and unrepresented qualifiers excluded. Not full-deed recall."
+}

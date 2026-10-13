@@ -1,0 +1,23 @@
+{
+  "origin": "Codex page-image annotations; no human confirmation",
+  "source_sha256": "0baed481b09feeb4e515d3752439448fee7e5993103d2085116da7854cb5f85b",
+  "versions": [
+    {
+      "version": 1,
+      "sha256": "a066420a79adf22cbdfcb9b1f1eb899e9015fac3d0ef9f6eb7408b3130ea4938",
+      "note": "Frozen before Rust replay/model-output inspection; housing counts already exposed by interface tests."
+    },
+    {
+      "version": 2,
+      "sha256": "9df6ae79577ef7fbdf2827ce9ecf5435669dd98077d534e0f4b70bead8ae2517",
+      "note": "Source recheck corrected Formula2 F quotation to include profit; no expected fields changed."
+    },
+    {
+      "version": 3,
+      "sha256": "6708d995e68b5c2f21b6bdd63618185290009a7e15cf5cac446d8c03522819ba",
+      "note": "Two presentation notes clarified; no expected fields or quotations changed."
+    }
+  ],
+  "historical_snapshots": "Preserved locally in ignored history/; not required to render current reference.",
+  "contact_status": "Used for comparison/debugging; not held out for future tuned changes."
+}

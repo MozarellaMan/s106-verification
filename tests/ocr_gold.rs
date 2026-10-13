@@ -1,4 +1,4 @@
-//! Page text against hand-transcribed gold (gold/*.json), with the default OCR models.
+//! Page text against agent-transcribed benchmark (gold/*.json), with the default OCR models.
 //! Thresholds sit just below today's scores, so a regression fails while noise on a 6-page gold
 //! set does not. Needs the deeds and models locally:
 //!     cargo test --release --test ocr_gold -- --ignored

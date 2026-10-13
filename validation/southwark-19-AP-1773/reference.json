@@ -1,0 +1,2043 @@
+{
+  "reference_version": 3,
+  "source_sha256": "0baed481b09feeb4e515d3752439448fee7e5993103d2085116da7854cb5f85b",
+  "created_date": "2026-10-13",
+  "author": "Codex, source page-image reading",
+  "status": "awaiting_human_confirmation",
+  "human_confirmed_claims": 0,
+  "blindness": "Housing counts previously exposed by interface tests; no existing gold or model output used to author reference. See protocol.md.",
+  "contacts": [
+    "Created before actual audit replay and model-output inspection; frozen inventory SHA in reference-freeze.sha256.",
+    "Used to compare Rust replay in this session; no longer held out for future tuned changes.",
+    "Post-comparison source recheck: H08 Formula2 F quotation corrected to include the word profit visible on PDF93. No expected_fields changed. v1 bytes and pre-comparison freeze retained in history/.",
+    "Post-comparison dossier QA: clarified two stale presentation notes on H03/F09; no expected_fields or quotations changed. v2 bytes retained in history/."
+  ],
+  "claims": [
+    {
+      "id": "H01",
+      "title": "Original housing quantum",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "253 residential units, comprising 177 market and 76 affordable units. These are original deed commitments, not evidence of construction.",
+      "ambiguity": null,
+      "expected_fields": {
+        "housing.total_units": 253,
+        "housing.market_units": 177,
+        "housing.affordable_units": 76,
+        "housing.affordable_habitable_rooms": 271
+      },
+      "evidence": [
+        {
+          "pdf_page": 14,
+          "printed_page": "14",
+          "clause": "Development definition",
+          "quote": "253 residential apartments (C3), 35.75% affordable by habitable room",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3615,
+              0.4134,
+              0.8585,
+              0.4489
+            ]
+          },
+          "image": "evidence/page-014.png"
+        },
+        {
+          "pdf_page": 22,
+          "printed_page": "22",
+          "clause": "Market Housing Units definition",
+          "quote": "means the 177 Residential Units of Market Housing comprised within the Development;",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3634,
+              0.118,
+              0.8628,
+              0.879
+            ]
+          },
+          "image": "evidence/page-022.png"
+        },
+        {
+          "pdf_page": 5,
+          "printed_page": "5",
+          "clause": "Affordable Housing Units definition",
+          "quote": "means the 76 Residential Units (271 Habitable Rooms)",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3543,
+              0.1407,
+              0.8555,
+              0.7862
+            ]
+          },
+          "image": "evidence/page-005.png"
+        }
+      ]
+    },
+    {
+      "id": "H02",
+      "title": "Percentage and measurement basis",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "Stated affordable share is 35.75%, measured by habitable rooms. Do not recompute using 76/253 units. Total scheme habitable-room count was not identified in the examined operative definitions/schedules; an implied denominator is not a source value.",
+      "ambiguity": "Confirm that no total scheme habitable-room denominator is stated elsewhere, including plans; do not use the implied value as ground truth.",
+      "expected_fields": {
+        "housing.claimed_affordable_pct": "35.75",
+        "housing.claimed_affordable_basis": "habitable_rooms",
+        "housing.total_habitable_rooms": null
+      },
+      "evidence": [
+        {
+          "pdf_page": 14,
+          "printed_page": "14",
+          "clause": "Development definition",
+          "quote": "35.75% affordable by habitable room",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3615,
+              0.4335,
+              0.8585,
+              0.4489
+            ]
+          },
+          "image": "evidence/page-014.png"
+        },
+        {
+          "pdf_page": 19,
+          "printed_page": "19",
+          "clause": "Habitable Room definition",
+          "quote": "PROVIDED ALWAYS THAT any room in excess of 27.5 sq m will be treated as 2 such rooms",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3561,
+              0.4023,
+              0.8555,
+              0.8709
+            ]
+          },
+          "image": "evidence/page-019.png"
+        }
+      ]
+    },
+    {
+      "id": "H03",
+      "title": "Social rented allocation",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "58 social rented units / 212 habitable rooms in Southern Block: 10 one-bed, 24 two-bed, 24 three-bed.",
+      "ambiguity": "Slash separators in the proposed interpretation represent columns; the source quotation is literal and the image shows the original cells.",
+      "expected_fields": {
+        "tenure.Social Rent.units": 58,
+        "tenure.Social Rent.habitable_rooms": 212
+      },
+      "evidence": [
+        {
+          "pdf_page": 30,
+          "printed_page": "30",
+          "clause": "Social Rented Housing Units definition",
+          "quote": "means the 58 Residential Units (made up of 10 one bedroom units, 24 two bedroom units and 24 three bedroom units (212) Habitable Rooms)",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3664,
+              0.177,
+              0.8646,
+              0.8063
+            ]
+          },
+          "image": "evidence/page-030.png"
+        },
+        {
+          "pdf_page": 91,
+          "printed_page": "76",
+          "clause": "Schedule13 mix table",
+          "quote": "76 (271 habitable rooms)",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.5339,
+              0.2899,
+              0.7237,
+              0.3108
+            ]
+          },
+          "image": "evidence/page-091.png"
+        }
+      ]
+    },
+    {
+      "id": "H04",
+      "title": "Intermediate allocation and permitted tenure",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "18 intermediate units / 59 habitable rooms in Tower Block: 7 one-bed, 5 two-bed, 6 three-bed. Intermediate is an umbrella: shared ownership and/or London Living Rent, subject to Council-approved proposal. No fixed suballocation between these is stated here.",
+      "ambiguity": null,
+      "expected_fields": {
+        "tenure.Intermediate.units": 18,
+        "tenure.Intermediate.habitable_rooms": 59
+      },
+      "evidence": [
+        {
+          "pdf_page": 21,
+          "printed_page": "21",
+          "clause": "Intermediate Housing Units definition",
+          "quote": "means the 18 Residential Units (provided as 7 one bedroom units, 5 two bedroom units and 6 three bedroom units (59 Habitable Rooms)",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3622,
+              0.1603,
+              0.8597,
+              0.808
+            ]
+          },
+          "image": "evidence/page-021.png"
+        },
+        {
+          "pdf_page": 21,
+          "printed_page": "21",
+          "clause": "Intermediate Housing Mix Proposal definition",
+          "quote": "either Shared Ownership Housing and/or London Living Rent Housing or a combination of the same;",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1185,
+              0.1197,
+              0.8622,
+              0.8474
+            ]
+          },
+          "image": "evidence/page-021.png"
+        },
+        {
+          "pdf_page": 61,
+          "printed_page": "46",
+          "clause": "Schedule3 1.4",
+          "quote": "Not to Occupy the Development until the Intermediate Housing Mix Proposal has been submitted to the Council and the Council has approved the proposal.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1644,
+              0.2381,
+              0.8513,
+              0.8611
+            ]
+          },
+          "image": "evidence/page-061.png"
+        }
+      ]
+    },
+    {
+      "id": "H05",
+      "title": "Approved affordable mix",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "Schedule13: social/intermediate cells are 10/7, 24/5, 24/6; subtotals 58/18; total 76 units and 271 rooms.",
+      "ambiguity": null,
+      "expected_fields": {
+        "housing.mix_table.rows": [
+          {
+            "unit_type": "1 bed",
+            "units_by_tenure": [
+              [
+                "Social Rent",
+                10
+              ],
+              [
+                "Intermediate",
+                7
+              ]
+            ]
+          },
+          {
+            "unit_type": "2 bed",
+            "units_by_tenure": [
+              [
+                "Social Rent",
+                24
+              ],
+              [
+                "Intermediate",
+                5
+              ]
+            ]
+          },
+          {
+            "unit_type": "3 bed",
+            "units_by_tenure": [
+              [
+                "Social Rent",
+                24
+              ],
+              [
+                "Intermediate",
+                6
+              ]
+            ]
+          }
+        ],
+        "housing.mix_table.total_units": 76,
+        "housing.mix_table.total_habitable_rooms": 271
+      },
+      "evidence": [
+        {
+          "pdf_page": 91,
+          "printed_page": "76",
+          "clause": "Schedule13",
+          "quote": "Total 76 (271 habitable rooms)",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.5339,
+              0.2899,
+              0.7237,
+              0.3108
+            ]
+          },
+          "image": "evidence/page-091.png"
+        }
+      ]
+    },
+    {
+      "id": "H06",
+      "title": "Housing delivery restriction",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "Construct affordable housing at no cost to Council; cannot occupy more than 50% of market units until all affordable units are Delivered. Delivered includes ready for occupation, binding 125-year lease arrangement and handover to a Registered Provider. This is a contractual gate, not a statement that delivery happened.",
+      "ambiguity": null,
+      "expected_fields": {},
+      "evidence": [
+        {
+          "pdf_page": 61,
+          "printed_page": "46",
+          "clause": "Schedule3 1.1-1.2",
+          "quote": "Not to Occupy more than 50% of the Market Housing Units in the Development until all of the Affordable Housing Units have been Delivered.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1638,
+              0.2381,
+              0.8513,
+              0.9008
+            ]
+          },
+          "image": "evidence/page-061.png"
+        },
+        {
+          "pdf_page": 12,
+          "printed_page": "12",
+          "clause": "Delivered definition",
+          "quote": "a term of at least one hundred and twenty five years",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3561,
+              0.0971,
+              0.864,
+              0.8833
+            ]
+          },
+          "image": "evidence/page-012.png"
+        }
+      ]
+    },
+    {
+      "id": "H07",
+      "title": "Review trigger and housing maximum",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "If Substantial Implementation has not occurred by Review Date, submit review within 20 Working Days after it occurs. Review Date is 24 months from grant subject to planning-challenge/force-majeure extensions. Maximum provision without public subsidy under Schedule4 is 50% by habitable room, not an original unconditional 50% commitment.",
+      "ambiguity": "Read full definition and extension provisions before judging whether review is triggered; no dates or events on site are determined here.",
+      "expected_fields": {},
+      "evidence": [
+        {
+          "pdf_page": 64,
+          "printed_page": "49",
+          "clause": "Schedule4 1",
+          "quote": "shall at no time together be required to exceed the equivalent of 50 per cent (by Habitable Room) of the Residential Units",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1814,
+              0.292,
+              0.8676,
+              0.8217
+            ]
+          },
+          "image": "evidence/page-064.png"
+        },
+        {
+          "pdf_page": 64,
+          "printed_page": "49",
+          "clause": "Schedule4 2.1",
+          "quote": "Where Substantial Implementation has not occurred on or before the Review Date",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1802,
+              0.4109,
+              0.8658,
+              0.8636
+            ]
+          },
+          "image": "evidence/page-064.png"
+        },
+        {
+          "pdf_page": 26,
+          "printed_page": "26",
+          "clause": "Review Date definition",
+          "quote": "means the date 24 months from but excluding the date of grant of Planning Permission",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3676,
+              0.0983,
+              0.8688,
+              0.8593
+            ]
+          },
+          "image": "evidence/page-026.png"
+        }
+      ]
+    },
+    {
+      "id": "H08",
+      "title": "Additional tenure allocation and formulas",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "Policy surplus and conversion formulas determine additional housing; allocation is 70% of surplus for social rented and 30% intermediate, with further social-rent adjustment to achieve tenure split. Formula2 measures housing in habitable rooms after floorspace conversion. Not a fixed count of extra homes.",
+      "ambiguity": "Formula transcription and all symbols require human confirmation from PDF93; no numeric review has been calculated.",
+      "expected_fields": {},
+      "evidence": [
+        {
+          "pdf_page": 93,
+          "printed_page": "78",
+          "clause": "Annex1 Formula2",
+          "quote": "F = Percentage of Policy Surplus profit available for Additional Affordable Housing to be used for Social Housing 70%",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1796,
+              0.3553,
+              0.8561,
+              0.8491
+            ]
+          },
+          "image": "evidence/page-093.png"
+        },
+        {
+          "pdf_page": 93,
+          "printed_page": "78",
+          "clause": "Annex1 Formula2",
+          "quote": "G = Percentage of Policy Surplus available for Additional Affordable Housing to be used for Intermediate Housing 30%",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1796,
+              0.3553,
+              0.8561,
+              0.8675
+            ]
+          },
+          "image": "evidence/page-093.png"
+        },
+        {
+          "pdf_page": 94,
+          "printed_page": "79",
+          "clause": "Annex1 notes",
+          "quote": "the additional Policy Surplus shall be used for the provision of additional Social Rented Housing until the Affordable Housing tenure split is achieved.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1862,
+              0.118,
+              0.8615,
+              0.3531
+            ]
+          },
+          "image": "evidence/page-094.png"
+        }
+      ]
+    },
+    {
+      "id": "H09",
+      "title": "Wheelchair units",
+      "priority": "medium",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "6 intermediate, 6 social rented and 14 market wheelchair units, described as 10.27% of total units; Schedule5 requires wheelchair-user construction and conditional adaptations at no extra purchaser charge.",
+      "ambiguity": null,
+      "expected_fields": {},
+      "evidence": [
+        {
+          "pdf_page": 32,
+          "printed_page": "32",
+          "clause": "Wheelchair Units definition",
+          "quote": "means the 6 Intermediate Housing Units, 6 Social Rented Housing Units and 14 Market Housing Units (together 10.27 % of the total Residential Units)",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1741,
+              0.1013,
+              0.8615,
+              0.7781
+            ]
+          },
+          "image": "evidence/page-032.png"
+        },
+        {
+          "pdf_page": 68,
+          "printed_page": "53",
+          "clause": "Schedule5 1.4",
+          "quote": "any such additional fit-out shall be at no additional charge to the purchaser.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1983,
+              0.2749,
+              0.8615,
+              0.726
+            ]
+          },
+          "image": "evidence/page-068.png"
+        }
+      ]
+    },
+    {
+      "id": "H10",
+      "title": "Affordability and ongoing restrictions",
+      "priority": "medium",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "Social rent remains social rent, and intermediate remains Council-approved intermediate tenure, subject to clause7.1 exceptions. Intermediate annual housing costs including service charges must not exceed 40% of net income (net defined as 70% gross), with income caps. Review eligibility/marketing exceptions separately.",
+      "ambiguity": null,
+      "expected_fields": {},
+      "evidence": [
+        {
+          "pdf_page": 20,
+          "printed_page": "20",
+          "clause": "Intermediate Affordability definition",
+          "quote": "shall not exceed 40% of net household income where net household income is defined as 70% of gross Household Income",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3634,
+              0.5468,
+              0.8585,
+              0.6635
+            ]
+          },
+          "image": "evidence/page-020.png"
+        },
+        {
+          "pdf_page": 63,
+          "printed_page": "48",
+          "clause": "Schedule3 5",
+          "quote": "not to Occupy the Intermediate Housing Units other than as Intermediate Housing",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1681,
+              0.1022,
+              0.8561,
+              0.3989
+            ]
+          },
+          "image": "evidence/page-063.png"
+        }
+      ]
+    },
+    {
+      "id": "F01",
+      "title": "Administration Cost",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "£16,913.26 index linked. Pay within 28 days of written request and separately before Implementation; both requirements matter. No instalments identified.",
+      "ambiguity": null,
+      "expected_fields": {
+        "contribution.Administration Cost.amount.structure": "fixed",
+        "contribution.Administration Cost.amount.value_gbp": "16913.26",
+        "contribution.Administration Cost.conditionality.kind": "unconditional",
+        "contribution.Administration Cost.amount.index_linked": true,
+        "contribution.Administration Cost.payment.trigger_event": "on demand / review",
+        "contribution.Administration Cost.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 4,
+          "printed_page": "4",
+          "clause": "Administration Cost definition",
+          "quote": "means the sum of £16,913.26",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3646,
+              0.0992,
+              0.8676,
+              0.8769
+            ]
+          },
+          "image": "evidence/page-004.png"
+        },
+        {
+          "pdf_page": 39,
+          "printed_page": "39",
+          "clause": "Clause15",
+          "quote": "within 28 days of receiving written request and separately not to Implement the Development until the Administration Cost has been paid to the Council.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1898,
+              0.2976,
+              0.8706,
+              0.6798
+            ]
+          },
+          "image": "evidence/page-039.png"
+        }
+      ]
+    },
+    {
+      "id": "F02",
+      "title": "Affordable Housing Monitoring Contribution",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "£10,058.60 index linked; member of Site and Development Contributions, payable on or before Implementation, in full.",
+      "ambiguity": null,
+      "expected_fields": {
+        "contribution.Affordable Housing Monitoring Contribution.amount.structure": "fixed",
+        "contribution.Affordable Housing Monitoring Contribution.amount.value_gbp": "10058.60",
+        "contribution.Affordable Housing Monitoring Contribution.conditionality.kind": "unconditional",
+        "contribution.Affordable Housing Monitoring Contribution.amount.index_linked": true,
+        "contribution.Affordable Housing Monitoring Contribution.payment.trigger_event": "prior to Implementation",
+        "contribution.Affordable Housing Monitoring Contribution.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 4,
+          "printed_page": "4",
+          "clause": "Definition",
+          "quote": "means the sum of £10,058.60",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3646,
+              0.0992,
+              0.8676,
+              0.8769
+            ]
+          },
+          "image": "evidence/page-004.png"
+        },
+        {
+          "pdf_page": 29,
+          "printed_page": "29",
+          "clause": "Site and Development Contributions definition",
+          "quote": "means the Affordable Housing Monitoring Contribution",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3555,
+              0.1804,
+              0.8603,
+              0.8414
+            ]
+          },
+          "image": "evidence/page-029.png"
+        },
+        {
+          "pdf_page": 70,
+          "printed_page": "55",
+          "clause": "Schedule6 1.1",
+          "quote": "To pay the Site and Development Contributions on or before Implementation.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1699,
+              0.2377,
+              0.8603,
+              0.6186
+            ]
+          },
+          "image": "evidence/page-070.png"
+        }
+      ]
+    },
+    {
+      "id": "F03",
+      "title": "Environmental Health Officer Contribution",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "£10,120 index linked, same Implementation group covenant; not a separate occupation payment.",
+      "ambiguity": null,
+      "expected_fields": {
+        "contribution.Environmental Health Officer Contribution.amount.structure": "fixed",
+        "contribution.Environmental Health Officer Contribution.amount.value_gbp": "10120",
+        "contribution.Environmental Health Officer Contribution.conditionality.kind": "unconditional",
+        "contribution.Environmental Health Officer Contribution.amount.index_linked": true,
+        "contribution.Environmental Health Officer Contribution.payment.trigger_event": "prior to Implementation",
+        "contribution.Environmental Health Officer Contribution.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 17,
+          "printed_page": "17",
+          "clause": "Definition",
+          "quote": "means the sum of £10,120",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1106,
+              0.1005,
+              0.8555,
+              0.8884
+            ]
+          },
+          "image": "evidence/page-017.png"
+        },
+        {
+          "pdf_page": 29,
+          "printed_page": "29",
+          "clause": "Group definition",
+          "quote": "Environmental Health Officer Contribution",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3561,
+              0.2796,
+              0.8507,
+              0.3014
+            ]
+          },
+          "image": "evidence/page-029.png"
+        },
+        {
+          "pdf_page": 70,
+          "printed_page": "55",
+          "clause": "Schedule6 1.1",
+          "quote": "To pay the Site and Development Contributions on or before Implementation.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1699,
+              0.2377,
+              0.8603,
+              0.6186
+            ]
+          },
+          "image": "evidence/page-070.png"
+        }
+      ]
+    },
+    {
+      "id": "F04",
+      "title": "Public Open Space, Children’s Play Equipment and Sports Development Contribution",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "£259,552 index linked, same Implementation group covenant; purpose includes public space/play/sport near site.",
+      "ambiguity": null,
+      "expected_fields": {
+        "contribution.Public Open Space, Children’s Play Equipment and Sports Development Contribution.amount.structure": "fixed",
+        "contribution.Public Open Space, Children’s Play Equipment and Sports Development Contribution.amount.value_gbp": "259552",
+        "contribution.Public Open Space, Children’s Play Equipment and Sports Development Contribution.conditionality.kind": "unconditional",
+        "contribution.Public Open Space, Children’s Play Equipment and Sports Development Contribution.amount.index_linked": true,
+        "contribution.Public Open Space, Children’s Play Equipment and Sports Development Contribution.payment.trigger_event": "prior to Implementation",
+        "contribution.Public Open Space, Children’s Play Equipment and Sports Development Contribution.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 25,
+          "printed_page": "25",
+          "clause": "Definition",
+          "quote": "means the sum of £259,552.00",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3501,
+              0.1334,
+              0.8513,
+              0.8649
+            ]
+          },
+          "image": "evidence/page-025.png"
+        },
+        {
+          "pdf_page": 70,
+          "printed_page": "55",
+          "clause": "Schedule6 1.1",
+          "quote": "To pay the Site and Development Contributions on or before Implementation.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1699,
+              0.2377,
+              0.8603,
+              0.6186
+            ]
+          },
+          "image": "evidence/page-070.png"
+        }
+      ]
+    },
+    {
+      "id": "F05",
+      "title": "Cycle Hire Docking Station Contribution",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "£12,650 index linked, on or before Occupation, in full.",
+      "ambiguity": null,
+      "expected_fields": {
+        "contribution.Cycle Hire Docking Station Contribution.amount.structure": "fixed",
+        "contribution.Cycle Hire Docking Station Contribution.amount.value_gbp": "12650",
+        "contribution.Cycle Hire Docking Station Contribution.conditionality.kind": "unconditional",
+        "contribution.Cycle Hire Docking Station Contribution.amount.index_linked": true,
+        "contribution.Cycle Hire Docking Station Contribution.payment.trigger_event": "prior to Occupation",
+        "contribution.Cycle Hire Docking Station Contribution.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 12,
+          "printed_page": "12",
+          "clause": "Definition",
+          "quote": "means the sum of £12,650",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3561,
+              0.0971,
+              0.8646,
+              0.8833
+            ]
+          },
+          "image": "evidence/page-012.png"
+        },
+        {
+          "pdf_page": 70,
+          "printed_page": "55",
+          "clause": "Schedule6 1.3",
+          "quote": "To pay the Cycle Hire Docking Station Contribution on or before Occupation.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1699,
+              0.2377,
+              0.8603,
+              0.6186
+            ]
+          },
+          "image": "evidence/page-070.png"
+        }
+      ]
+    },
+    {
+      "id": "F06",
+      "title": "Bus Contribution",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "£683,100 index-linked maximum, or lesser amount specified following methodology review. Obligation persists if reduced; default on/before first Occupation of any part, or later date advised by Council and TfL.",
+      "ambiguity": "Unconditional means a base covenant remains, not that the maximum is necessarily paid or that timing cannot change.",
+      "expected_fields": {
+        "contribution.Bus Contribution.amount.structure": "cap",
+        "contribution.Bus Contribution.amount.value_gbp": "683100",
+        "contribution.Bus Contribution.conditionality.kind": "unconditional",
+        "contribution.Bus Contribution.amount.index_linked": true,
+        "contribution.Bus Contribution.payment.trigger_event": "prior to Occupation",
+        "contribution.Bus Contribution.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 7,
+          "printed_page": "7",
+          "clause": "Definition",
+          "quote": "means the sum of £683,100.00",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3573,
+              0.2168,
+              0.8609,
+              0.8247
+            ]
+          },
+          "image": "evidence/page-007.png"
+        },
+        {
+          "pdf_page": 8,
+          "printed_page": "8",
+          "clause": "Bus Contribution Methodology Review definition",
+          "quote": "subject to a maximum cap of £683,100.00",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3603,
+              0.1505,
+              0.864,
+              0.8157
+            ]
+          },
+          "image": "evidence/page-008.png"
+        },
+        {
+          "pdf_page": 70,
+          "printed_page": "55",
+          "clause": "Schedule6 1.5",
+          "quote": "on or before first Occupation of any part of the Development or such later date as may be advised to the Owner by the Council and by TfL.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1741,
+              0.2377,
+              0.8603,
+              0.4865
+            ]
+          },
+          "image": "evidence/page-070.png"
+        }
+      ]
+    },
+    {
+      "id": "F07",
+      "title": "Carbon Green Fund Contribution",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "£475,991 index-linked maximum; reduced maximum £130,259.62 if connected or to be connected to district heating. May reduce maximum by £1,800 per tonne annual residual CO2 improvement. Assessment normally before 50% Occupation; payment is within 20 Working Days after agreement/determination, not at assessment.",
+      "ambiguity": "Amount varies with assessment and district-heating status. Base payment covenant is unconditional in this proposed classification; reviewer must confirm distinction from conditional quantum.",
+      "expected_fields": {
+        "contribution.Carbon Green Fund Contribution.amount.structure": "cap",
+        "contribution.Carbon Green Fund Contribution.amount.value_gbp": "475991",
+        "contribution.Carbon Green Fund Contribution.conditionality.kind": "unconditional",
+        "contribution.Carbon Green Fund Contribution.amount.index_linked": true,
+        "contribution.Carbon Green Fund Contribution.payment.trigger_event": "on demand / review",
+        "contribution.Carbon Green Fund Contribution.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 8,
+          "printed_page": "8",
+          "clause": "Definition",
+          "quote": "means a sum of up to a maximum £475,991.00",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3603,
+              0.1505,
+              0.864,
+              0.8157
+            ]
+          },
+          "image": "evidence/page-008.png"
+        },
+        {
+          "pdf_page": 9,
+          "printed_page": "9",
+          "clause": "Definition continuation",
+          "quote": "the maximum sum payable shall be £130,259.62",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3712,
+              0.1573,
+              0.8755,
+              0.6071
+            ]
+          },
+          "image": "evidence/page-009.png"
+        },
+        {
+          "pdf_page": 89,
+          "printed_page": "74",
+          "clause": "Schedule11 3.3",
+          "quote": "a sum equivalent to £1800 per tonne of annual residual CO2 emissions",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1675,
+              0.1539,
+              0.8609,
+              0.5519
+            ]
+          },
+          "image": "evidence/page-089.png"
+        },
+        {
+          "pdf_page": 89,
+          "printed_page": "74",
+          "clause": "Schedule11 3.5",
+          "quote": "shall be payable within 20 Working Days of such agreement or determination.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1675,
+              0.1539,
+              0.8622,
+              0.6503
+            ]
+          },
+          "image": "evidence/page-089.png"
+        }
+      ]
+    },
+    {
+      "id": "F08",
+      "title": "Default Employment in the End Use Contribution",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "£73,100 index linked only if no Employment and Skills Plan is produced or approved; pay within 28 days of Council written notice. Distinct from target-shortfall contribution.",
+      "ambiguity": null,
+      "expected_fields": {
+        "contribution.Default Employment in the End Use Contribution.amount.structure": "fixed",
+        "contribution.Default Employment in the End Use Contribution.amount.value_gbp": "73100",
+        "contribution.Default Employment in the End Use Contribution.conditionality.kind": "conditional",
+        "contribution.Default Employment in the End Use Contribution.amount.index_linked": true,
+        "contribution.Default Employment in the End Use Contribution.payment.trigger_event": "on demand / review",
+        "contribution.Default Employment in the End Use Contribution.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 12,
+          "printed_page": "12",
+          "clause": "Definition",
+          "quote": "means a financial contribution of £73,100",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3561,
+              0.0971,
+              0.864,
+              0.8833
+            ]
+          },
+          "image": "evidence/page-012.png"
+        },
+        {
+          "pdf_page": 80,
+          "printed_page": "65",
+          "clause": "Schedule9 Part1 3.4",
+          "quote": "In the event that the Owner does not produce an Employment and Skills Plan or such plan is not approved by the Council",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1711,
+              0.1385,
+              0.8579,
+              0.8247
+            ]
+          },
+          "image": "evidence/page-080.png"
+        },
+        {
+          "pdf_page": 80,
+          "printed_page": "65",
+          "clause": "Schedule9 Part1 3.4",
+          "quote": "within 28 days of receiving written notice from the Council.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1711,
+              0.1189,
+              0.8585,
+              0.8452
+            ]
+          },
+          "image": "evidence/page-080.png"
+        }
+      ]
+    },
+    {
+      "id": "F09",
+      "title": "Construction Industry Employment and Training Contribution",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "Targets: 45 sustained construction jobs, 45 short-course trainees, 11 apprenticeships/NVQ starts. If targets unmet to Council satisfaction: £4,300 × jobs shortfall + £150 × course shortfall + £1,500 × apprenticeships/NVQ shortfall. Pay within 28 Working Days of notice. No fixed total in source.",
+      "ambiguity": "The three monetary coefficients appear in separate formula subparagraphs on PDF78. The card quotes one coefficient; inspect the full-page image for all three. No index-linked wording was identified in this definition/covenant.",
+      "expected_fields": {
+        "contribution.Construction Industry Employment and Training Contribution.amount.structure": "formula",
+        "contribution.Construction Industry Employment and Training Contribution.amount.value_gbp": null,
+        "contribution.Construction Industry Employment and Training Contribution.conditionality.kind": "conditional",
+        "contribution.Construction Industry Employment and Training Contribution.payment.trigger_event": "on demand / review",
+        "contribution.Construction Industry Employment and Training Contribution.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 78,
+          "printed_page": "63",
+          "clause": "Schedule9 Part1 1.4.1-1.4.3",
+          "quote": "a minimum of 45",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1729,
+              0.1,
+              0.8597,
+              0.8072
+            ]
+          },
+          "image": "evidence/page-078.png"
+        },
+        {
+          "pdf_page": 78,
+          "printed_page": "63",
+          "clause": "Schedule9 Part1 1.6",
+          "quote": "In the event that the targets in paragraphs 1.4 above have not been achieved to the satisfaction of the Council",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1717,
+              0.2356,
+              0.8603,
+              0.8264
+            ]
+          },
+          "image": "evidence/page-078.png"
+        },
+        {
+          "pdf_page": 78,
+          "printed_page": "63",
+          "clause": "Schedule9 Part1 1.6.1-1.6.3",
+          "quote": "£4,300",
+          "coordinates": null,
+          "image": "evidence/page-078.png"
+        },
+        {
+          "pdf_page": 78,
+          "printed_page": "63",
+          "clause": "Schedule9 Part1 1.7",
+          "quote": "within 28 Working Days of the notice referred to in paragraph 1.6 above.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1711,
+              0.2356,
+              0.8603,
+              0.8457
+            ]
+          },
+          "image": "evidence/page-078.png"
+        }
+      ]
+    },
+    {
+      "id": "F10",
+      "title": "Employment in the End Use Contribution",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "17 opportunities; if plan targets not achieved during 18-month plan period, shortfall × £4,300; payment within 28 days of receipt of Council notice. No fixed £73,100 obligation here merely because 17×4,300 equals that sum.",
+      "ambiguity": null,
+      "expected_fields": {
+        "contribution.Employment in the End Use Contribution.amount.structure": "formula",
+        "contribution.Employment in the End Use Contribution.amount.value_gbp": null,
+        "contribution.Employment in the End Use Contribution.conditionality.kind": "conditional",
+        "contribution.Employment in the End Use Contribution.payment.trigger_event": "on demand / review",
+        "contribution.Employment in the End Use Contribution.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 79,
+          "printed_page": "64",
+          "clause": "Schedule9 Part1 3.2.1",
+          "quote": "identify 17 suitable Sustainable Employment Opportunities",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1687,
+              0.8649,
+              0.8495,
+              0.8846
+            ]
+          },
+          "image": "evidence/page-079.png"
+        },
+        {
+          "pdf_page": 16,
+          "printed_page": "16",
+          "clause": "Employment and Skills Plan Period definition",
+          "quote": "means a period of 18 months from first Occupation of the Development;",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1173,
+              0.1556,
+              0.8628,
+              0.8251
+            ]
+          },
+          "image": "evidence/page-016.png"
+        },
+        {
+          "pdf_page": 80,
+          "printed_page": "65",
+          "clause": "Schedule9 Part1 3.6",
+          "quote": "Shortfall against number of Unemployed Borough Residents in Sustained Employment within the End Use of the Development",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1711,
+              0.1385,
+              0.8585,
+              0.8452
+            ]
+          },
+          "image": "evidence/page-080.png"
+        },
+        {
+          "pdf_page": 80,
+          "printed_page": "65",
+          "clause": "Schedule9 Part1 3.6",
+          "quote": "£4,300",
+          "coordinates": null,
+          "image": "evidence/page-080.png"
+        },
+        {
+          "pdf_page": 80,
+          "printed_page": "65",
+          "clause": "Schedule9 Part1 3.7",
+          "quote": "within 28 days of receipt of the notice referred to in paragraph 3.6.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1711,
+              0.1189,
+              0.8585,
+              0.8452
+            ]
+          },
+          "image": "evidence/page-080.png"
+        }
+      ]
+    },
+    {
+      "id": "F11",
+      "title": "Greenfield Run-off Rate Off-Set Contribution",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "£366 per cubic metre of attenuation-storage shortfall, index linked; only if approved strategy lacks storage to limit runoff to 8.5 litres/sec for events up to 1-in-100-year storm plus climate change. Pay before Implementation if condition applies. Definition says Schedule8 paragraph6; operative clause is 6.2.",
+      "ambiguity": "Operative text uses Greenfield/Green name variants; match as aliases, preserve both quotes. A rate is not a total.",
+      "expected_fields": {
+        "contribution.Greenfield Run-off Rate Off-Set Contribution.amount.structure": "rate",
+        "contribution.Greenfield Run-off Rate Off-Set Contribution.amount.value_gbp": "366",
+        "contribution.Greenfield Run-off Rate Off-Set Contribution.conditionality.kind": "conditional",
+        "contribution.Greenfield Run-off Rate Off-Set Contribution.amount.index_linked": true,
+        "contribution.Greenfield Run-off Rate Off-Set Contribution.payment.trigger_event": "prior to Implementation",
+        "contribution.Greenfield Run-off Rate Off-Set Contribution.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 18,
+          "printed_page": "18",
+          "clause": "Definition",
+          "quote": "calculated at a rate of £366 per cubic metre",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3482,
+              0.7687,
+              0.8567,
+              0.805
+            ]
+          },
+          "image": "evidence/page-018.png"
+        },
+        {
+          "pdf_page": 76,
+          "printed_page": "61",
+          "clause": "Schedule8 6.2",
+          "quote": "If the results of the Greenfield Run-off Rate Strategy approved pursuant to paragraph 6.1 above show that the Development does not include provisions for attenuation storage",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1735,
+              0.1167,
+              0.8622,
+              0.6071
+            ]
+          },
+          "image": "evidence/page-076.png"
+        },
+        {
+          "pdf_page": 76,
+          "printed_page": "61",
+          "clause": "Schedule8 6.2",
+          "quote": "not to Implement the Development until the Green Run-off Rate Off-Set Contribution has been paid to the Council in full.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1735,
+              0.1167,
+              0.8622,
+              0.5866
+            ]
+          },
+          "image": "evidence/page-076.png"
+        }
+      ]
+    },
+    {
+      "id": "F12",
+      "title": "Affordable Housing Contribution",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "Policy surplus attributable to incomplete additional affordable units becomes an off-site contribution when review finds surplus insufficient for any complete unit, or cannot deliver a whole number of units. Pay before occupying more than 50% of market units. No fixed sum.",
+      "ambiguity": null,
+      "expected_fields": {
+        "contribution.Affordable Housing Contribution.amount.structure": "formula",
+        "contribution.Affordable Housing Contribution.amount.value_gbp": null,
+        "contribution.Affordable Housing Contribution.conditionality.kind": "conditional",
+        "contribution.Affordable Housing Contribution.payment.trigger_event": "prior to Occupation",
+        "contribution.Affordable Housing Contribution.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 4,
+          "printed_page": "4",
+          "clause": "Definition",
+          "quote": "means a financial contribution that may arise pursuant to a Viability Review",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3646,
+              0.4314,
+              0.8658,
+              0.8769
+            ]
+          },
+          "image": "evidence/page-004.png"
+        },
+        {
+          "pdf_page": 66,
+          "printed_page": "51",
+          "clause": "Schedule4 5.8",
+          "quote": "any such Policy Surplus attributable to any incomplete units of Additional Affordable Housing shall constitute an Affordable Housing Contribution",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1657,
+              0.1761,
+              0.8585,
+              0.8658
+            ]
+          },
+          "image": "evidence/page-066.png"
+        },
+        {
+          "pdf_page": 67,
+          "printed_page": "52",
+          "clause": "Schedule4 7",
+          "quote": "more than 50 per cent of the Market Housing Units",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1669,
+              0.1218,
+              0.8555,
+              0.6537
+            ]
+          },
+          "image": "evidence/page-067.png"
+        }
+      ]
+    },
+    {
+      "id": "F13",
+      "title": "Additional Affordable Housing Monitoring Payment",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "£132.35 × number of additional affordable units under Schedule4; pay before occupation of more than 50% of market units when additional affordable housing is required. Operative payment is not a defined term ending Contribution, so prompt scope may omit it.",
+      "ambiguity": null,
+      "expected_fields": {
+        "contribution.Additional Affordable Housing Monitoring Payment.amount.structure": "rate",
+        "contribution.Additional Affordable Housing Monitoring Payment.amount.value_gbp": "132.35",
+        "contribution.Additional Affordable Housing Monitoring Payment.conditionality.kind": "conditional",
+        "contribution.Additional Affordable Housing Monitoring Payment.payment.trigger_event": "prior to Occupation",
+        "contribution.Additional Affordable Housing Monitoring Payment.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 67,
+          "printed_page": "52",
+          "clause": "Schedule4 6.1.2",
+          "quote": "a sum equal to £132.35 multiplied by the number of Additional Affordable Housing Units",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1669,
+              0.1218,
+              0.8561,
+              0.6537
+            ]
+          },
+          "image": "evidence/page-067.png"
+        }
+      ]
+    },
+    {
+      "id": "F14",
+      "title": "Delivery and Service Cash Deposit",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "£25,300 index-linked security deposit before more than 75% Occupation. £1,600 monitoring fee comes out of it. Full retention if plan/report/baseline conditions fail; otherwise return within 20 Working Days of written request after monitoring period. Do not add £1,600 again as an extra payment.",
+      "ambiguity": "Fixed deposit principal; retention is conditional. Contribution schema cannot express refundable security separately.",
+      "expected_fields": {
+        "contribution.Delivery and Service Cash Deposit.amount.structure": "fixed",
+        "contribution.Delivery and Service Cash Deposit.amount.value_gbp": "25300",
+        "contribution.Delivery and Service Cash Deposit.conditionality.kind": "unconditional",
+        "contribution.Delivery and Service Cash Deposit.amount.index_linked": true,
+        "contribution.Delivery and Service Cash Deposit.payment.trigger_event": "prior to Occupation",
+        "contribution.Delivery and Service Cash Deposit.payment.instalments": []
+      },
+      "evidence": [
+        {
+          "pdf_page": 12,
+          "printed_page": "12",
+          "clause": "Definition",
+          "quote": "means the sum of £25,300.00",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3561,
+              0.0971,
+              0.8646,
+              0.8833
+            ]
+          },
+          "image": "evidence/page-012.png"
+        },
+        {
+          "pdf_page": 72,
+          "printed_page": "57",
+          "clause": "Schedule7 3.4",
+          "quote": "Not to Occupy more than 75% of the Development until the Delivery and Service Cash Deposit has been paid to the Council in full.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1699,
+              0.1364,
+              0.8555,
+              0.7593
+            ]
+          },
+          "image": "evidence/page-072.png"
+        },
+        {
+          "pdf_page": 72,
+          "printed_page": "57",
+          "clause": "Schedule7 3.5",
+          "quote": "retain the Delivery and Service Monitoring Fee from the Delivery and Service Cash Deposit.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1669,
+              0.0975,
+              0.8555,
+              0.9
+            ]
+          },
+          "image": "evidence/page-072.png"
+        },
+        {
+          "pdf_page": 72,
+          "printed_page": "57",
+          "clause": "Schedule7 3.8",
+          "quote": "within 20 Working Days of receipt of a written request following the end of the Delivery and Service Monitoring Period.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1669,
+              0.0975,
+              0.8555,
+              0.9
+            ]
+          },
+          "image": "evidence/page-072.png"
+        }
+      ]
+    },
+    {
+      "id": "F15",
+      "title": "Delivery and Service Monitoring Fee",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "£1,600 index linked, retained from £25,300 deposit rather than additional payment. Monitoring period: 2 years from 75% Occupation; baseline not more than 31 delivery/service motor vehicles daily.",
+      "ambiguity": null,
+      "expected_fields": {},
+      "evidence": [
+        {
+          "pdf_page": 12,
+          "printed_page": "12",
+          "clause": "Definitions",
+          "quote": "means the sum of £1,600",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3561,
+              0.0971,
+              0.8646,
+              0.8833
+            ]
+          },
+          "image": "evidence/page-012.png"
+        },
+        {
+          "pdf_page": 13,
+          "printed_page": "13",
+          "clause": "Definition continuation",
+          "quote": "which comes out of the Delivery and Service Cash Deposit",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1179,
+              0.1,
+              0.8615,
+              0.8046
+            ]
+          },
+          "image": "evidence/page-013.png"
+        },
+        {
+          "pdf_page": 13,
+          "printed_page": "13",
+          "clause": "Monitoring Period definition",
+          "quote": "a period of 2 years commencing on 75% Occupation",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3591,
+              0.2176,
+              0.8597,
+              0.7854
+            ]
+          },
+          "image": "evidence/page-013.png"
+        },
+        {
+          "pdf_page": 72,
+          "printed_page": "57",
+          "clause": "Schedule7 3.5",
+          "quote": "retain the Delivery and Service Monitoring Fee from the Delivery and Service Cash Deposit.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1669,
+              0.0975,
+              0.8555,
+              0.9
+            ]
+          },
+          "image": "evidence/page-072.png"
+        }
+      ]
+    },
+    {
+      "id": "F16",
+      "title": "Viability assessment costs",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "Owner pays reasonable/proper Council and GLA assessment costs including external consultants within 20 Working Days of written payment request. No quantified sum. Depends on assessment costs incurred.",
+      "ambiguity": null,
+      "expected_fields": {},
+      "evidence": [
+        {
+          "pdf_page": 66,
+          "printed_page": "51",
+          "clause": "Schedule4 5.9",
+          "quote": "within 20 Working Days of receipt of a written request for payment.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1705,
+              0.1761,
+              0.8585,
+              0.8063
+            ]
+          },
+          "image": "evidence/page-066.png"
+        }
+      ]
+    },
+    {
+      "id": "F17",
+      "title": "Highways security and works costs",
+      "priority": "high",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "Security amount is estimated highway works cost plus 50%; can be deposit/bond/guarantee/surety. Highway agreement before starting highway works; if authority undertakes works, owner must pay costs before Occupation. No fixed sum.",
+      "ambiguity": "Security is not necessarily a cash contribution; maintain distinct legal classification.",
+      "expected_fields": {},
+      "evidence": [
+        {
+          "pdf_page": 28,
+          "printed_page": "28",
+          "clause": "Section38/278 Highway Works Bond definition",
+          "quote": "a sum equivalent to the estimated cost of the Section 38/278 Highway Works plus fifty percent;",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3652,
+              0.1565,
+              0.8646,
+              0.7606
+            ]
+          },
+          "image": "evidence/page-028.png"
+        },
+        {
+          "pdf_page": 71,
+          "printed_page": "56",
+          "clause": "Schedule7 2.2",
+          "quote": "Not to commence the Section 38/278 Highway Works until a Section 38/278 Agreement has been entered into",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1741,
+              0.2578,
+              0.8634,
+              0.8713
+            ]
+          },
+          "image": "evidence/page-071.png"
+        },
+        {
+          "pdf_page": 71,
+          "printed_page": "56",
+          "clause": "Schedule7 2.3",
+          "quote": "until the Owner has paid the costs for those works to the relevant highway authority.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1258,
+              0.1821,
+              0.8634,
+              0.8713
+            ]
+          },
+          "image": "evidence/page-071.png"
+        }
+      ]
+    },
+    {
+      "id": "F18",
+      "title": "Legal, interest, VAT and other ancillary costs",
+      "priority": "medium",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "Clause16: reasonable preparation/negotiation/completion legal costs on/before agreement date. Clause14 enforcement expenses if incurred. Clause12: overdue >10 Working Days, on-demand interest 4% above NatWest base, from due date. Clause17: VAT excluded and separately payable where proper. Clause3.3 fees for future Section73 endorsements; clause8.2 registration cost recovery on failure. These are variable/ancillary obligations, not fixed contribution totals.",
+      "ambiguity": null,
+      "expected_fields": {},
+      "evidence": [
+        {
+          "pdf_page": 39,
+          "printed_page": "39",
+          "clause": "Clause16",
+          "quote": "the Council’s reasonable costs in the preparation, negotiation and completion of this Agreement.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1862,
+              0.1398,
+              0.8736,
+              0.779
+            ]
+          },
+          "image": "evidence/page-039.png"
+        },
+        {
+          "pdf_page": 39,
+          "printed_page": "39",
+          "clause": "Clause14",
+          "quote": "costs charges and expenses",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1874,
+              0.1599,
+              0.8585,
+              0.4844
+            ]
+          },
+          "image": "evidence/page-039.png"
+        },
+        {
+          "pdf_page": 38,
+          "printed_page": "38",
+          "clause": "Clause12",
+          "quote": "four per centum per annum above the base lending rate of the National Westminster Bank plc",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.185,
+              0.2548,
+              0.8615,
+              0.6687
+            ]
+          },
+          "image": "evidence/page-038.png"
+        },
+        {
+          "pdf_page": 39,
+          "printed_page": "39",
+          "clause": "Clause17.1",
+          "quote": "exclusive of any VAT properly payable",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1862,
+              0.1398,
+              0.8706,
+              0.6413
+            ]
+          },
+          "image": "evidence/page-039.png"
+        },
+        {
+          "pdf_page": 34,
+          "printed_page": "34",
+          "clause": "Clause3.3",
+          "quote": "The Owner shall meet the Council’s reasonable legal fees in respect of any such endorsement.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1699,
+              0.0971,
+              0.864,
+              0.8696
+            ]
+          },
+          "image": "evidence/page-034.png"
+        },
+        {
+          "pdf_page": 37,
+          "printed_page": "37",
+          "clause": "Clause8.2",
+          "quote": "recover the expenses incurred in doing so from the Owner",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1747,
+              0.3403,
+              0.8603,
+              0.7738
+            ]
+          },
+          "image": "evidence/page-037.png"
+        }
+      ]
+    },
+    {
+      "id": "Q01",
+      "title": "Indexation",
+      "priority": "medium",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "Index is RPI all items excluding mortgage interest (RPIX); index-linked scheduled sums increase from agreement date until payable. No inflation calculation is performed.",
+      "ambiguity": null,
+      "expected_fields": {},
+      "evidence": [
+        {
+          "pdf_page": 20,
+          "printed_page": "20",
+          "clause": "Index definition",
+          "quote": "RPI all items excluding mortgage interest (RPIX)",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3634,
+              0.3138,
+              0.8585,
+              0.3339
+            ]
+          },
+          "image": "evidence/page-020.png"
+        },
+        {
+          "pdf_page": 38,
+          "printed_page": "38",
+          "clause": "Clause13",
+          "quote": "the increase in the Index from the date hereof until the date on which such sum is payable.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1844,
+              0.1347,
+              0.8628,
+              0.8055
+            ]
+          },
+          "image": "evidence/page-038.png"
+        }
+      ]
+    },
+    {
+      "id": "Q02",
+      "title": "No staged shares identified",
+      "priority": "medium",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "No percentage instalment payment schedule was identified for the inventoried obligations in the examined operative schedules. Occupation thresholds and assessment triggers are not instalment shares. This absence claim is scoped to this reading, pending completeness review.",
+      "ambiguity": null,
+      "expected_fields": {},
+      "evidence": [
+        {
+          "pdf_page": 70,
+          "printed_page": "55",
+          "clause": "Schedule6 1.2",
+          "quote": "paid to the Council in full.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1699,
+              0.2377,
+              0.8603,
+              0.6186
+            ]
+          },
+          "image": "evidence/page-070.png"
+        },
+        {
+          "pdf_page": 67,
+          "printed_page": "52",
+          "clause": "Schedule4 7",
+          "quote": "paid to the Council in full.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1675,
+              0.1779,
+              0.8561,
+              0.6537
+            ]
+          },
+          "image": "evidence/page-067.png"
+        },
+        {
+          "pdf_page": 72,
+          "printed_page": "57",
+          "clause": "Schedule7 3.4",
+          "quote": "paid to the Council in full.",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1669,
+              0.1364,
+              0.8555,
+              0.9
+            ]
+          },
+          "image": "evidence/page-072.png"
+        }
+      ]
+    },
+    {
+      "id": "Q03",
+      "title": "Other costs and benefits outside contribution prompt",
+      "priority": "medium",
+      "annotation_origin": "agent_proposed",
+      "human_review_status": null,
+      "human_reviewer": null,
+      "human_review_date": null,
+      "human_notes": null,
+      "interpretation": "Three years free car club membership (one membership per residential unit, eligibility caveats); public-realm upkeep and conditional emergency cost recovery; affordable workspace 354 sqm GIA for 30 years with lease rent £17/sqft/year index linked on GIA, five-year RPI review. These are not fixed payments to Council and need a wider coverage taxonomy.",
+      "ambiguity": "Annex2 contains template placeholders [xx]; printed86/87 signature pages do not cure every annex ambiguity.",
+      "expected_fields": {},
+      "evidence": [
+        {
+          "pdf_page": 8,
+          "printed_page": "8",
+          "clause": "Car Club Scheme definition",
+          "quote": "3 year’s free car club membership",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3603,
+              0.3083,
+              0.8622,
+              0.5019
+            ]
+          },
+          "image": "evidence/page-008.png"
+        },
+        {
+          "pdf_page": 74,
+          "printed_page": "59",
+          "clause": "Schedule8 2.1.1",
+          "quote": "at its own expense permanently maintain, cleanse, drain",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1741,
+              0.5083,
+              0.8585,
+              0.7251
+            ]
+          },
+          "image": "evidence/page-074.png"
+        },
+        {
+          "pdf_page": 75,
+          "printed_page": "60",
+          "clause": "Schedule8 3.5",
+          "quote": "recover the reasonable costs of doing so from the Owner or the appointed Management Company",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1669,
+              0.1005,
+              0.8549,
+              0.8863
+            ]
+          },
+          "image": "evidence/page-075.png"
+        },
+        {
+          "pdf_page": 81,
+          "printed_page": "66",
+          "clause": "Schedule9 Part2 3.1",
+          "quote": "a period of 30 years",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.1784,
+              0.6708,
+              0.8525,
+              0.8482
+            ]
+          },
+          "image": "evidence/page-081.png"
+        },
+        {
+          "pdf_page": 95,
+          "printed_page": "80",
+          "clause": "Annex2 rent row",
+          "quote": "£17 per square foot per annum (Index Linked from the date of this Agreement).",
+          "coordinates": {
+            "system": "normalised rendered OCR image, top-left origin; approximate navigation only",
+            "bbox": [
+              0.3446,
+              0.1813,
+              0.8168,
+              0.6776
+            ]
+          },
+          "image": "evidence/page-095.png"
+        }
+      ]
+    }
+  ]
+}

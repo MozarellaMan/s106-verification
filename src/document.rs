@@ -19,7 +19,7 @@ use crate::evidence::Pages;
 const MIN_TEXT_CHARS: usize = 50;
 const OCR_DPI: f32 = 200.0;
 
-/// The OCR models, chosen by score against the hand-verified gold set (see README).
+/// The OCR models, chosen by score against the agent-transcribed benchmark set (see README).
 #[derive(Debug, Clone)]
 pub struct OcrModels {
     pub det: PathBuf,

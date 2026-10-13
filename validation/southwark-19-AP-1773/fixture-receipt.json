@@ -1,0 +1,9 @@
+{
+  "path": "fixtures/llm/southwark_s106_sample/claude-haiku-5-5.extract.v2.json",
+  "sha256": "ac940048590201fe11333adbb67d541db6cc8fd355aef1b9fabf6f88e2deab2b",
+  "format": "s106-llm-fixture/2",
+  "recorded_at": "2026-10-13T17:21:14Z",
+  "model": "claude-haiku-5-5",
+  "prompt_sha256": "95c2165ff1afd7eca5beb82e642146edd4001f868779295b9b9b79cfb4b68ae7",
+  "live_calls_this_milestone": 0
+}
