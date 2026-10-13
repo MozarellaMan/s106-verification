@@ -11,9 +11,18 @@ Registers rate-limit scrapers. The script waits --delay seconds between requests
 first sign of a block (HTTP 429/403, or a page it can't recognise), saving that page next to the
 CSVs and marking the remaining applications "not attempted". Re-run with --only for those later.
 
-Outputs, in --out (default: the sample's directory):
+Outputs, in --out (default: the sample's directory). Each run appends; nothing is overwritten, so
+a re-run with --only adds new attempts and keeps the earlier ones (read the latest `retrieved_at`
+per application for its current state):
   documents.csv   every document listed for every application (the full listing, for audit)
-  retrieval.csv   one row per application: found / no agreement listed / not found / error, and why
+  retrieval.csv   one row per application per attempt, with an outcome and why:
+                    found                   agreement listed (and downloaded, with --download)
+                    found, not downloaded   agreement listed but a download failed or was blocked
+                    no agreement listed     documents listed, none looks like an agreement
+                    no documents            the register says the application has no documents
+                    not found               the search found no such application
+                    error                   anything else, including a page that couldn't be read
+                    not attempted           the register blocked the run before this application
   corpus.tsv      downloaded candidates as corpus/manifest.tsv rows (id, path, sha256, url, session),
                   paths relative to the data checkout
 
@@ -138,11 +147,13 @@ class TableParser(HTMLParser):
         self.row = None
         self.cell = None
         self.links = None
+        self.saw_table = False
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
         if tag == "table" and (a.get("id") == "Documents" or self.in_table):
             self.in_table += 1
+            self.saw_table = True
         if not self.in_table:
             return
         if tag == "tr":
@@ -178,6 +189,12 @@ def list_documents(sess, key):
     _, page = sess.open(url)
     p = TableParser()
     p.feed(text(page))
+    if not p.saw_table:
+        # An empty tab says so; anything else is a page we can't read, which is not the same as
+        # an application with no documents.
+        if re.search(r"(?i)no documents", text(page)):
+            return sess.base + "/" + url, []
+        raise ValueError("Documents table not found on the documents tab")
     docs = []
     for cells, links in p.rows:
         if not links:
@@ -198,6 +215,26 @@ def classify(doc):
         if rx.search(hay):
             return kind, bool(NOT_DEED.search(hay))
     return "", False
+
+
+RETRIEVAL_COLS = ["lpa_app_no", "retrieved_at", "key_val", "documents_page", "n_documents",
+                  "n_candidates", "status", "reason"]
+DOCUMENT_COLS = ["lpa_app_no", "retrieved_at", "date_published", "document_type", "description",
+                 "kind", "candidate", "url", "sha256", "path"]
+
+
+def append_csv(path, cols, rows):
+    """Append rows, writing the header only for a new file. Earlier runs are never rewritten."""
+    new = not os.path.exists(path)
+    if not new:
+        with open(path, newline="") as f:
+            if next(csv.reader(f), None) != cols:
+                sys.exit(f"{path} has different columns; move it aside before appending")
+    with open(path, "a", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
+        if new:
+            w.writeheader()
+        w.writerows(rows)
 
 
 def slug(ref):
@@ -248,31 +285,45 @@ def main():
                 cands = [d for d in docs if d["candidate"]]
                 row["n_candidates"] = len(cands)
                 if not docs:
-                    row.update(status="no documents", reason="Documents tab empty or unreadable")
+                    row.update(status="no documents", reason="the register lists no documents")
                 elif not cands:
                     row.update(status="no agreement listed",
                                reason="no document type/description matched an agreement")
                 else:
                     row["status"] = "found"
                     row["reason"] = ", ".join(sorted({d["kind"] for d in cands}))
-                if a.download:
+                if a.download and cands:
                     os.makedirs(os.path.join(a.data, "raw"), exist_ok=True)
-                    for i, d in enumerate(cands, 1):
-                        path = f"raw/{a.prefix}-{slug(ref)}-{i}.pdf"
-                        _, body = sess.open(d["url"])
-                        if not body.startswith(b"%PDF"):
-                            d["path"] = "(not a PDF)"
-                            continue
-                        with open(os.path.join(a.data, path), "wb") as f:
-                            f.write(body)
-                        d["sha256"] = hashlib.sha256(body).hexdigest()
-                        d["path"] = path
-                        corpus_rows.append([f"{a.prefix}-{slug(ref)}-{i}", path, d["sha256"], d["url"], page])
+                    failed = []
+                    try:
+                        for i, d in enumerate(cands, 1):
+                            path = f"raw/{a.prefix}-{slug(ref)}-{i}.pdf"
+                            try:
+                                _, body = sess.open(d["url"])
+                            except Blocked:
+                                failed.append(f"{i}: blocked")
+                                raise
+                            except Exception as e:  # noqa: BLE001 - recorded per document
+                                failed.append(f"{i}: {type(e).__name__}: {e}")
+                                continue
+                            if not body.startswith(b"%PDF"):
+                                failed.append(f"{i}: not a PDF")
+                                continue
+                            with open(os.path.join(a.data, path), "wb") as f:
+                                f.write(body)
+                            d["sha256"] = hashlib.sha256(body).hexdigest()
+                            d["path"] = path
+                            corpus_rows.append([f"{a.prefix}-{slug(ref)}-{i}", path, d["sha256"], d["url"], page])
+                    finally:
+                        if failed:
+                            row.update(status="found, not downloaded",
+                                       reason=f"{len(failed)} of {len(cands)} failed: " + "; ".join(failed)[:250])
         except Blocked as e:
             msg, page = e.args
             with open(os.path.join(out, "blocked.html"), "wb") as f:
                 f.write(page or b"")
-            row.update(status="error", reason=f"blocked: {msg}")
+            if row["status"] != "found, not downloaded":
+                row.update(status="error", reason=f"blocked: {msg}")
             ret_rows.append(row)
             print(f"{ref}\tblocked\t{msg}; page saved to blocked.html; stopping", file=sys.stderr)
             for rest in refs[refs.index(ref) + 1:]:
@@ -286,20 +337,20 @@ def main():
         print(f"{ref}\t{row['status']}\t{row['n_candidates']}/{row['n_documents']}\t{row['reason']}",
               file=sys.stderr)
 
-    with open(os.path.join(out, "retrieval.csv"), "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(ret_rows[0]) if ret_rows else ["lpa_app_no"])
-        w.writeheader()
-        w.writerows(ret_rows)
-    cols = ["lpa_app_no", "date_published", "document_type", "description", "kind", "candidate",
-            "url", "sha256", "path"]
-    with open(os.path.join(out, "documents.csv"), "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
-        w.writeheader()
-        w.writerows(doc_rows)
-    if corpus_rows:
-        with open(os.path.join(out, "corpus.tsv"), "w", newline="") as f:
-            f.write("id\tpath\tsha256\turl\tsession\n")
-            for r in corpus_rows:
+    append_csv(os.path.join(out, "retrieval.csv"), RETRIEVAL_COLS, ret_rows)
+    for d in doc_rows:
+        d["retrieved_at"] = stamp
+    append_csv(os.path.join(out, "documents.csv"), DOCUMENT_COLS, doc_rows)
+    corpus = os.path.join(out, "corpus.tsv")
+    have = set()
+    if os.path.exists(corpus):
+        have = {line.split("\t", 1)[0] for line in open(corpus)}
+    new = [r for r in corpus_rows if r[0] not in have]
+    if new:
+        with open(corpus, "a", newline="") as f:
+            if not have:
+                f.write("id\tpath\tsha256\turl\tsession\n")
+            for r in new:
                 f.write("\t".join(r) + "\n")
     found = sum(r["status"] == "found" for r in ret_rows)
     print(f"{found}/{len(ret_rows)} applications list an agreement; see {out}/retrieval.csv", file=sys.stderr)
