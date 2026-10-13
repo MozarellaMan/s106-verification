@@ -1,0 +1,54 @@
+# Tiers 3-4 weekly and on demand: difficult pages and then every whole deed read afresh from the
+# PDFs (PDFium + OCR, empty page-text cache) and compared with the committed snapshots, then the
+# register evaluation on the PDFs. Deeds are fetched from the council registers and checked
+# against fixtures/corpus.tsv; the downloads are cached by that file's hash, page text never is.
+# Council websites are third parties: if one can't be reached the PDF tiers are skipped with a
+# warning. A download that fails its checksum is an integrity failure and fails the run. This
+# workflow is not a pull-request check (ci.yml is).
+name: corpus
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+jobs:
+  real-pdf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/cache@v4
+        with:
+          path: models
+          key: models-${{ hashFiles('scripts/runtime-artifacts.tsv') }}
+      - uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: corpus-${{ hashFiles('fixtures/corpus.tsv') }}
+      - run: scripts/fetch-models.sh
+      - id: corpus
+        # exit 1 (checksum mismatch) fails the job; exit 2 (source unreachable) skips the PDF tiers
+        run: |
+          set +e
+          scripts/fetch-corpus.sh
+          rc=$?
+          echo "ok=$([ $rc = 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          [ $rc = 2 ] && echo "::warning::a council register was unreachable; real-PDF tiers skipped"
+          [ $rc != 1 ]
+      - if: steps.corpus.outputs.ok == 'true'
+        run: cargo build --release --tests
+      - name: tier 3, difficult pages and OCR gold (fresh)
+        if: steps.corpus.outputs.ok == 'true'
+        run: cargo test --release --test pdf_regression -- --ignored --nocapture
+      - name: tier 4, every deed from its PDF (cold page-text cache)
+        if: steps.corpus.outputs.ok == 'true'
+        run: S106_OCR_CACHE=$(mktemp -d) cargo test --release --test corpus -- --ignored --nocapture
+      - name: register evaluation on the PDFs (replayed responses)
+        if: steps.corpus.outputs.ok == 'true'
+        run: cargo run --release -- eval --replay
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-replay
+          path: data/processed/eval/summary.*

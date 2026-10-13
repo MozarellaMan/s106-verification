@@ -44,10 +44,12 @@ pub fn counts(results: &[CheckResult]) -> [usize; 6] {
     ]
 }
 
-// Same format as `verify::gbp` for non-negative amounts; this one has no sign handling (a negative
-// would print "£-5.00"), so the two are kept apart rather than risk changing check detail strings.
-fn gbp(d: rust_decimal::Decimal) -> String {
-    let s = format!("{:.2}", d.round_dp(2));
+/// Pounds with thousands separators and at least two decimal places, exact value kept:
+/// 10058.6 -> "£10,058.60", 0.125 -> "£0.125", -5 -> "-£5.00".
+pub fn gbp(d: rust_decimal::Decimal) -> String {
+    let d = d.normalize();
+    let precision = d.scale().max(2) as usize;
+    let s = format!("{:.precision$}", d.abs());
     let (int, frac) = s.split_once('.').unwrap_or((&s, "00"));
     let mut g = String::new();
     for (i, ch) in int.chars().enumerate() {
@@ -56,7 +58,12 @@ fn gbp(d: rust_decimal::Decimal) -> String {
         }
         g.push(ch);
     }
-    format!("£{g}.{frac}")
+    let sign = if d.is_sign_negative() && !d.is_zero() {
+        "-"
+    } else {
+        ""
+    };
+    format!("{sign}£{g}.{frac}")
 }
 
 fn pg(e: &Option<Evidence>) -> String {
@@ -142,7 +149,13 @@ pub fn render(a: &Agreement, results: &[CheckResult]) -> String {
             pg(&t.evidence)
         );
     }
-    if let (Some(pct), Some(b)) = (h.claimed_affordable_pct, h.claimed_affordable_basis) {
+    if let (Some(pct), Some(b)) = (
+        h.claimed_affordable_pct
+            .as_ref()
+            .and_then(Observed::ok)
+            .copied(),
+        h.claimed_affordable_basis,
+    ) {
         let _ = writeln!(
             o,
             "   Claimed affordable        {pct}% by {b:?}  {}",
@@ -152,7 +165,12 @@ pub fn render(a: &Agreement, results: &[CheckResult]) -> String {
 
     let _ = writeln!(o, "\n FINANCIAL CONTRIBUTIONS");
     for c in &a.contributions {
-        let amt = c.amount.value_gbp.map_or("—".into(), gbp);
+        let amt = c
+            .amount
+            .value_gbp
+            .as_ref()
+            .and_then(Observed::ok)
+            .map_or("—".into(), |d| gbp(*d));
         let trig = if c.payment.instalments.is_empty() {
             c.payment
                 .trigger_event
@@ -164,7 +182,7 @@ pub fn render(a: &Agreement, results: &[CheckResult]) -> String {
                 .map(|i| {
                     format!(
                         "{}%:{}",
-                        opt(i.share_pct),
+                        opt(i.share_pct.as_ref().and_then(Observed::ok)),
                         i.trigger_event.map_or("?", |t| t.label())
                     )
                 })
@@ -216,6 +234,9 @@ pub fn render(a: &Agreement, results: &[CheckResult]) -> String {
             Status::Skip => "SKIP",
         };
         let _ = writeln!(o, "   [{tag}] {:<9} {}", r.check_id, r.description);
+        for f in &r.findings {
+            let _ = writeln!(o, "             {}", f.render());
+        }
         if r.status != Status::Pass || r.actual.is_some() {
             let mut bits = vec![];
             if let Some(e) = &r.expected {

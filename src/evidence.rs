@@ -2,12 +2,15 @@
 //! interleaving at line wraps, a few garbled plain words) without accepting changed numbers.
 
 use std::collections::{BTreeMap, HashSet};
+use std::ops::Range;
 use std::sync::LazyLock;
 
 use regex::Regex;
+use serde::Serialize;
 
+use crate::quantity::NUMBER_WORDS;
 use crate::schema::Evidence;
-use crate::text::{NUMBER_WORDS, ocr_digits, squash};
+use crate::text::{ocr_digits, squash};
 
 /// 1-based PDF page index -> page text (lines separated by '\n').
 pub type Pages = BTreeMap<usize, String>;
@@ -160,46 +163,50 @@ impl Layout<'_> {
 
     /// `pos`: end of the last matched token (None before the first match);
     /// `extra`: chars of slack owed to skipped (OCR-garbled) words since then.
-    fn search(&mut self, i: usize, pos: Option<usize>, extra: usize, skips: usize) -> bool {
+    /// `first`: start of the first matched token. Returns (first start, last end) in `hay`.
+    fn search(
+        &mut self,
+        i: usize,
+        pos: Option<usize>,
+        first: Option<usize>,
+        extra: usize,
+        skips: usize,
+    ) -> Option<(usize, usize)> {
         let tokens = self.tokens;
         if i == tokens.len() {
-            return pos.is_some();
+            return first.zip(pos);
         }
         if !self
             .seen
             .insert((i, pos.unwrap_or(usize::MAX), extra, skips))
         {
-            return false;
+            return None;
         }
         let tok = &tokens[i];
-        let ends: Vec<usize> = match pos {
-            None => self
-                .occurrences(tok, 0, self.hay.len())
-                .into_iter()
-                .map(|(_, e)| e)
-                .collect(),
+        let spans: Vec<(usize, usize)> = match pos {
+            None => self.occurrences(tok, 0, self.hay.len()),
             Some(p) => {
                 let hi = p + MAX_GAP + 2 * extra + 2 + tok.len();
                 self.occurrences(tok, p, hi)
                     .into_iter()
                     .filter(|&(s, _)| self.gap_ok(p, s, extra))
-                    .map(|(_, e)| e)
                     .collect()
             }
         };
-        if ends
-            .into_iter()
-            .any(|e| self.search(i + 1, Some(e), 0, skips))
-        {
-            return true;
+        for (s, e) in spans {
+            if let Some(found) = self.search(i + 1, Some(e), first.or(Some(s)), 0, skips) {
+                return Some(found);
+            }
         }
-        !is_number(tok)
-            && skips < self.max_skips
-            && self.search(i + 1, pos, extra + tok.len() + 1, skips + 1)
+        if !is_number(tok) && skips < self.max_skips {
+            return self.search(i + 1, pos, first, extra + tok.len() + 1, skips + 1);
+        }
+        None
     }
 }
 
-fn layout_match(tokens: &[String], page: &str) -> bool {
+/// Lowercased page chars, the index into them of each matching char, and the normalised bytes.
+fn normalise(page: &str) -> (Vec<char>, Vec<usize>, Vec<u8>) {
     let raw: Vec<char> = page.to_lowercase().chars().collect();
     let idx: Vec<usize> = (0..raw.len()).filter(|&i| matching_char(&raw, i)).collect();
     let hay: Vec<u8> = idx
@@ -212,6 +219,16 @@ fn layout_match(tokens: &[String], page: &str) -> bool {
             }
         })
         .collect();
+    (raw, idx, hay)
+}
+
+/// Span in `hay` (first start, last end) of the snippet on this page text.
+fn layout_match(
+    tokens: &[String],
+    raw: Vec<char>,
+    idx: Vec<usize>,
+    hay: Vec<u8>,
+) -> Option<(usize, usize)> {
     let plain = tokens.iter().filter(|t| !is_number(t)).count();
     let mut layout = Layout {
         raw,
@@ -221,33 +238,180 @@ fn layout_match(tokens: &[String], page: &str) -> bool {
         max_skips: (plain as f64 * MAX_SKIP_SHARE) as usize,
         seen: HashSet::new(),
     };
-    layout.search(0, None, 0, 0)
+    layout.search(0, None, None, 0, 0)
+}
+
+/// Span in the normalised page text (`idx` positions) where the snippet matches.
+fn match_span(needle: &str, tokens: &[String], page: &str) -> Option<Range<usize>> {
+    let (raw, idx, hay) = normalise(page);
+    let n = needle.as_bytes();
+    let text = String::from_utf8_lossy(&hay);
+    let contiguous = text.match_indices(needle).find_map(|(start, _)| {
+        let end = start + n.len();
+        let left_ok = !n[0].is_ascii_digit() || start == 0 || !numeric_char(hay[start - 1]);
+        let right_ok =
+            !n[n.len() - 1].is_ascii_digit() || end == hay.len() || !numeric_char(hay[end]);
+        (left_ok && right_ok).then_some((start, end))
+    });
+    let (start, end) = match contiguous {
+        Some(span) => span,
+        None if tokens.len() >= MIN_TOKENS => layout_match(tokens, raw, idx.clone(), hay)?,
+        None => return None,
+    };
+    Some(idx[start]..idx[end - 1] + 1)
+}
+
+/// One OCR letter-for-digit substitution the winning match relied on.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Repair {
+    /// Byte offset in the original page text.
+    pub at: usize,
+    pub from: char,
+    pub to: char,
+}
+
+/// Where a snippet re-locates on its cited page.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Located {
+    pub page: usize,
+    /// Byte range in the original page text, from the first to the last matched char.
+    pub range: Range<usize>,
+    /// Empty when the snippet matches the page as printed.
+    pub repairs: Vec<Repair>,
+}
+
+/// Where `ev`'s snippet is on its cited page, if anywhere.
+///
+/// Acceptance is decided by the digit-repaired page (so a snippet that literally contains
+/// "5o" is not found, as before). If the page as printed also matches, that match wins and
+/// no repairs are reported; otherwise `repairs` lists each substitution inside the range.
+pub fn locate(ev: &Evidence, pages: &Pages) -> Option<Located> {
+    let page = pages.get(&ev.page)?;
+    let needle = matching_text(&ev.snippet);
+    if needle.is_empty() {
+        return None;
+    }
+    let tokens = tokens(&ev.snippet);
+    let fixed = ocr_digits(page);
+    let fixed_span = match_span(&needle, &tokens, &fixed)?;
+    let raw_span = (fixed != *page)
+        .then(|| match_span(&needle, &tokens, page))
+        .flatten();
+
+    let offsets: Vec<usize> = page.char_indices().map(|(b, _)| b).collect();
+    // `to_lowercase()` can change the char count, which breaks the char index mapping;
+    // then the range conservatively covers the whole page.
+    let aligned = page.to_lowercase().chars().count() == offsets.len();
+    let byte = |c: usize| offsets.get(c).copied().unwrap_or(page.len());
+    let resolve = |span: Range<usize>| {
+        let (first, last) = if aligned {
+            (span.start, span.end)
+        } else {
+            (0, offsets.len())
+        };
+        let repairs: Vec<Repair> = page
+            .chars()
+            .zip(fixed.chars())
+            .enumerate()
+            .skip(first)
+            .take(last - first)
+            .filter(|(_, (a, b))| a != b)
+            .map(|(i, (from, to))| Repair {
+                at: byte(i),
+                from,
+                to,
+            })
+            .collect();
+        (byte(first)..byte(last), repairs)
+    };
+
+    // The as-printed match wins only if its range holds nothing digit repair would rewrite:
+    // normalisation drops chars like `|`, so "£5|0" can match "£50" while reading as "£510".
+    let (range, repairs) = match raw_span.map(resolve) {
+        Some((range, repairs)) if repairs.is_empty() => (range, repairs),
+        _ => resolve(fixed_span),
+    };
+    Some(Located {
+        page: ev.page,
+        range,
+        repairs,
+    })
 }
 
 /// Is `ev`'s snippet present on its cited page?
 pub fn evidence_found(ev: Option<&Evidence>, pages: &Pages) -> bool {
-    let Some(ev) = ev else { return false };
-    let Some(page) = pages.get(&ev.page) else {
-        return false;
-    };
-    let needle = matching_text(&ev.snippet);
-    if needle.is_empty() {
-        return false;
+    ev.and_then(|e| locate(e, pages)).is_some()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pages(text: &str) -> Pages {
+        Pages::from([(1, text.to_string())])
     }
-    let page = ocr_digits(page);
-    let hay = matching_text(&page);
-    if hay.match_indices(&needle).any(|(start, _)| {
-        let end = start + needle.len();
-        let left_ok = !needle.as_bytes()[0].is_ascii_digit()
-            || start == 0
-            || !numeric_char(hay.as_bytes()[start - 1]);
-        let right_ok = !needle.as_bytes()[needle.len() - 1].is_ascii_digit()
-            || end == hay.len()
-            || !numeric_char(hay.as_bytes()[end]);
-        left_ok && right_ok
-    }) {
-        return true;
+
+    fn ev(snippet: &str) -> Evidence {
+        Evidence {
+            page: 1,
+            snippet: snippet.to_string(),
+        }
     }
-    let tokens = tokens(&ev.snippet);
-    tokens.len() >= MIN_TOKENS && layout_match(&tokens, &page)
+
+    #[test]
+    fn clean_contiguous_match_has_exact_range() {
+        let page = "aaa The sum of £10,000 bbb";
+        let loc = locate(&ev("The sum of £10,000"), &pages(page)).unwrap();
+        assert!(loc.repairs.is_empty());
+        assert_eq!(&page[loc.range], "The sum of £10,000");
+    }
+
+    #[test]
+    fn digit_repair_is_reported_at_byte_offset() {
+        let page = "Price £5o,000 total";
+        let loc = locate(&ev("£50,000"), &pages(page)).unwrap();
+        let at = page.find('o').unwrap();
+        assert_eq!(
+            loc.repairs,
+            vec![Repair {
+                at,
+                from: 'o',
+                to: '0'
+            }]
+        );
+        assert!(loc.range.contains(&at));
+    }
+
+    #[test]
+    fn raw_match_straddling_a_repairable_char_is_not_preferred() {
+        let page = "The sum of £5|0. Other text. The sum of £50.";
+        let loc = locate(&ev("The sum of £50"), &pages(page)).unwrap();
+        assert!(loc.repairs.is_empty());
+        assert_eq!(loc.range.start, page.rfind("The sum").unwrap());
+        assert_eq!(&page[loc.range], "The sum of £50");
+    }
+
+    #[test]
+    fn literal_ocr_lookalike_in_snippet_is_not_found() {
+        assert!(!evidence_found(Some(&ev("5o%")), &pages("pay 5o% now")));
+    }
+
+    #[test]
+    fn two_column_layout_returns_range_inside_page() {
+        let page = "The Tenant shall pay the Rent\nand the\nLandlord a sum of rent each quarter in advance";
+        let loc = locate(
+            &ev("The Tenant shall pay the Rent and the Landlord a sum of rent"),
+            &pages(page),
+        );
+        let loc = loc.expect("layout match");
+        assert!(loc.range.end <= page.len() && loc.range.start < loc.range.end);
+        assert!(page.is_char_boundary(loc.range.start) && page.is_char_boundary(loc.range.end));
+    }
+
+    #[test]
+    fn non_ascii_prefix_keeps_byte_offsets() {
+        let page = "£€ é — The sum of £10,000 end";
+        let loc = locate(&ev("The sum of £10,000"), &pages(page)).unwrap();
+        assert_eq!(&page[loc.range], "The sum of £10,000");
+    }
 }

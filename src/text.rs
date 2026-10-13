@@ -1,11 +1,11 @@
-//! Text normalisation and number reading shared by evidence matching, triggers and the verifier.
+//! Text normalisation and number lookup shared by evidence matching, triggers and the verifier.
 
+use std::borrow::Cow;
 use std::collections::BTreeSet;
-use std::str::FromStr;
-use std::sync::LazyLock;
 
-use regex::Regex;
 use rust_decimal::Decimal;
+
+use crate::quantity::{self, Cause, ParseError, Scan, Unit};
 
 /// OCR drops and adds spaces arbitrarily: compare on lowercase ASCII alphanumerics only.
 pub fn squash(s: &str) -> String {
@@ -41,173 +41,59 @@ pub fn ocr_digits(text: &str) -> String {
     repair(&repair(text, &['o', 'O'], '0'), &['l', 'I', '|'], '1')
 }
 
-const UNITS: [&str; 20] = [
-    "zero",
-    "one",
-    "two",
-    "three",
-    "four",
-    "five",
-    "six",
-    "seven",
-    "eight",
-    "nine",
-    "ten",
-    "eleven",
-    "twelve",
-    "thirteen",
-    "fourteen",
-    "fifteen",
-    "sixteen",
-    "seventeen",
-    "eighteen",
-    "nineteen",
-];
-const TENS: [(&str, u64); 8] = [
-    ("twenty", 20),
-    ("thirty", 30),
-    ("forty", 40),
-    ("fifty", 50),
-    ("sixty", 60),
-    ("seventy", 70),
-    ("eighty", 80),
-    ("ninety", 90),
-];
-const SCALES: [(&str, u64); 2] = [("thousand", 1_000), ("million", 1_000_000)];
-
-/// Every number word, longest first so "seventeen" wins over "seven".
-pub(crate) static NUMBER_WORDS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
-    let mut v: Vec<&str> = UNITS.to_vec();
-    v.extend(TENS.iter().map(|t| t.0));
-    v.extend(SCALES.iter().map(|t| t.0));
-    v.push("hundred");
-    v.sort_by_key(|w| std::cmp::Reverse(w.len()));
-    v
-});
-
-static VOCAB: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
-    let mut v = NUMBER_WORDS.clone();
-    v.push("and");
-    v.sort_by_key(|w| std::cmp::Reverse(w.len()));
-    v
-});
-
-fn letters_only(text: &str) -> String {
-    text.to_lowercase()
-        .chars()
-        .filter(|c| c.is_ascii_lowercase())
-        .collect()
-}
-
-/// "sixteen thousand nine hundred and thirteen" -> 16913; tolerant of run-together words.
-pub fn words_to_int(text: &str) -> Option<u64> {
-    let (mut total, mut current, mut seen) = (0u64, 0u64, false);
-    // tolerate OCR run-togethers like "fiftyeight" by greedy tokenising
-    let s = letters_only(text);
-    let mut rest = s.as_str();
-    while !rest.is_empty() {
-        let w = *VOCAB.iter().find(|w| rest.starts_with(**w))?;
-        rest = &rest[w.len()..];
-        if w == "and" {
-            continue;
-        }
-        seen = true;
-        if let Some(i) = UNITS.iter().position(|u| *u == w) {
-            current = current.checked_add(i as u64)?;
-        } else if let Some(t) = TENS.iter().find(|t| t.0 == w) {
-            current = current.checked_add(t.1)?;
-        } else if w == "hundred" {
-            current = current.checked_mul(100)?;
-        } else {
-            let scale = SCALES.iter().find(|t| t.0 == w).map_or(1, |t| t.1);
-            total = total.checked_add(current.checked_mul(scale)?)?;
-            current = 0;
-        }
-    }
-    if seen {
-        total.checked_add(current)
-    } else {
-        None
-    }
-}
-
-/// "ten thousand and fifty eight pounds and sixty pence" -> 10058.60
-pub fn words_to_amount(text: &str) -> Option<Decimal> {
-    let t = text.to_lowercase();
-    let at = t.find("pound")?;
-    let pounds = words_to_int(&t[..at])?;
-    let mut rest = &t[at + "pound".len()..];
-    rest = rest.strip_prefix('s').unwrap_or(rest);
-    let suffix = letters_only(rest);
-    let pence = if suffix.is_empty() || suffix == "and" {
-        0
-    } else {
-        let number = suffix
-            .strip_suffix("pence")
-            .or_else(|| suffix.strip_suffix("penny"))?;
-        words_to_int(number)?
-    };
-    Some(Decimal::from(pounds) + Decimal::new(i64::try_from(pence).ok()?, 2))
-}
-
-static NUMBER: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?").unwrap()
-});
-static WORD_RUN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(&format!(r"(?i)(?:(?:{})[\s-]*)+", VOCAB.join("|"))).unwrap());
-static TRAILING_FILLER: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)(?:\band\b|[\s-])+$").unwrap());
-
-/// Every number written in `text`, as digits (with OCR repair) or number words.
+/// Every number written in `text`, as digits or number words, whatever its unit.
 pub fn numbers_in(text: &str) -> BTreeSet<Decimal> {
-    let mut out: BTreeSet<Decimal> = NUMBER
-        .find_iter(&ocr_digits(text))
-        .filter_map(|m| Decimal::from_str(&m.as_str().replace(',', "")).ok())
-        .collect();
-    for run in WORD_RUN.find_iter(text) {
-        let run = TRAILING_FILLER.replace(run.as_str().trim(), "");
-        if let Some(n) = (!run.is_empty()).then(|| words_to_int(&run)).flatten() {
-            out.insert(Decimal::from(n));
-        }
-    }
-    out
+    quantity::scan(text)
+        .quantities
+        .into_iter()
+        .map(|q| q.value)
+        .collect()
 }
 
 /// A share needs percentage wording: "50th Dwelling" does not state a 50% share.
 pub fn percentage_in_snippet(value: Decimal, snippet: &str) -> bool {
-    static SUFFIX: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?i)^\s*(?:%|per\s*cent)").unwrap());
-    let text = ocr_digits(snippet);
-    NUMBER
-        .find_iter(&text)
-        .chain(WORD_RUN.find_iter(&text))
-        .any(|m| {
-            if !SUFFIX.is_match(&text[m.end()..]) {
-                return false;
-            }
-            let number = m.as_str().trim().replace(',', "");
-            let parsed = Decimal::from_str(&number)
-                .ok()
-                .or_else(|| words_to_int(&number).map(Decimal::from));
-            parsed == Some(value)
-        })
+    quantity::scan(snippet)
+        .quantities
+        .iter()
+        .any(|q| q.unit == Unit::Percent && q.value == value)
 }
 
-/// A value a check depends on.
+/// Why `snippet` does not state `value` as a percentage; empty when it does. The scan's own
+/// errors (unreadable numbers) when there are any, else one error spanning the whole snippet.
+pub fn percentage_errors(value: Decimal, snippet: &str) -> Vec<ParseError> {
+    let scan = quantity::scan(snippet);
+    if scan
+        .quantities
+        .iter()
+        .any(|q| q.unit == Unit::Percent && q.value == value)
+    {
+        return Vec::new();
+    }
+    if !scan.errors.is_empty() {
+        return scan.errors;
+    }
+    vec![ParseError {
+        candidate: 0..snippet.len(),
+        span: 0..snippet.len(),
+        cause: Cause::MissingPercentageWording {
+            expected_value: value.normalize().to_string(),
+        },
+        expected: Cow::Borrowed("the share written as a percentage"),
+    }]
+}
+
+/// A value a check depends on. The unit says what kind of figure must be printed to ground it.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
-    Num(Decimal),
+    Count(Decimal),
+    Gbp(Decimal),
+    Percent(Decimal),
     Text(String),
 }
 
 impl From<u32> for Value {
     fn from(v: u32) -> Self {
-        Value::Num(Decimal::from(v))
-    }
-}
-impl From<Decimal> for Value {
-    fn from(v: Decimal) -> Self {
-        Value::Num(v)
+        Value::Count(Decimal::from(v))
     }
 }
 impl From<&str> for Value {
@@ -218,16 +104,39 @@ impl From<&str> for Value {
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::Num(d) => write!(f, "{}", d.normalize()),
+            Value::Count(d) | Value::Gbp(d) | Value::Percent(d) => write!(f, "{}", d.normalize()),
             Value::Text(t) => write!(f, "{t}"),
         }
     }
 }
 
-/// Does the snippet state this value? Numbers compare numerically; text compares squashed.
+impl Value {
+    /// The number, for the three numeric variants.
+    pub fn decimal(&self) -> Option<Decimal> {
+        match self {
+            Value::Count(d) | Value::Gbp(d) | Value::Percent(d) => Some(*d),
+            Value::Text(_) => None,
+        }
+    }
+}
+
+/// Does the snippet state this value? Numbers compare numerically and by unit (an amount may be
+/// printed without a pound sign, a percentage only with percentage wording); text compares squashed.
 pub fn value_in_snippet(value: &Value, snippet: &str) -> bool {
+    value_in_scan(value, snippet, &quantity::scan(snippet))
+}
+
+/// `value_in_snippet` for a caller that already scanned `snippet`.
+pub fn value_in_scan(value: &Value, snippet: &str, scan: &Scan) -> bool {
+    let stated = |units: &[Unit], d: &Decimal| {
+        scan.quantities
+            .iter()
+            .any(|q| q.value == *d && units.contains(&q.unit))
+    };
     match value {
-        Value::Num(d) => numbers_in(snippet).contains(d),
+        Value::Count(d) => stated(&[Unit::Count], d),
+        Value::Gbp(d) => stated(&[Unit::Gbp, Unit::Count], d),
+        Value::Percent(d) => stated(&[Unit::Percent], d),
         Value::Text(t) => {
             let t = squash(t);
             !t.is_empty() && squash(snippet).contains(&t)

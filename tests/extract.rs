@@ -44,7 +44,7 @@ fn info(source: &str) -> Info {
         served_by: "claude-haiku-5-5".into(),
         source: source.into(),
         usage: None,
-        fixture: PathBuf::new(),
+        fixture: None,
     }
 }
 
@@ -193,7 +193,9 @@ fn instalments_are_classified_and_replace_the_single_trigger() {
             .iter()
             .all(|i| i.trigger_event == Some(TriggerEvent::PreOccupation))
     );
-    assert_eq!(c.payment.instalments[0].share_pct, Some(Decimal::from(50)));
+    let share = c.payment.instalments[0].share_pct.as_ref().unwrap();
+    assert_eq!(share.raw, "50");
+    assert_eq!(share.ok(), Some(&Decimal::from(50)));
     assert_eq!(c.payment.trigger_event, None);
     assert!(c.payment.trigger_phrase.is_none());
 }

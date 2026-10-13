@@ -18,6 +18,13 @@ fn dec(s: &str) -> Decimal {
     s.parse().unwrap()
 }
 
+fn gbp(s: &str) -> Observed<Decimal> {
+    Observed {
+        raw: s.into(),
+        parsed: Ok(dec(s)),
+    }
+}
+
 /// The Southwark sample's recorded v2 extraction, converted without the PDF (so ungrounded).
 fn southwark() -> Agreement {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -362,7 +369,7 @@ fn duplicates_in_one_deed_merge_or_conflict() {
     assert_eq!(b[0].value, Some(dec("683100")));
     assert!(b[0].note.as_deref().unwrap().contains("stated 2 times"));
 
-    again.amount.value_gbp = Some(dec("100000"));
+    again.amount.value_gbp = Some(gbp("100000"));
     a.contributions.push(again);
     let r = run(&[a], full());
     let b = row(&r, &bus());
@@ -598,13 +605,13 @@ fn pld_fields_must_be_present_even_when_null() {
     );
 }
 
-fn bus_contribution(gbp: &str) -> Contribution {
+fn bus_contribution(v: &str) -> Contribution {
     let mut c = southwark()
         .contributions
         .into_iter()
         .find(|c| c.name == "Bus Contribution")
         .unwrap();
-    c.amount.value_gbp = Some(dec(gbp));
+    c.amount.value_gbp = Some(gbp(v));
     c
 }
 

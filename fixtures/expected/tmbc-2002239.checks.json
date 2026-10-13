@@ -1,0 +1,12 @@
+[
+  {"check":"H1","description":"Market units + affordable units == total residential units","status":"FAIL","error_class":"Parser Error"},
+  {"check":"H2","description":"Sum of tenure units == affordable units","status":"FAIL","error_class":"Parser Error"},
+  {"check":"H3","description":"Sum of tenure habitable rooms == affordable habitable rooms","status":"SKIP","error_class":null},
+  {"check":"H4","description":"Claimed affordable % vs calculated % (basis: not stated)","status":"SKIP","error_class":null},
+  {"check":"H5","description":"Approved mix table: rows sum to subtotals","status":"SKIP","error_class":null},
+  {"check":"V1","description":"Variation/supplemental deed identifies its parent instrument","status":"SKIP","error_class":null},
+  {"check":"F1.amt","description":"Affordable Housing Contribution: amount stated in cited evidence","status":"PASS","error_class":null},
+  {"check":"F1.words","description":"Affordable Housing Contribution: figures == words","status":"PASS","error_class":null},
+  {"check":"F1.trig","description":"Affordable Housing Contribution: payment trigger located","status":"PASS","error_class":null},
+  {"check":"F1.tlabel","description":"Affordable Housing Contribution: trigger label follows from cited phrase","status":"PASS","error_class":null}
+]

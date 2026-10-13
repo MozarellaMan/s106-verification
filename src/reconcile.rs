@@ -204,13 +204,19 @@ fn yes() -> bool {
 
 /// One statement per extracted measure of one deed. `pages` grounds each value.
 pub fn instrument_obligations(a: &Agreement, pages: Option<&Pages>) -> InstrumentObligations {
-    let ground = |label: &str, value: Option<Decimal>, evidence: &Option<Evidence>| match pages {
-        None => Grounding::NotChecked,
-        Some(_) if value.is_none() => Grounding::NotChecked,
-        Some(p) => {
+    let ground = |m: &Measure, label: &str, value: Option<Decimal>, evidence: &Option<Evidence>| {
+        let Some((p, v)) = pages.zip(value) else {
+            return Grounding::NotChecked;
+        };
+        {
             let input = Input {
                 label: label.to_string(),
-                value: value.map(Value::Num),
+                field: None,
+                value: Some(match m {
+                    Measure::Contribution { .. } => Value::Gbp(v),
+                    Measure::AffordablePct { .. } => Value::Percent(v),
+                    _ => Value::Count(v),
+                }),
                 evidence: evidence.clone(),
             };
             match grounding_problem(&input, p) {
@@ -229,7 +235,7 @@ pub fn instrument_obligations(a: &Agreement, pages: Option<&Pages>) -> Instrumen
             return;
         }
         raw.push(Statement {
-            grounding: ground(&label, value, &evidence),
+            grounding: ground(&measure, &label, value, &evidence),
             measure,
             label,
             value,
@@ -284,7 +290,10 @@ pub fn instrument_obligations(a: &Agreement, pages: Option<&Pages>) -> Instrumen
         push(
             m,
             label,
-            h.claimed_affordable_pct,
+            h.claimed_affordable_pct
+                .as_ref()
+                .and_then(crate::schema::Observed::ok)
+                .copied(),
             h.claimed_affordable_evidence.clone(),
             None,
         );

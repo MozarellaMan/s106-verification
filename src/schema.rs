@@ -7,6 +7,8 @@
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+use crate::quantity::ParseError;
+
 pub const SCHEMA_VERSION: &str = "2";
 
 /// A verbatim quotation from a page. `page` is the 1-based PDF page index, not the printed number.
@@ -14,6 +16,19 @@ pub const SCHEMA_VERSION: &str = "2";
 pub struct Evidence {
     pub page: usize,
     pub snippet: String,
+}
+
+/// A numeric field as the extractor wrote it, with the parse outcome kept alongside.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Observed<T> {
+    pub raw: String,
+    pub parsed: Result<T, ParseError>,
+}
+
+impl<T> Observed<T> {
+    pub fn ok(&self) -> Option<&T> {
+        self.parsed.as_ref().ok()
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -29,6 +44,9 @@ pub struct Agreement {
     pub variations: Vec<Variation>,
     #[serde(default)]
     pub warnings: Vec<String>,
+    /// Which extraction, page text and parser produced this audit.
+    #[serde(default)]
+    pub run: Option<crate::audit::RunIdentity>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -219,7 +237,7 @@ pub struct Housing {
     #[serde(default)]
     pub tenures: Vec<TenureAllocation>,
     pub mix_table: Option<MixTable>,
-    pub claimed_affordable_pct: Option<Decimal>,
+    pub claimed_affordable_pct: Option<Observed<Decimal>>,
     pub claimed_affordable_basis: Option<AffordableBasis>,
     pub claimed_affordable_evidence: Option<Evidence>,
 }
@@ -244,9 +262,9 @@ pub enum AmountStructure {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Amount {
     pub structure: AmountStructure,
-    pub value_gbp: Option<Decimal>,
+    pub value_gbp: Option<Observed<Decimal>>,
     /// The deed's words form, e.g. "ten thousand and fifty eight pounds and sixty pence".
-    pub words: Option<String>,
+    pub words: Option<Observed<Decimal>>,
     pub index_linked: bool,
     pub evidence: Option<Evidence>,
 }
@@ -255,7 +273,9 @@ impl Amount {
     /// A contribution total, excluding rates and formula parameters.
     pub fn stated_sum_gbp(&self) -> Option<Decimal> {
         match self.structure {
-            AmountStructure::Fixed | AmountStructure::Cap => self.value_gbp,
+            AmountStructure::Fixed | AmountStructure::Cap => {
+                self.value_gbp.as_ref().and_then(Observed::ok).copied()
+            }
             AmountStructure::Formula | AmountStructure::Rate | AmountStructure::None => None,
         }
     }
@@ -310,7 +330,7 @@ impl TriggerEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Instalment {
-    pub share_pct: Option<Decimal>,
+    pub share_pct: Option<Observed<Decimal>>,
     /// Decided by `triggers::classify` from `trigger_phrase`, not by the model.
     pub trigger_event: Option<TriggerEvent>,
     pub trigger_phrase: Option<Evidence>,

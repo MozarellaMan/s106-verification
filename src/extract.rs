@@ -13,10 +13,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+use crate::audit::{ReplacementIdentity, RunIdentity};
 use crate::document::Document;
 use crate::llm::{self, ExtractEffort, Usage};
 use crate::schema::*;
-use crate::verify::{CheckResult, ErrorClass, Status, verify};
+use crate::verify::{CheckResult, ErrorClass, Scope, Status, verify};
 use crate::wire::{
     self, PageMap, WireContributionsPart, WireExtraction, WireExtractionV1, WireHousingPart,
     WireInstrumentPart,
@@ -91,7 +92,8 @@ pub struct Info {
     /// "live", "replay" or "replay-v1"
     pub source: String,
     pub usage: Option<Usage>,
-    pub fixture: PathBuf,
+    /// The fixture the output was read from or recorded to; None for an unrecorded live answer.
+    pub fixture: Option<PathBuf>,
 }
 
 impl Info {
@@ -222,7 +224,7 @@ fn answer(
             served_by: r.served_by,
             source: "live".into(),
             usage: Some(r.usage),
-            fixture: path,
+            fixture: (mode == Mode::Record).then_some(path),
         };
         return Ok((r.output, PageMap(pages), info));
     }
@@ -246,7 +248,7 @@ fn answer(
             served_by: fx.served_by,
             source: "replay".into(),
             usage: Some(fx.usage),
-            fixture: path,
+            fixture: Some(path),
         };
         return Ok((fx.output, PageMap(fx.pages), info));
     }
@@ -272,7 +274,7 @@ fn answer(
             served_by: raw["served_by"].as_str().unwrap_or(model).into(),
             source: "replay-v1".into(),
             usage,
-            fixture: v1,
+            fixture: Some(v1),
         };
         return Ok((raw["output"].clone(), PageMap(pages), info));
     }
@@ -361,7 +363,9 @@ pub fn to_agreement(
                 "{} ({}, {})",
                 info.served_by,
                 info.source,
-                info.fixture.display()
+                info.fixture
+                    .as_ref()
+                    .map_or("unrecorded".into(), |f| f.display().to_string())
             ),
         },
         instrument,
@@ -370,6 +374,11 @@ pub fn to_agreement(
         contributions,
         variations,
         warnings,
+        run: Some(RunIdentity::new(
+            output,
+            &doc.pages(),
+            info.fixture.as_deref(),
+        )),
     })
 }
 
@@ -386,21 +395,11 @@ pub fn extract(
 // ------------------------------------------------------------------------------- escalation
 
 /// Which part of the agreement a check belongs to: "housing", "instrument" or a contribution name.
-fn field_of<'a>(a: &'a Agreement, r: &CheckResult) -> &'a str {
-    if let Some(rest) = r.check_id.strip_prefix('F') {
-        let n: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
-        if let Some(c) = n
-            .parse::<usize>()
-            .ok()
-            .and_then(|i| a.contributions.get(i - 1))
-        {
-            return &c.name;
-        }
-    }
-    if r.check_id.starts_with('V') {
-        "instrument"
-    } else {
-        "housing"
+pub fn field_of<'a>(a: &'a Agreement, r: &CheckResult) -> &'a str {
+    match r.scope {
+        Scope::Contribution(i) => a.contributions.get(i).map_or("housing", |c| &c.name),
+        Scope::Housing => "housing",
+        Scope::Instrument | Scope::Variation(_) => "instrument",
     }
 }
 
@@ -518,6 +517,16 @@ pub fn escalate(
                 }
             },
         };
+        if replace.is_some()
+            && let (Some(cand), Some(run)) = (&candidate.run, merged.run.as_mut())
+        {
+            run.replacements.push(ReplacementIdentity {
+                field_group: field.clone(),
+                extraction_sha256: cand.extraction_sha256.clone(),
+                fixture_reference: cand.fixture_reference.clone(),
+                fixture_sha256: cand.fixture_sha256.clone(),
+            });
+        }
         log.push(match replace {
             Some(()) => format!("{field}: replaced with {model} ({p0} -> {p1} Parser Errors)"),
             None => format!("{field}: kept ({})", why.join("; ")),
