@@ -96,6 +96,15 @@ Checked against 19/AP/1773 (record `Southwark-19_AP_1773`, retrieved 13 Oct 2026
 
 A simple evolution. No database or service until flat files stop being enough.
 
+**Implementation (as of the Rust migration, [docs/migration.md](migration.md)).** One Rust crate
+(`s106`: library plus CLI), with no service or database. `document.rs` turns a PDF into pages of
+text with boxes (PDFium text layer, or PP-OCRv5 OCR cached by content hash); `extract.rs` and
+`llm.rs` attach the whole deed to the Anthropic API in three calls and record each response as a
+fixture so it replays offline; `verify.rs` is the deterministic gate; `schema.rs` is the
+authoritative schema. The cost lever for scale is the Message Batches API (asynchronous, priced
+at half the synchronous rate); it is not used yet, since the ten recorded deeds cost about
+$0.10 each on average synchronously (see the migration notes).
+
 ```
 documents/manifest.csv        one row per document: id, url, sha256, retrieved_at, doc_type,
   (in git; PDFs are not)      planning_refs, amends (id of the instrument it varies), licence note
@@ -130,7 +139,7 @@ The principles behind it:
 Each milestone is one or two PRs and has to pass its acceptance criteria before the next starts.
 The research objectives and acceptance criteria are independent of implementation language.
 
-**M1: Evidence integrity** (PR #5, Python)
+**M1: Evidence integrity** (PR #5, Python) **Done**
 - **Changes:**
   - Content-addressed OCR cache (hash plus OCR version, with a manifest).
   - Field-level grounding: a value must appear in its cited snippet *and* the snippet must
@@ -141,11 +150,11 @@ The research objectives and acceptance criteria are independent of implementatio
 - **Acceptance:** regression tests for each review repro; the Southwark rules and replay workflow
   still runs; changes in outcome explained.
 
-**M1.5: Rust feasibility spike** (before any schema work)
+**M1.5: Rust feasibility spike** (before any schema work) **Done: Rust chosen.** Measurements and the decision: [docs/migration.md](migration.md).
 - **Why:** the maintainer works in Rust and Java. A long-term research codebase has to be one they
   can read, maintain and critically review. Migrating *before* Schema v2 avoids writing the new
   schema twice.
-- **Changes:** a standalone experiment in `spikes/rust-pdf/`, not a port. It evaluates the
+- **Changes:** a standalone experiment (`spikes/rust-pdf/`, kept in git history), not a port. It evaluates the
   current Rust options for PDF text extraction (layout-aware), rendering and OCR. Each is verified
   by building and running it, not from documentation. The experiment runs on the Southwark deed
   (a scan) plus one text-layer deed, against **manually verified evidence** (hand-transcribed lines
@@ -161,7 +170,7 @@ The research objectives and acceptance criteria are independent of implementatio
   recommendation is to migrate, a migration plan where the Python implementation stays the
   regression baseline until the Rust harness reproduces its verified outputs.
 
-**M1.6: Inspect real variations and conditional obligations** (input to M2)
+**M1.6: Inspect real variations and conditional obligations** (input to M2) **Done: findings in [docs/schema-v2.md](schema-v2.md).**
 - Read a small set of actual deeds of variation and conditional obligations before designing the
   schema. Candidates: Dover DOV/18/00681 and DOV/19/00403 (variations), Bolton 01373/17
   (supplemental), T&M 24/00842 (variation), Southwark's Default Employment and Carbon Green Fund
@@ -169,7 +178,7 @@ The research objectives and acceptance criteria are independent of implementatio
 - Record how each one states what it amends, its conditions and its triggers, with page
   references. M2's schema follows from these examples, not from assumptions.
 
-**M2: Schema v2 and provenance** (in the language M1.5 recommends)
+**M2: Schema v2 and provenance** (in the language M1.5 recommends) **Schema v2 implemented in Rust** (`src/schema.rs`, `src/wire.rs`, v2 checks in `src/verify.rs`, live fixtures for all ten deeds in `fixtures/llm/`). Remaining acceptance items are checked against the criteria below.
 - **Changes:**
   - `schema_version`.
   - Document provenance: URL, SHA-256, retrieval date and document type (agreement, deed of

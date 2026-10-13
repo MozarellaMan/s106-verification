@@ -1,5 +1,5 @@
 //! Verifier behaviour: grounding outcomes, basis handling, mix-table grounding, trigger gate
-//! (ports of tests/test_grounding.py and tests/test_triggers.py) plus the schema v2 checks.
+//! (ports of the former Python grounding and trigger tests) plus the schema v2 checks.
 //!
 //! Pages are short verbatim RapidOCR excerpts from the Southwark sample (19/AP/1773).
 

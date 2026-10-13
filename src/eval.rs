@@ -1,6 +1,6 @@
 //! Evaluate the extractor on a set of deeds against the national S106 register.
 //!
-//! Port of `s106-audit/run_eval.py`. Per deed: k extractions (the first is recorded as a replay
+//! Port of the former Python `run_eval.py` (see git history). Per deed: k extractions (the first is recorded as a replay
 //! fixture, the rest are live), each verified, then
 //!   * register scoring: extracted fixed sums vs register amounts, affordable units vs register units
 //!   * run agreement: do the k runs report the same housing values, sums, flags and trigger labels?

@@ -1,6 +1,6 @@
 //! Number and text helpers: OCR digit repair, number words, `value_in_snippet`.
 //!
-//! Ports of `OcrDigitsTest` (tests/test_triggers.py) and `ValueInSnippetTest` (tests/test_grounding.py).
+//! Ports of `OcrDigitsTest` (former Python test_triggers, see git history) and `ValueInSnippetTest` (former Python test_grounding).
 
 use rust_decimal::Decimal;
 use s106::text::{
