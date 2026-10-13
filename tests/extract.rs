@@ -266,36 +266,29 @@ fn group_terms_are_dropped_with_a_warning() {
 
 #[test]
 fn v1_fixture_replays_through_the_adapter() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("fixtures/llm-v1/southwark_s106_sample/claude-haiku-5-5.extract.json");
-    let raw: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let raw: Value = serde_json::from_str(include_str!("synthetic/v1-extraction.json")).unwrap();
     let pages: Vec<usize> = serde_json::from_value(raw["pages"].clone()).unwrap();
-    let a = extract::to_agreement(
-        &doc(109),
-        &raw["output"],
-        &PageMap(pages),
-        &info("replay-v1"),
-    )
-    .unwrap();
-    assert_eq!(a.housing.total_units, Some(253));
-    assert_eq!(a.housing.affordable_units, Some(76));
+    let a = extract::to_agreement(&doc(5), &raw["output"], &PageMap(pages), &info("replay-v1"))
+        .unwrap();
+    assert_eq!(a.housing.total_units, Some(120));
+    assert_eq!(a.housing.affordable_units, Some(36));
     assert_eq!(a.instrument.kind, InstrumentKind::Unknown);
     // v1 "contingent" meant "no fixed figure": structure none, conditionality unknown (not "conditional")
-    let ahc = a
+    let viability = a
         .contributions
         .iter()
-        .find(|c| c.name == "Affordable Housing Contribution")
+        .find(|c| c.name == "Viability Contribution")
         .unwrap();
-    assert_eq!(ahc.amount.structure, AmountStructure::None);
-    assert_eq!(ahc.conditionality.kind, ConditionalityKind::Unknown);
-    let carbon = a
+    assert_eq!(viability.amount.structure, AmountStructure::None);
+    assert_eq!(viability.conditionality.kind, ConditionalityKind::Unknown);
+    let energy = a
         .contributions
         .iter()
-        .find(|c| c.name.starts_with("Carbon"))
+        .find(|c| c.name == "Energy Contribution")
         .unwrap();
-    assert_eq!(carbon.amount.structure, AmountStructure::Cap);
+    assert_eq!(energy.amount.structure, AmountStructure::Cap);
     assert_eq!(
-        carbon.payment.trigger_event,
+        energy.payment.trigger_event,
         Some(TriggerEvent::OnDemand),
         "label from the cited 'within 20 Working Days' phrase"
     );
@@ -342,36 +335,25 @@ fn replay_refuses_a_fixture_from_a_different_pdf() {
 }
 
 #[test]
-fn recorded_wire_outputs_deserialize_and_errors_identify_the_field() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/llm");
-    let mut checked = 0;
-    for entry in std::fs::read_dir(root).unwrap() {
-        let path = entry
-            .unwrap()
-            .path()
-            .join("claude-haiku-5-5.extract.v2.json");
-        let fx: extract::Fixture =
-            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(
-            fx.prompt_sha256,
-            extract::prompt_sha256(),
-            "{}",
-            path.display()
-        );
-        let d = doc(fx.pages.len());
-        let pm = PageMap(fx.pages);
-        let original = extract::to_agreement(&d, &fx.output, &pm, &info("replay")).unwrap();
-        assert_eq!(original.schema_version, "2", "{}", path.display());
-        let mut corrupt = fx.output;
+fn wire_outputs_deserialize_and_errors_identify_the_field() {
+    for id in ["agreement", "discrepancies", "variation"] {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/synthetic")
+            .join(id)
+            .join("extraction.json");
+        let output: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        let d = doc(5);
+        let pm = PageMap::identity(5);
+        let original = extract::to_agreement(&d, &output, &pm, &info("replay")).unwrap();
+        assert_eq!(original.schema_version, "2", "{id}");
+        let mut corrupt = output;
         corrupt["housing"]["total_units"] = json!("not a count");
         let error = extract::to_agreement(&d, &corrupt, &pm, &info("replay")).unwrap_err();
         assert!(
             format!("{error:#}").contains("housing.total_units"),
             "{error:#}"
         );
-        checked += 1;
     }
-    assert_eq!(checked, 10);
 }
 
 #[test]

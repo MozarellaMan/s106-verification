@@ -50,6 +50,12 @@ fn every_deed_has_a_current_snapshot() {
             deed.id
         );
         assert_eq!(fx.pages.len(), snap.page_count, "{}", deed.id);
+        assert_eq!(
+            fx.prompt_sha256,
+            extract::prompt_sha256(),
+            "{}: recorded with an older prompt or schema; re-record it",
+            deed.id
+        );
     }
 }
 
