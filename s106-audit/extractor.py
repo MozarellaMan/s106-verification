@@ -5,18 +5,17 @@ Two backends fill the same Pydantic schema:
   * rules  (default) deterministic regexes over the definitions clause and schedules.
            Tolerant of OCR space-dropping: every pattern matches with optional
            whitespace between characters.
-  * llm    Claude structured outputs (`client.messages.parse`) over the targeted
-           pages. Needs Anthropic credentials. Values still go through the same
-           evidence-backed verifier, so the model is never trusted on its own.
+  * llm-pdf Claude reads the scanned page images (see the LLM section below).
 """
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
 import pdfplumber
+from pydantic import BaseModel, Field
 
 from ocr import page_texts
 from schema import (AffordableBasis, AgreementMetadata, Evidence, FinancialContribution, HousingProvision, MixRow, MixTable,
@@ -355,51 +354,452 @@ def extract_metadata(pdf_path: Path, pages: dict[int, str], page_count: int, tex
     )
 
 
-# --------------------------------------------------------------------------- LLM backend
+# --------------------------------------------------------------------------- LLM native-PDF backend
+#
+# The definitions and payment/mix pages are split out with pypdfium2 and sent as a base64
+# PDF document block, so OCR noise ("f" for "£", "ftypounds") never reaches the extraction.
+# The model cites evidence by page; the verifier matches those snippets against the
+# independent RapidOCR text (never model output) to classify failures. Offline, responses
+# replay from s106-audit/fixtures/.
 
-def extract_llm(pdf_path: Path, pages: dict[int, str], target_pages: list[int], base: Section106Agreement,
-                model: str = "claude-opus-5-5") -> Section106Agreement:
-    """Re-extract housing + contributions with Claude structured outputs.
+PDF_DEFAULT_MODEL = "claude-haiku-5-5"
+CASCADE_MODEL = "claude-opus-5-5"
+# Models that accept server-side refusal fallbacks (Haiku has none).
+FALLBACK_MODELS = {"claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"}
+FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 
-    Metadata comes from the rules pass. The model sees only the targeted pages,
-    each tagged with its page number so it can cite evidence the verifier re-checks.
+
+class Cite(BaseModel):
+    page: int = Field(description="1-based page position within the attached PDF (not the printed page number)")
+    snippet: str = Field(description="Under 30 words copied character for character from that page, containing the "
+                                     "value; empty string (page 0) when the deed does not state it")
+
+
+class WireCount(BaseModel):
+    tenure: Tenure
+    units: int
+
+
+class WireMixRow(BaseModel):
+    unit_type: str = Field(description="e.g. '1 bed'")
+    counts: list[WireCount]
+
+
+class WireMixTable(BaseModel):
+    rows: list[WireMixRow]
+    subtotals: list[WireCount]
+    total_units: int | None
+    total_habitable_rooms: int | None
+    evidence: Cite
+
+
+class WireTenure(BaseModel):
+    tenure: Tenure
+    units: int | None
+    habitable_rooms: int | None
+    evidence: Cite
+
+
+class WireHousing(BaseModel):
+    total_units: int | None
+    total_units_evidence: Cite
+    market_units: int | None
+    market_units_evidence: Cite
+    affordable_units: int | None
+    affordable_units_evidence: Cite
+    affordable_habitable_rooms: int | None
+    total_habitable_rooms: int | None
+    tenures: list[WireTenure]
+    mix_table: WireMixTable = Field(description="Empty rows when the deed has no mix table")
+    claimed_affordable_pct: str | None = Field(description="Percentage exactly as printed, digits only, e.g. '35.75'")
+    claimed_affordable_basis: AffordableBasis | None
+    claimed_affordable_evidence: Cite
+
+
+class WireContribution(BaseModel):
+    name: str = Field(description="Defined term exactly as written, without quotes")
+    amount_gbp: str | None = Field(description="Figure as printed, digits and decimal point only, e.g. '12650' or '10058.60'")
+    amount_in_words: str | None = Field(description="Words form inside the brackets, exactly as written")
+    index_linked: bool
+    is_cap: bool
+    contingent: bool
+    trigger_event: TriggerEvent | None
+    trigger_clause: str | None
+    trigger_evidence: Cite
+    evidence: Cite
+
+
+class WireExtraction(BaseModel):
+    """Structured-output schema. Lists instead of dicts (strict JSON schema has no additionalProperties maps),
+    and evidence is never nullable: each `Cite | None` union inflates the compiled grammar past the API limit."""
+    housing: WireHousing
+    contributions: list[WireContribution]
+
+
+PDF_PROMPT = """\
+The attached PDF holds selected pages of a scanned UK Section 106 agreement: the definitions clause, \
+plus the operative clauses and schedules that set payment triggers and the affordable housing mix.
+
+{task}
+
+Rules:
+- Cite pages by their position in the attached PDF (first attached page = 1), never by the printed page number.
+- Every evidence snippet must be copied character for character from the cited page and must contain the value it supports. Keep it under 30 words.
+- Report only what the deed states. Do not compute, total or infer numbers. Use null where the deed is silent.
+"""
+
+HOUSING_TASK = """\
+Housing: the total number of residential units in the Development; market units; affordable units and their \
+habitable rooms; each affordable tenure (from definitions such as "Social Rented Housing Units" or \
+"Intermediate Housing Units") with its units and habitable rooms; the approved affordable housing mix table if \
+present (one row per unit type, the per-tenure sub-totals, the table total and its habitable rooms); and any \
+stated affordable housing percentage with its basis (habitable rooms or units)."""
+
+CONTRIB_TASK = """\
+Financial contributions: {which}. For each give the figure, the words form exactly as written, whether it is \
+Index Linked, whether the figure is a maximum ("up to a maximum of", "or such lesser amount"), and whether it is \
+contingent (payable only by formula or review outcome, with no fixed figure: then amount_gbp is null). Find the \
+covenant that makes it payable; a deed often imposes one trigger on a group term such as "Site and Development \
+Contributions". Give that clause verbatim as trigger_clause, classify it as trigger_event, and cite the trigger \
+phrase as trigger_evidence."""
+
+ALL_CONTRIBUTIONS = 'every defined term whose name ends in "Contribution", plus the "Administration Cost"'
+
+
+def llm_pdf_pages(pages: dict[int, str]) -> list[int]:
+    """Deed pages to send: the definitions, plus later pages that impose payment or hold the mix table.
+
+    Chosen from the OCR text, which keeps the request around 40 of 109 pages.
     """
-    import anthropic
-    from pydantic import BaseModel
+    def_pages, _ = locate_sections(pages)
+    later = [n for n, t in pages.items() if n > def_pages[-1] and (
+        (re.search(fuzzy("Contribution") + "|" + fuzzy("Administration Cost"), t, re.I) and PAY_RE.search(t))
+        or re.search(fuzzy("Affordable Housing Mix"), t, re.I))]
+    return def_pages + later
 
-    class LLMOutput(BaseModel):
-        housing: HousingProvision
-        contributions: list[FinancialContribution]
 
-    corpus = "\n\n".join(f"<page n={n}>\n{pages[n]}\n</page>" for n in target_pages)
-    client = anthropic.Anthropic()
-    resp = client.messages.parse(
+def pdf_subset_b64(pdf_path: Path, page_numbers: list[int]) -> str:
+    import base64
+    import io
+
+    import pypdfium2 as pdfium
+
+    src = pdfium.PdfDocument(str(pdf_path))
+    dst = pdfium.PdfDocument.new()
+    dst.import_pages(src, [n - 1 for n in page_numbers])
+    buf = io.BytesIO()
+    dst.save(buf)
+    return base64.standard_b64encode(buf.getvalue()).decode("ascii")
+
+
+def _pdf_digest(pdf_path: Path) -> str:
+    import hashlib
+    return hashlib.sha256(pdf_path.read_bytes()).hexdigest()
+
+
+def _fixture_path(pdf_path: Path, model: str, kind: str) -> Path:
+    return FIXTURE_DIR / pdf_path.stem / f"{model}.{kind}.json"
+
+
+def _call_claude(client, model: str, pdf_b64: str, prompt: str, effort: str):
+    kwargs = dict(
         model=model,
         max_tokens=16000,
-        output_config={"effort": "medium"},
-        messages=[{"role": "user", "content": (
-            "Below is OCR text (spaces often missing; '£' often read as 'f') from the definitions and "
-            "schedules of a UK Section 106 agreement. Extract the residential unit counts, affordable tenure "
-            "breakdown, any stated affordable percentage and its basis, and every financial contribution "
-            "with its amount in figures, its amount in words exactly as written, whether it is Index Linked, "
-            "and the clause that triggers payment. For every value give evidence: the page number and a short "
-            "verbatim snippet copied from that page. Use null where the deed does not state a value; do not "
-            "compute or infer numbers.\n\n" + corpus)}],
-        output_format=LLMOutput,
+        output_config={"effort": effort},
+        output_format=WireExtraction,
+        messages=[{"role": "user", "content": [
+            {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_b64}},
+            {"type": "text", "text": prompt},
+        ]}],
     )
-    if resp.stop_reason == "refusal" or resp.parsed_output is None:
-        raise RuntimeError(f"LLM extraction returned no structured output (stop_reason={resp.stop_reason})")
+    if model in FALLBACK_MODELS:
+        resp = client.beta.messages.parse(betas=["server-side-fallback-2026-07-01"], fallbacks="default", **kwargs)
+    else:
+        resp = client.messages.parse(**kwargs)
+    if resp.stop_reason == "refusal":
+        cat = resp.stop_details.category if resp.stop_details else None
+        raise RuntimeError(f"{model} declined the extraction (refusal category={cat})")
+    if resp.stop_reason == "max_tokens" or resp.parsed_output is None:
+        raise RuntimeError(f"{model} returned no structured output (stop_reason={resp.stop_reason})")
+    u = resp.usage
+    usage = {"input_tokens": u.input_tokens, "output_tokens": u.output_tokens}
+    return resp.parsed_output, usage, resp.model
+
+
+def run_llm_pdf(pdf_path: Path, page_numbers: list[int], prompt: str, model: str, kind: str,
+                mode: str = "auto", effort: str = "medium", client=None, verbose: bool = False
+                ) -> tuple[WireExtraction, dict]:
+    """One structured-output call over the page subset. Returns (output, info).
+
+    mode: live (call the API), record (call and save a fixture), replay (load the saved
+    fixture), auto (live when credentials resolve, otherwise replay).
+    """
+    import json
+    import sys
+
+    fx = _fixture_path(pdf_path, model, kind)
+    if mode in ("auto", "live", "record"):
+        try:
+            if client is None:
+                import anthropic
+                client = anthropic.Anthropic()
+            if verbose:
+                print(f"  {model}: live call, {len(page_numbers)} pages as a PDF document block", file=sys.stderr)
+            out, usage, served_by = _call_claude(client, model, pdf_subset_b64(pdf_path, page_numbers), prompt, effort)
+        except TypeError as e:  # the SDK raises this when no API key / token / profile resolves
+            if "authentication" not in str(e):
+                raise
+            if mode != "auto":
+                raise SystemExit(f"--llm-mode {mode} needs Anthropic credentials: set ANTHROPIC_API_KEY in the same "
+                                 "command, or run `ant auth login`") from None
+            if verbose:
+                print(f"  {model}: no Anthropic credentials, replaying {fx.name}", file=sys.stderr)
+        else:
+            info = {"source": "live", "model": served_by, "usage": usage}
+            if mode == "record":
+                fx.parent.mkdir(parents=True, exist_ok=True)
+                fx.write_text(json.dumps({"model": model, "served_by": served_by, "kind": kind, "provenance": "live",
+                                          "pdf_sha256": _pdf_digest(pdf_path), "pages": page_numbers, "usage": usage,
+                                          "output": out.model_dump(mode="json")}, indent=2) + "\n")
+            return out, info
+    if not fx.exists():
+        raise FileNotFoundError(f"no recorded response at {fx}; run live with ANTHROPIC_API_KEY set and --llm-mode record")
+    rec = json.loads(fx.read_text())
+    # Fixtures are keyed by filename stem, so a revised deed under the same name must not reuse old values.
+    if rec.get("pdf_sha256") != _pdf_digest(pdf_path):
+        raise ValueError(f"{fx.name} was recorded from a different PDF than {pdf_path.name} (sha256 mismatch); "
+                         "re-record it")
+    if rec["pages"] != page_numbers:
+        raise ValueError(f"{fx.name} was recorded over pages {rec['pages']}, but this run selected {page_numbers}; "
+                         "re-record it")
+    return WireExtraction.model_validate(rec["output"]), {
+        "source": f"replay ({rec.get('provenance', 'live')})", "model": rec["model"], "usage": rec.get("usage"),
+        "fixture": str(fx)}
+
+
+def _ev(c: Cite, page_map: list[int]) -> Evidence | None:
+    if not c.snippet.strip():  # the model's "not stated" marker
+        return None
+    # A page outside the attachment maps to 0, which the verifier can never re-locate.
+    return Evidence(page=page_map[c.page - 1] if 1 <= c.page <= len(page_map) else 0, snippet=c.snippet)
+
+
+def _money(s: str | None) -> Decimal | None:
+    if not s:
+        return None
+    try:
+        return Decimal(re.sub(r"[£,\s]", "", s))
+    except ArithmeticError:
+        return None
+
+
+def wire_housing(w: WireHousing, page_map: list[int]) -> HousingProvision:
+    mix = None
+    if w.mix_table.rows or w.mix_table.subtotals:
+        t = w.mix_table
+        mix = MixTable(rows=[MixRow(unit_type=r.unit_type, units_by_tenure={c.tenure: c.units for c in r.counts})
+                             for r in t.rows],
+                       subtotals={c.tenure: c.units for c in t.subtotals}, total_units=t.total_units,
+                       total_habitable_rooms=t.total_habitable_rooms, evidence=_ev(t.evidence, page_map))
+    return HousingProvision(
+        total_units=w.total_units, total_units_evidence=_ev(w.total_units_evidence, page_map),
+        market_units=w.market_units, market_units_evidence=_ev(w.market_units_evidence, page_map),
+        affordable_units=w.affordable_units, affordable_units_evidence=_ev(w.affordable_units_evidence, page_map),
+        affordable_habitable_rooms=w.affordable_habitable_rooms, total_habitable_rooms=w.total_habitable_rooms,
+        tenures=[TenureAllocation(tenure=t.tenure, units=t.units, habitable_rooms=t.habitable_rooms,
+                                  evidence=_ev(t.evidence, page_map)) for t in w.tenures],
+        mix_table=mix,
+        claimed_affordable_pct=_money(w.claimed_affordable_pct), claimed_affordable_basis=w.claimed_affordable_basis,
+        claimed_affordable_evidence=_ev(w.claimed_affordable_evidence, page_map),
+    )
+
+
+def wire_contribution(w: WireContribution, page_map: list[int]) -> FinancialContribution:
+    return FinancialContribution(
+        name=w.name, amount_gbp=_money(w.amount_gbp), amount_in_words=w.amount_in_words, index_linked=w.index_linked,
+        is_cap=w.is_cap, contingent=w.contingent, trigger_event=w.trigger_event, trigger_clause=w.trigger_clause,
+        trigger_evidence=_ev(w.trigger_evidence, page_map), evidence=_ev(w.evidence, page_map))
+
+
+def _describe(info: dict) -> str:
+    u = info.get("usage") or {}
+    tokens = f", {u['input_tokens']:,} in / {u['output_tokens']:,} out tokens" if u else ""
+    return f"{info['model']} {info['source']}{tokens}"
+
+
+def extract_llm_pdf(pdf_path: Path, pages: dict[int, str], base: Section106Agreement, model: str = PDF_DEFAULT_MODEL,
+                    mode: str = "auto", client=None, verbose: bool = False) -> Section106Agreement:
+    """Housing + contributions from the page images; metadata stays from the rules pass."""
+    page_map = llm_pdf_pages(pages)
+    prompt = PDF_PROMPT.format(task=HOUSING_TASK + "\n\n" + CONTRIB_TASK.format(which=ALL_CONTRIBUTIONS))
+    w, info = run_llm_pdf(pdf_path, page_map, prompt, model, "extract", mode, client=client, verbose=verbose)
     out = base.model_copy(deep=True)
-    out.housing = resp.parsed_output.housing
-    out.contributions = resp.parsed_output.contributions
-    out.extraction_backend = f"llm:{model}"
+    out.housing = wire_housing(w.housing, page_map)
+    out.contributions = [wire_contribution(c, page_map) for c in w.contributions]
+    out.extraction_backend = f"llm-pdf:{model}" + ("" if info["source"] == "live" else " (replay)")
+    out.warnings.append(f"llm-pdf: {_describe(info)}; pages {_ranges(page_map)}")
     return out
+
+
+def _ranges(ns: list[int]) -> str:
+    out, start = [], None
+    for i, n in enumerate(ns):
+        if start is None:
+            start = n
+        if i + 1 == len(ns) or ns[i + 1] != n + 1:
+            out.append(f"{start}-{n}" if n != start else str(n))
+            start = None
+    return ",".join(out)
+
+
+def _field_results(a: Section106Agreement, results) -> dict[str, list]:
+    """{'housing' or contribution name: its CheckResults}."""
+    out: dict[str, list] = {}
+    for r in results:
+        m = re.match(r"F(\d+)\.", r.check_id)
+        out.setdefault(a.contributions[int(m.group(1)) - 1].name if m else "housing", []).append(r)
+    return out
+
+
+def _failed_fields(a: Section106Agreement, results) -> dict[str, int]:
+    """{'housing' or contribution name: parser-error count}, omitting fields with none."""
+    from verifier import ErrorClass
+
+    counts = {k: sum(r.error_class == ErrorClass.PARSER_ERROR for r in rs) for k, rs in _field_results(a, results).items()}
+    return {k: n for k, n in counts.items() if n}
+
+
+HOUSING_VALUES = ("total_units", "total_units_evidence", "market_units", "market_units_evidence", "affordable_units",
+                  "affordable_units_evidence", "affordable_habitable_rooms", "total_habitable_rooms",
+                  "claimed_affordable_pct", "claimed_affordable_basis", "claimed_affordable_evidence")
+CONTRIBUTION_VALUES = ("amount_gbp", "amount_in_words", "trigger_event", "trigger_clause", "trigger_evidence", "evidence")
+
+
+def _lost(old, new, fields, prefix: str = "") -> list[str]:
+    return [prefix + f for f in fields if getattr(old, f) is not None and getattr(new, f) is None]
+
+
+def _lost_housing(old: HousingProvision, new: HousingProvision) -> list[str]:
+    """Housing values present in `old` but missing from `new`. Tenures match by tenure, mix rows by unit type."""
+    lost = _lost(old, new, HOUSING_VALUES)
+    new_tenures = {t.tenure: t for t in new.tenures}
+    for t in old.tenures:
+        label = f"tenures[{t.tenure.value}]"
+        n = new_tenures.get(t.tenure)
+        lost += [label] if n is None else _lost(t, n, ("units", "habitable_rooms", "evidence"), label + ".")
+    if old.mix_table:
+        om, nm = old.mix_table, new.mix_table
+        if nm is None:
+            return lost + ["mix_table"]
+        lost += _lost(om, nm, ("total_units", "total_habitable_rooms", "evidence"), "mix_table.")
+        unit = lambda s: re.sub(r"\W", "", s.lower())  # "1 bed" == "1-bed"
+        new_rows = {unit(r.unit_type): r.units_by_tenure for r in nm.rows}
+        for r in om.rows:
+            have = new_rows.get(unit(r.unit_type), {})
+            lost += [f"mix_table[{r.unit_type}][{t.value}]" for t in r.units_by_tenure if t not in have]
+        lost += [f"mix_table.subtotals[{t.value}]" for t in om.subtotals if t not in nm.subtotals]
+    return lost
+
+
+def _regressions(key: str, cur, cur_results, cand, cand_results) -> list[str]:
+    """Why `cand` is not a safe replacement for `key`, or [] if it is.
+
+    Fewer Parser Errors alone isn't enough: dropping a value can turn a FAIL into a SKIP.
+    So the field must keep its check coverage and must not lose any extracted value.
+    """
+    from verifier import Status
+
+    before, after = _field_results(cur, cur_results).get(key, []), _field_results(cand, cand_results).get(key, [])
+    why = []
+    if _failed_fields(cand, cand_results).get(key, 0) >= _failed_fields(cur, cur_results).get(key, 0):
+        why.append("no fewer Parser Errors")
+    if sum(r.status != Status.SKIP for r in after) < sum(r.status != Status.SKIP for r in before):
+        why.append("fewer checks run")
+    if key == "housing":
+        lost = _lost_housing(cur.housing, cand.housing)
+    else:
+        old, new = (next(c for c in x.contributions if c.name == key) for x in (cur, cand))
+        if new.contingent and not old.contingent:
+            why.append("newly marked contingent")
+        lost = _lost(old, new, CONTRIBUTION_VALUES)
+    if lost:
+        why.append("lost " + ", ".join(lost))
+    return why
+
+
+def cascade_llm_pdf(pdf_path: Path, a: Section106Agreement, pages: dict[int, str], results,
+                    model: str = CASCADE_MODEL, mode: str = "auto", client=None, verbose: bool = False
+                    ) -> Section106Agreement:
+    """Re-read only the fields with Parser Errors on a stronger model.
+
+    A replacement is kept only if the verifier then reports fewer Parser Errors for that
+    field, runs at least as many of its checks, and no previously extracted value is lost
+    (see `_regressions`). The verifier stays the judge.
+    """
+    import hashlib
+
+    from verifier import verify
+
+    before = _failed_fields(a, results)
+    if not before:
+        return a
+    names = sorted(k for k in before if k != "housing")
+    tasks = [HOUSING_TASK] if "housing" in before else []
+    if names:
+        tasks.append(CONTRIB_TASK.format(which="only these defined terms: " + "; ".join(f'"{n}"' for n in names)))
+    prompt = PDF_PROMPT.format(task="A previous extraction of this deed failed verification. Re-read only the "
+                               "fields below; if housing is not listed, return it with every value null and empty lists.\n\n" + "\n\n".join(tasks))
+    kind = "cascade-" + hashlib.sha1("|".join(sorted(before)).encode()).hexdigest()[:8]
+    page_map = llm_pdf_pages(pages)
+    w, info = run_llm_pdf(pdf_path, page_map, prompt, model, kind, mode, effort="high", client=client,
+                          verbose=verbose)
+
+    out, out_results = a.model_copy(deep=True), results
+    kept, rejected = [], []
+
+    def try_replace(key: str, apply) -> None:
+        nonlocal out, out_results
+        cand = out.model_copy(deep=True)
+        apply(cand)
+        cand_results = verify(cand, pages)
+        why = _regressions(key, out, out_results, cand, cand_results)
+        if why:
+            rejected.append(f"{key}: {'; '.join(why)}")
+        else:
+            out, out_results = cand, cand_results
+            kept.append(key)
+
+    if "housing" in before:
+        try_replace("housing", lambda c: setattr(c, "housing", wire_housing(w.housing, page_map)))
+    by_name = {squash_name(c.name): c for c in w.contributions}
+    for name in names:
+        new = by_name.get(squash_name(name))
+        if new is None:
+            rejected.append(f"{name}: not returned")
+            continue
+        idx = next(i for i, c in enumerate(out.contributions) if c.name == name)
+
+        def apply(c, idx=idx, new=new, name=name):
+            c.contributions[idx] = wire_contribution(new, page_map).model_copy(update={"name": name})
+        try_replace(name, apply)
+
+    out.extraction_backend += f" + cascade:{model}"
+    parts = [f"cascade: {_describe(info)}", f"re-read {len(before)} field(s) with Parser Errors"]
+    parts.append(f"kept {len(kept)}" + (f" ({', '.join(kept)})" if kept else ""))
+    if rejected:
+        parts.append(f"rejected {len(rejected)} ({' | '.join(rejected)})")
+    out.warnings.append("; ".join(parts))
+    return out
+
+
+def squash_name(s: str) -> str:
+    return re.sub(r"[^a-z]", "", s.lower())
 
 
 # --------------------------------------------------------------------------- entry point
 
-def extract(pdf_path: str | Path, backend: str = "rules", model: str = "claude-opus-5-5", verbose: bool = False
-            ) -> tuple[Section106Agreement, dict[int, str]]:
+def extract(pdf_path: str | Path, backend: str = "rules", model: str | None = None, verbose: bool = False,
+            llm_mode: str = "auto", client=None) -> tuple[Section106Agreement, dict[int, str]]:
     pdf_path = Path(pdf_path)
     with pdfplumber.open(pdf_path) as pdf:
         page_count = len(pdf.pages)
@@ -417,8 +817,9 @@ def extract(pdf_path: str | Path, backend: str = "rules", model: str = "claude-o
         contributions=extract_contributions(defs, pages, [n for n in pages if n > def_pages[-1]]),
         warnings=warnings,
     )
-    if backend == "llm":
-        agreement = extract_llm(pdf_path, pages, def_pages + sched_pages, agreement, model=model)
+    if backend == "llm-pdf":
+        agreement = extract_llm_pdf(pdf_path, pages, agreement, model=model or PDF_DEFAULT_MODEL, mode=llm_mode,
+                                    client=client, verbose=verbose)
     if verbose:
         import sys
         print(f"  definitions: pages {def_pages[0]}-{def_pages[-1]} ({len(defs)} terms); "

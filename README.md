@@ -10,7 +10,8 @@ classified as either a **Parser Error** (our extraction is wrong) or a **Documen
 s106-audit/
   schema.py     Pydantic v2 model: Section106Agreement (metadata, housing/tenure, contributions + triggers)
   ocr.py        pdfplumber text layer -> parallel RapidOCR fallback for scanned deeds, cached per page
-  extractor.py  definitions-clause + schedule parser (rules) or Claude structured outputs (--backend llm)
+  extractor.py  definitions-clause + schedule parser (rules) or Claude over the page images (llm-pdf)
+  fixtures/     recorded Claude responses so --backend llm-pdf runs offline
   verifier.py   hard assertions + Parser Error / Document Discrepancy classification
   run_audit.py  CLI: terminal report + JSON
 ```
@@ -40,11 +41,66 @@ with `--cacert`.
 
 ```bash
 .venv/bin/python s106-audit/run_audit.py                      # rules backend
-ANTHROPIC_API_KEY=... .venv/bin/python s106-audit/run_audit.py --backend llm --model claude-haiku-5-5
+.venv/bin/python s106-audit/run_audit.py --backend llm-pdf            # Claude reads the scans (offline: replays fixture)
+.venv/bin/python s106-audit/run_audit.py --backend llm-pdf --cascade  # + re-read Parser Error fields on Opus
+.venv/bin/python -m unittest discover -s tests                        # offline tests, mocked client
 ```
 
 The JSON output goes to `data/processed/<stem>.audit.json`. Exit codes are `0` clean,
 `1` parser errors, and `2` document discrepancies.
+
+## LLM-PDF backend
+
+`--backend llm-pdf` has Claude read the page images instead of the OCR + regex layer. RapidOCR
+still runs (cached): it picks the definitions and the payment and mix-table pages (42 of 109 for the
+sample), which are sent as one PDF document block to `claude-haiku-5-5` (change it with `--model`), and it
+stays the independent text the verifier uses to match snippets and classify failures. Model output is never
+used as the reference text.
+
+`--cascade` re-reads only the fields with Parser Errors on `claude-opus-5-5` (`--cascade-model`). A
+replacement is kept only if the verifier reports fewer Parser Errors for that field, runs at least as many
+of its checks, and no previously extracted value is lost.
+
+`--llm-mode` controls where responses come from:
+
+| mode | behaviour |
+|------|-----------|
+| `auto` (default) | live if Anthropic credentials resolve (key file, env key, auth token or `ant auth login` profile), otherwise replay |
+| `live` | always call the API; fails without credentials |
+| `record` | call the API and save the response to `s106-audit/fixtures/<stem>/<model>.<kind>.json` |
+| `replay` | load the saved response; errors if the PDF (sha256) or the page selection differs from the recording |
+
+**Credentials for unattended runs.** `run_audit.py` reads a key from `~/.config/s106/anthropic_key`
+(override the path with `S106_KEY_FILE`). The key goes straight to the client and is never exported, so
+it doesn't reach Claude Code or other tools. Create the key in a dedicated Console workspace with a
+monthly spend limit, then:
+
+```bash
+mkdir -p ~/.config/s106 && install -m 600 /dev/null ~/.config/s106/anthropic_key
+```
+
+Paste the key into that file in your editor. Without the file, the SDK's normal resolution applies
+(`ANTHROPIC_API_KEY`, then an `ant auth login` profile), and `auto` mode falls back to replay.
+
+The committed fixture is a live Haiku recording of the sample deed. Re-record it after changing the
+prompt, the schema, the page selection or the deed:
+
+```bash
+.venv/bin/python s106-audit/run_audit.py --backend llm-pdf --llm-mode record
+```
+
+**Cost.** Scanned pages are billed as images, at roughly 1.7k input tokens each. The report's warning
+line shows the token usage of each live call.
+
+| call | rate (per MTok in / out) | per deed |
+|------|-------------------|----------|
+| Haiku 5.5 extraction | $0.10 / $0.50 under 100k prompt tokens, $0.50 / $2.50 above | ≈ $0.015 |
+| Opus 5.5 cascade (only when Parser Errors remain) | $4 / $20 | ≈ $0.30–0.60 per call (estimate) |
+
+**Known limitation.** On two-column definition pages, OCR splices the left-column term into the
+right-column sentence wherever a line wraps, so a clean snippet the model read off the image may not
+match the OCR text. Failures on such fields can only be classed as Parser Errors, never Document
+Discrepancies. That errs on the safe side, but it weakens the classification.
 
 ## Checks
 

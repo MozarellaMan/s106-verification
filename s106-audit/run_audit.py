@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Audit a Section 106 deed: extract -> verify -> terminal report + JSON.
 
-    python s106-audit/run_audit.py [PDF] [--backend rules|llm] [--out data/processed/<stem>.audit.json]
+    python s106-audit/run_audit.py [PDF] [--backend rules|llm-pdf] [--model M] [--cascade]
+                                   [--llm-mode auto|live|replay|record] [--out data/processed/<stem>.audit.json]
 
 Exit code: 0 all checks pass/skip, 1 parser errors present, 2 document discrepancies present.
 """
@@ -9,15 +10,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
 
-from extractor import extract
+from extractor import CASCADE_MODEL, cascade_llm_pdf, extract
 from verifier import ErrorClass, Status, verify
 
 DEFAULT_PDF = "./data/raw/southwark_s106_sample.pdf"
+KEY_FILE = Path(os.environ.get("S106_KEY_FILE", "~/.config/s106/anthropic_key")).expanduser()
 
 C = {"PASS": "\033[32m", "FAIL": "\033[31m", "SKIP": "\033[33m", "dim": "\033[2m", "b": "\033[1m", "0": "\033[0m"}
 
@@ -88,19 +91,46 @@ def report(a, results) -> None:
     print("=" * w)
 
 
+def harness_client():
+    """An Anthropic client keyed from KEY_FILE, or None to fall back to normal SDK credential resolution.
+
+    The key goes straight to the client and never into os.environ, so it can't leak into child
+    processes or into Claude Code's own auth.
+    """
+    if not KEY_FILE.is_file():
+        return None
+    key = KEY_FILE.read_text().strip()
+    if not key:
+        return None
+    import anthropic
+    return anthropic.Anthropic(api_key=key)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("pdf", nargs="?", default=DEFAULT_PDF)
-    ap.add_argument("--backend", choices=["rules", "llm"], default="rules")
-    ap.add_argument("--model", default="claude-opus-5-5",
-                    help="Claude model for --backend llm (e.g. claude-haiku-5-5 for cheap bulk runs)")
+    ap.add_argument("--backend", choices=["rules", "llm-pdf"], default="rules")
+    ap.add_argument("--model", help="Claude model for llm-pdf (default claude-haiku-5-5)")
+    ap.add_argument("--cascade", action="store_true",
+                    help="llm-pdf: re-read fields with Parser Errors on --cascade-model, keep only verified improvements")
+    ap.add_argument("--cascade-model", default=CASCADE_MODEL)
+    ap.add_argument("--llm-mode", choices=["auto", "live", "replay", "record"], default="auto",
+                    help="llm-pdf: auto = live if Anthropic credentials resolve, else replay the recorded fixture")
     ap.add_argument("--out", help="JSON output path (default data/processed/<stem>.audit.json)")
     ap.add_argument("-q", "--quiet", action="store_true")
     args = ap.parse_args()
 
     pdf = Path(args.pdf)
-    agreement, pages = extract(pdf, backend=args.backend, model=args.model, verbose=not args.quiet)
+    if args.cascade and args.backend != "llm-pdf":
+        ap.error("--cascade needs --backend llm-pdf")
+    client = harness_client() if args.backend == "llm-pdf" and args.llm_mode != "replay" else None
+    agreement, pages = extract(pdf, backend=args.backend, model=args.model, verbose=not args.quiet,
+                               llm_mode=args.llm_mode, client=client)
     results = verify(agreement, pages)
+    if args.cascade:
+        agreement = cascade_llm_pdf(pdf, agreement, pages, results, model=args.cascade_model, mode=args.llm_mode,
+                                    client=client, verbose=not args.quiet)
+        results = verify(agreement, pages)
     report(agreement, results)
 
     out = Path(args.out) if args.out else pdf.resolve().parent.parent / "processed" / f"{pdf.stem}.audit.json"
