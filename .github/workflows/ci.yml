@@ -1,6 +1,6 @@
 # Tiers 1-2 on every push and pull request: unit tests and the invented deeds (`cargo test`), then
 # offline replay of the real corpus from the private s106-data repository (`cargo test-data`, read
-# with the S106_DATA_TOKEN secret). No PDFs, runtime artifacts, credentials or network at test time.
+# with the read-only deploy key in the S106_DATA_DEPLOY_KEY secret). No PDFs, runtime artifacts, credentials or network at test time.
 name: ci
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
         with:
           repository: MozarellaMan/s106-data
           path: data
-          token: ${{ secrets.S106_DATA_TOKEN }}
+          ssh-key: ${{ secrets.S106_DATA_DEPLOY_KEY }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test-data

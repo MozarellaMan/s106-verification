@@ -1,7 +1,7 @@
 # Tiers 3-4 weekly and on demand: difficult pages and then every whole deed read afresh from the
 # PDFs (PDFium + OCR, empty page-text cache) and compared with the committed snapshots, then the
 # register evaluation on the PDFs. The data comes from the private s106-data repository (read with
-# the S106_DATA_TOKEN secret); deeds are fetched from the council registers and checked against
+# the read-only deploy key in the S106_DATA_DEPLOY_KEY secret); deeds are fetched from the council registers and checked against
 # its corpus/manifest.tsv. The downloads are cached by that file's hash, page text never is.
 # Council websites are third parties: if one can't be reached the PDF tiers are skipped with a
 # warning. A download that fails its checksum is an integrity failure and fails the run. This
@@ -21,7 +21,7 @@ jobs:
         with:
           repository: MozarellaMan/s106-data
           path: data
-          token: ${{ secrets.S106_DATA_TOKEN }}
+          ssh-key: ${{ secrets.S106_DATA_DEPLOY_KEY }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: actions/cache@v4
