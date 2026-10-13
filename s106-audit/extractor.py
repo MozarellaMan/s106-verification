@@ -18,7 +18,7 @@ Three backends fill the same Pydantic schema:
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -616,8 +616,8 @@ def run_llm_pdf(pdf_path: Path, page_numbers: list[int], prompt: str, model: str
         "fixture": str(fx)}
 
 
-def _ev(c: Cite | None, page_map: list[int]) -> Evidence | None:
-    if c is None or not c.snippet.strip():
+def _ev(c: Cite, page_map: list[int]) -> Evidence | None:
+    if not c.snippet.strip():  # the model's "not stated" marker
         return None
     # A page outside the attachment maps to 0, which the verifier can never re-locate.
     return Evidence(page=page_map[c.page - 1] if 1 <= c.page <= len(page_map) else 0, snippet=c.snippet)
