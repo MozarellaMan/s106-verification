@@ -110,8 +110,21 @@ Discrepancies. That errs on the safe side, but it weakens the classification.
 | H2 | Σ tenure units == affordable units |
 | H3 | Σ tenure habitable rooms == affordable habitable rooms |
 | H4 | claimed affordable % == calculated % (on the deed's stated basis, ±0.05pp) |
-| F:*:words | each contribution's figure == its words form ("£10,058.60 (ten thousand and fifty eight pounds and sixty pence)") |
-| F:*:trigger | a payment trigger was located in the schedules |
+| H5 | approved mix table: rows sum to each tenure's sub-total, sub-totals sum to the table total |
+| H6 | mix table agrees with the definitions (per-tenure units, affordable units and habitable rooms) |
+| F*.amt | a figure was extracted (SKIP for formula/review-contingent sums with no fixed figure) |
+| F*.words | each contribution's figure == its words form ("£10,058.60 (ten thousand and fifty eight pounds and sixty pence)") |
+| F*.trig | a payment trigger was found; its cited phrase re-locates in the OCR text; the cited clause actually makes something payable (not, say, an assessment date) |
+| F*.tlabel | the trigger label follows from the cited phrase under the fixed vocabulary in `s106-audit/triggers.py` (SKIP if the phrase is outside it) |
+
+**Determinism.** Claude reads the deed, but what gets reported does not depend on the run where it
+can be avoided. A trigger's label is decided by `triggers.classify()` from the cited phrase, for both
+backends. The model's own label is kept as `trigger_event_model` only when it differs. `contingent`
+follows from whether a figure was extracted. Plural group terms ("Site and Development
+Contributions") are dropped from the contribution list with a warning. A truncated structured output
+is retried up to three times, and the number of attempts is recorded in the run's usage. In four live
+Haiku runs on the sample after these changes, housing figures, amounts, flags and trigger labels
+agreed exactly. One run also listed the two group terms, which are now filtered.
 
 **Classification.** When a check fails, each input value's evidence snippet is re-located in the
 cited page, ignoring whitespace (OCR drops spaces). If any input is missing or can't be found,
