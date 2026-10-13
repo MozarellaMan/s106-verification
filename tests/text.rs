@@ -141,3 +141,36 @@ fn numbers_in_reads_digits_and_words() {
     assert!(numbers_in("one hundred and").contains(&Decimal::from(100)));
     assert!(numbers_in("twenty-five days").contains(&Decimal::from(25)));
 }
+
+#[test]
+fn unknown_pence_is_not_zero() {
+    for words in [
+        "ten pounds and illegible pence",
+        "ten pounds and pence",
+        "ten pounds banana",
+    ] {
+        assert_eq!(words_to_amount(words), None, "{words}");
+    }
+    assert_eq!(
+        words_to_amount("ten pounds and zero pence"),
+        Some(dec("10"))
+    );
+    assert_eq!(
+        words_to_amount("ten pounds and one penny"),
+        Some(dec("10.01"))
+    );
+    assert_eq!(
+        words_to_amount("ten poundsandtwentypence"),
+        Some(dec("10.20"))
+    );
+}
+
+#[test]
+fn overflowing_number_words_are_not_clamped() {
+    assert_eq!(
+        words_to_int(
+            "ninety hundred hundred hundred hundred hundred hundred hundred hundred hundred hundred"
+        ),
+        None
+    );
+}

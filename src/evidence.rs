@@ -30,21 +30,38 @@ const MAX_SKIP_SHARE: f64 = 0.1;
 static TOKEN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[a-z]+|[0-9]+(?:[.,][0-9]+)*").unwrap());
 
-/// Words and numbers; '£12,650.00' -> '1265000', the same digits squash() keeps.
+/// Words and numbers; ignore grouping commas, but preserve decimal points.
 fn tokens(s: &str) -> Vec<String> {
     TOKEN
         .find_iter(&s.to_lowercase())
-        .map(|m| {
-            m.as_str()
-                .chars()
-                .filter(|c| !matches!(c, '.' | ','))
-                .collect()
-        })
+        .map(|m| m.as_str().chars().filter(|c| *c != ',').collect())
         .collect()
 }
 
 fn is_digits(tok: &str) -> bool {
-    !tok.is_empty() && tok.bytes().all(|b| b.is_ascii_digit())
+    tok.bytes().any(|b| b.is_ascii_digit()) && tok.bytes().all(|b| b.is_ascii_digit() || b == b'.')
+}
+
+// Whitespace and currency punctuation may vary in OCR; decimal position may not.
+// Used by both matching paths so the contiguous shortcut cannot weaken the fallback.
+fn matching_char(chars: &[char], i: usize) -> bool {
+    chars[i].is_ascii_alphanumeric()
+        || (chars[i] == '.'
+            && i > 0
+            && chars[i - 1].is_ascii_digit()
+            && chars.get(i + 1).is_some_and(char::is_ascii_digit))
+}
+
+fn matching_text(text: &str) -> String {
+    let chars: Vec<char> = text.to_lowercase().chars().collect();
+    (0..chars.len())
+        .filter(|&i| matching_char(&chars, i))
+        .map(|i| chars[i])
+        .collect()
+}
+
+fn numeric_char(b: u8) -> bool {
+    b.is_ascii_digit() || b == b'.'
 }
 
 fn is_number(tok: &str) -> bool {
@@ -82,7 +99,7 @@ struct Layout<'a> {
     raw: Vec<char>,
     /// Char index in `raw` of each char of `hay`.
     idx: Vec<usize>,
-    /// == squash(page)
+    /// Normalised page bytes, retaining decimal points.
     hay: Vec<u8>,
     tokens: &'a [String],
     max_skips: usize,
@@ -116,8 +133,8 @@ impl Layout<'_> {
             if &self.hay[i..i + t.len()] == t {
                 let end = i + t.len();
                 if !digits
-                    || ((i == 0 || !self.hay[i - 1].is_ascii_digit())
-                        && (end == self.hay.len() || !self.hay[end].is_ascii_digit()))
+                    || ((i == 0 || !numeric_char(self.hay[i - 1]))
+                        && (end == self.hay.len() || !numeric_char(self.hay[end])))
                 {
                     out.push((i, end));
                 }
@@ -170,9 +187,7 @@ impl Layout<'_> {
 
 fn layout_match(tokens: &[String], page: &str) -> bool {
     let raw: Vec<char> = page.to_lowercase().chars().collect();
-    let idx: Vec<usize> = (0..raw.len())
-        .filter(|&i| raw[i].is_ascii_alphanumeric())
-        .collect();
+    let idx: Vec<usize> = (0..raw.len()).filter(|&i| matching_char(&raw, i)).collect();
     let hay: Vec<u8> = idx.iter().map(|&i| raw[i] as u8).collect();
     let plain = tokens.iter().filter(|t| !is_number(t)).count();
     let mut layout = Layout {
@@ -192,12 +207,22 @@ pub fn evidence_found(ev: Option<&Evidence>, pages: &Pages) -> bool {
     let Some(page) = pages.get(&ev.page) else {
         return false;
     };
-    let needle = squash(&ev.snippet);
+    let needle = matching_text(&ev.snippet);
     if needle.is_empty() {
         return false;
     }
     let page = ocr_digits(page);
-    if squash(&page).contains(&needle) {
+    let hay = matching_text(&page);
+    if hay.match_indices(&needle).any(|(start, _)| {
+        let end = start + needle.len();
+        let left_ok = !needle.as_bytes()[0].is_ascii_digit()
+            || start == 0
+            || !numeric_char(hay.as_bytes()[start - 1]);
+        let right_ok = !needle.as_bytes()[needle.len() - 1].is_ascii_digit()
+            || end == hay.len()
+            || !numeric_char(hay.as_bytes()[end]);
+        left_ok && right_ok
+    }) {
         return true;
     }
     let tokens = tokens(&ev.snippet);

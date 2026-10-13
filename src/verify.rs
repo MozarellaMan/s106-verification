@@ -1128,14 +1128,14 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
             .map(|d| d.to_string())
             .collect::<Vec<_>>()
             .join(" + ");
-        let ungrounded: Vec<String> = insts
+        let inputs: Vec<Input> = insts
             .iter()
             .enumerate()
-            .filter(|(_, i)| !evidence_found(i.trigger_phrase.as_ref(), pages))
-            .map(|(n, _)| {
-                format!(
-                    "instalment {} trigger phrase not re-locatable in source",
-                    n + 1
+            .map(|(n, i)| {
+                input(
+                    format!("instalment {} share", n + 1),
+                    i.share_pct.map(Value::Num),
+                    i.trigger_phrase.as_ref(),
                 )
             })
             .collect();
@@ -1143,11 +1143,11 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
             &id,
             &desc,
             sum == Decimal::from(100),
-            &[],
+            &inputs,
             pages,
             Some("100%".to_string()),
             Some(format!("{parts} = {sum}%")),
-            &ungrounded,
+            &[],
         );
         r.pages = all_pg.clone();
         out.push(r);
