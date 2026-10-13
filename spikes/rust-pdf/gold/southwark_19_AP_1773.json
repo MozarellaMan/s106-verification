@@ -1,0 +1,44 @@
+{
+  "document": "Southwark S106, 19/AP/1773, 227-255 Ilderton Road (data/raw/southwark_s106_sample.pdf)",
+  "sha256": "0baed481b09feeb4e515d3752439448fee7e5993103d2085116da7854cb5f85b",
+  "method": "Transcribed by reading 110 dpi renders of each page (pdftoppm), not from any OCR or extractor output. Lines are copied as printed, line by line. Page = 1-based PDF page index; printed = the page number printed on the page.",
+  "transcribed": "2026-10-13",
+  "lines": [
+    {"page": 4,  "printed": "4",  "kind": "definition-right-column", "text": "means the sum of £16,913.26 (sixteen thousand nine hundred and"},
+    {"page": 4,  "printed": "4",  "kind": "definition-right-column", "text": "thirteen pounds and twenty six pence) Index Linked to be paid by"},
+    {"page": 4,  "printed": "4",  "kind": "definition-right-column", "text": "means a financial contribution that may arise pursuant to a Viability"},
+    {"page": 4,  "printed": "4",  "kind": "definition-right-column", "text": "means the sum of £10,058.60 (ten thousand and fifty eight pounds"},
+    {"page": 4,  "printed": "4",  "kind": "definition-right-column", "text": "and sixty pence) Index Linked to be paid by the Owner to the"},
+    {"page": 4,  "printed": "4",  "kind": "definition-right-column", "text": "Council in accordance with paragraph 1 of Schedule 6 and applied"},
+    {"page": 5,  "printed": "5",  "kind": "definition-right-column", "text": "means the 76 Residential Units (271 Habitable Rooms) to be"},
+    {"page": 12, "printed": "12", "kind": "definition-right-column", "text": "means the sum of £12,650 (twelve thousand and six hundred and"},
+    {"page": 12, "printed": "12", "kind": "definition-right-column", "text": "fifty pounds) Index Linked to be paid by the Owner to the Council in"},
+    {"page": 12, "printed": "12", "kind": "definition-right-column", "text": "means a financial contribution of £73,100 (seventy three thousand"},
+    {"page": 12, "printed": "12", "kind": "definition-right-column", "text": "one hundred pounds) Index Linked which may be payable by the"},
+    {"page": 12, "printed": "12", "kind": "definition-right-column", "text": "means the sum of £25,300.00 (twenty five thousand and three"},
+    {"page": 14, "printed": "14", "kind": "definition-right-column", "text": "445 sqm ancillary plant and equipment; and 253 residential"},
+    {"page": 14, "printed": "14", "kind": "definition-right-column", "text": "apartments (C3), 35.75% affordable by habitable room, and other"},
+    {"page": 89, "printed": "74", "kind": "schedule-body", "text": "Prior to the Occupation of 50% of the Development (or upon such other date as may be"},
+    {"page": 89, "printed": "74", "kind": "schedule-body", "text": "maximum Carbon Green Fund Contribution by a sum equivalent to £1800 per tonne of annual"},
+    {"page": 89, "printed": "74", "kind": "schedule-body", "text": "determined in accordance with clause 19 of this Agreement) shall be payable within 20"},
+    {"page": 89, "printed": "74", "kind": "schedule-body", "text": "Working Days of such agreement or determination."},
+    {"page": 91, "printed": "76", "kind": "table-row", "text": "Sub-Total 58 18"},
+    {"page": 91, "printed": "76", "kind": "table-row", "text": "Total 76 (271 habitable rooms)"}
+  ],
+  "facts": [
+    {"page": 4,  "printed": "4",  "label": "Administration Cost amount", "value": "£16,913.26"},
+    {"page": 4,  "printed": "4",  "label": "AH Monitoring Contribution amount", "value": "£10,058.60"},
+    {"page": 5,  "printed": "5",  "label": "Affordable Housing Units", "value": "76 Residential Units (271 Habitable Rooms)"},
+    {"page": 12, "printed": "12", "label": "Cycle Hire Docking Station Contribution words", "value": "twelve thousand and six hundred and fifty pounds"},
+    {"page": 12, "printed": "12", "label": "Default Employment in the End Use Contribution", "value": "£73,100"},
+    {"page": 14, "printed": "14", "label": "Development total units", "value": "253 residential apartments"},
+    {"page": 14, "printed": "14", "label": "Claimed affordable %", "value": "35.75% affordable by habitable room"},
+    {"page": 89, "printed": "74", "label": "Carbon Green Fund payment trigger", "value": "shall be payable within 20 Working Days"},
+    {"page": 91, "printed": "76", "label": "Mix table total", "value": "76 (271 habitable rooms)"}
+  ],
+  "term_definitions": [
+    {"page": 4,  "term": "Affordable Housing Monitoring Contribution", "definition_starts": "means the sum of £10,058.60"},
+    {"page": 12, "term": "Cycle Hire Docking Station Contribution", "definition_starts": "means the sum of £12,650"},
+    {"page": 12, "term": "Default Employment in the End Use Contribution", "definition_starts": "means a financial contribution of £73,100"}
+  ]
+}
