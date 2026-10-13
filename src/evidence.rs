@@ -59,7 +59,7 @@ fn matching_char(chars: &[char], i: usize) -> bool {
             && chars[..i]
                 .iter()
                 .rev()
-                .find(|c| !c.is_ascii_whitespace())
+                .find(|c| c.is_ascii_alphanumeric() || **c == '.')
                 .is_some_and(|c| c.is_ascii_digit() || *c == '.'))
 }
 

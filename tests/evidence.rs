@@ -272,3 +272,17 @@ fn numbered_clauses_do_not_absorb_a_following_percentage() {
         "50% prior to Occupation"
     ));
 }
+
+#[test]
+fn quoted_number_at_line_end_is_set_apart_from_the_next_clause_number() {
+    // Punctuation between the two numbers used to drop the line break, joining "18" and "2." into
+    // one number, so the digit-boundary check rejected a citation the page states verbatim.
+    let page = "replacing it with the number \"18\"\n2. Paragraph 3.2 shall be deleted";
+    assert!(found_in(page, "replacing it with the number \"18\""));
+    assert!(found_in(
+        "as set out in (271)\n3. The Owner",
+        "as set out in (271)"
+    ));
+    // still a different number when the next line's digits are part of it
+    assert!(!found_in("the number 182. Paragraph", "the number 18"));
+}
