@@ -1,0 +1,589 @@
+{
+  "bolton-0137317": {
+    "id": "bolton-0137317",
+    "council": "Bolton",
+    "planning_ref": "01373/17",
+    "type": "S106",
+    "register_types": [
+      "section-106"
+    ],
+    "pages": 28,
+    "text_source": "ocr",
+    "runs": [
+      {
+        "run": 1,
+        "gate": {
+          "pass": 16,
+          "review": 3,
+          "fail": 0,
+          "skip": 14,
+          "parser_errors": 0,
+          "document_discrepancies": 0,
+          "failures": [],
+          "reviews": [
+            "V2.1 Variation 1: Delete of paragraphs 1 (Open Space) to 10 (Off-Site Ecological Enhancement) of Schedule 3 of the Original Agreement, as they apply to the Development under the Reserved Matters Approval is cited in the deed: holds, but not grounded: target: paragraphs 1 (Open Space) to 10 (Off-Site Ecological Enhancement) of Schedule 3 of the Original Agreement, as they apply to the Development under the Reserved Matters Approval not stated in its cited snippet",
+            "V2.2 Variation 2: Replace of paragraph 7 of Schedule 3 of the Original Agreement (Education Contributions), for the Phase 1 Development Site is cited in the deed: holds, but not grounded: target: paragraph 7 of Schedule 3 of the Original Agreement (Education Contributions), for the Phase 1 Development Site not stated in its cited snippet",
+            "V2.3 Variation 3: Replace of paragraph 6 of Schedule 3 of the Original Agreement (Health Contribution), for the Phase 1 Development Site is cited in the deed: holds, but not grounded: target: paragraph 6 of Schedule 3 of the Original Agreement (Health Contribution), for the Phase 1 Development Site not stated in its cited snippet"
+          ]
+        },
+        "register": {
+          "extracted_sums": 1,
+          "extracted_sums_matched": 0,
+          "register_amounts": 6,
+          "register_amounts_found": 0,
+          "unmatched_extracted": [
+            "6000"
+          ],
+          "missed_register": [
+            "education=73443.97",
+            "health=6396.37",
+            "highways=57110.4",
+            "education=238501.75",
+            "health=20771.54",
+            "En-Highways=185460.14"
+          ],
+          "affordable_units": null,
+          "register_affordable_units": [],
+          "affordable_units_match": null
+        },
+        "contributions": 4,
+        "cost_usd": 0.0,
+        "tokens_in": 139170,
+        "tokens_out": 9141
+      }
+    ],
+    "agreement": {
+      "runs_compared": 1,
+      "housing_identical": true,
+      "housing_diffs": [],
+      "sums_identical": true,
+      "contribution_names": {
+        "union": 0,
+        "in_every_run": 0,
+        "only_some_runs": []
+      },
+      "field_diffs": []
+    }
+  },
+  "dover-1800681": {
+    "id": "dover-1800681",
+    "council": "Dover",
+    "planning_ref": "DOV/18/00681/FULL",
+    "type": "S106 (redacted)",
+    "register_types": [
+      "section-106"
+    ],
+    "pages": 9,
+    "text_source": "text-layer",
+    "runs": [
+      {
+        "run": 1,
+        "gate": {
+          "pass": 14,
+          "review": 2,
+          "fail": 0,
+          "skip": 5,
+          "parser_errors": 0,
+          "document_discrepancies": 0,
+          "failures": [],
+          "reviews": [
+            "V2.2 Variation 2: Amend of Clause 1.1.9 and definition of Chargee's Duty is cited in the deed: holds, but not grounded: target: Clause 1.1.9 and definition of Chargee's Duty not stated in its cited snippet",
+            "V2.4 Variation 4: Replace of Clause 1.1.5 definition of the Affordable Housing Units is cited in the deed: holds, but not grounded: target: Clause 1.1.5 definition of the Affordable Housing Units not stated in its cited snippet"
+          ]
+        },
+        "register": {
+          "extracted_sums": 0,
+          "extracted_sums_matched": 0,
+          "register_amounts": 9,
+          "register_amounts_found": 0,
+          "unmatched_extracted": [],
+          "missed_register": [
+            "other=2640.84",
+            "affordable-housing=17",
+            "community-facilities=903.1",
+            "community-facilities=3049.75",
+            "education=182820",
+            "education=226325",
+            "community-facilities=8078.4",
+            "community-facilities=3602.5",
+            "other=13064.7"
+          ],
+          "affordable_units": 17,
+          "register_affordable_units": [
+            17
+          ],
+          "affordable_units_match": true
+        },
+        "contributions": 0,
+        "cost_usd": 0.0,
+        "tokens_in": 66360,
+        "tokens_out": 8412
+      }
+    ],
+    "agreement": {
+      "runs_compared": 1,
+      "housing_identical": true,
+      "housing_diffs": [],
+      "sums_identical": true,
+      "contribution_names": {
+        "union": 0,
+        "in_every_run": 0,
+        "only_some_runs": []
+      },
+      "field_diffs": []
+    }
+  },
+  "dover-1900403": {
+    "id": "dover-1900403",
+    "council": "Dover",
+    "planning_ref": "DOV/19/00403/OUTLINE",
+    "type": "S106 (redacted)",
+    "register_types": [
+      "section-106"
+    ],
+    "pages": 8,
+    "text_source": "mixed",
+    "runs": [
+      {
+        "run": 1,
+        "gate": {
+          "pass": 9,
+          "review": 0,
+          "fail": 1,
+          "skip": 6,
+          "parser_errors": 1,
+          "document_discrepancies": 0,
+          "failures": [
+            "F1.trig Secondary School Contribution: payment trigger located: no trigger clause matched in the schedules"
+          ],
+          "reviews": []
+        },
+        "register": {
+          "extracted_sums": 1,
+          "extracted_sums_matched": 0,
+          "register_amounts": 3,
+          "register_amounts_found": 0,
+          "unmatched_extracted": [
+            "115200"
+          ],
+          "missed_register": [
+            "affordable-housing=8",
+            "other=10",
+            "health=18270"
+          ],
+          "affordable_units": null,
+          "register_affordable_units": [
+            8
+          ],
+          "affordable_units_match": false
+        },
+        "contributions": 1,
+        "cost_usd": 0.0,
+        "tokens_in": 55167,
+        "tokens_out": 5029
+      }
+    ],
+    "agreement": {
+      "runs_compared": 1,
+      "housing_identical": true,
+      "housing_diffs": [],
+      "sums_identical": true,
+      "contribution_names": {
+        "union": 0,
+        "in_every_run": 0,
+        "only_some_runs": []
+      },
+      "field_diffs": []
+    }
+  },
+  "ntyneside-1901280": {
+    "id": "ntyneside-1901280",
+    "council": "North Tyneside",
+    "planning_ref": "19/01280/FUL",
+    "type": "S106",
+    "register_types": [
+      "section-106"
+    ],
+    "pages": 45,
+    "text_source": "ocr",
+    "runs": [
+      {
+        "run": 1,
+        "gate": {
+          "pass": 54,
+          "review": 3,
+          "fail": 0,
+          "skip": 5,
+          "parser_errors": 0,
+          "document_discrepancies": 0,
+          "failures": [],
+          "reviews": [
+            "F8.inst Primary Education Contribution: instalment shares sum to 100%: holds, but not grounded: instalment 2 share: cited snippet not re-locatable on p15; instalment 3 share: cited snippet not re-locatable on p15",
+            "F8.inst2 Primary Education Contribution: instalment 2 trigger located and labelled: holds, but not grounded: instalment 2 trigger phrase: cited snippet not re-locatable on p15",
+            "F8.inst3 Primary Education Contribution: instalment 3 trigger located and labelled: holds, but not grounded: instalment 3 trigger phrase: cited snippet not re-locatable on p15"
+          ]
+        },
+        "register": {
+          "extracted_sums": 9,
+          "extracted_sums_matched": 8,
+          "register_amounts": 13,
+          "register_amounts_found": 8,
+          "unmatched_extracted": [
+            "25275.00"
+          ],
+          "missed_register": [
+            "other=25245",
+            "highways=15000",
+            "monitoring-fees=5000",
+            "open-space-and-leisure=3022",
+            "education=102960"
+          ],
+          "affordable_units": 19,
+          "register_affordable_units": [
+            19
+          ],
+          "affordable_units_match": true
+        },
+        "contributions": 9,
+        "cost_usd": 0.0,
+        "tokens_in": 219444,
+        "tokens_out": 8858
+      }
+    ],
+    "agreement": {
+      "runs_compared": 1,
+      "housing_identical": true,
+      "housing_diffs": [],
+      "sums_identical": true,
+      "contribution_names": {
+        "union": 0,
+        "in_every_run": 0,
+        "only_some_runs": []
+      },
+      "field_diffs": []
+    }
+  },
+  "salford-73971": {
+    "id": "salford-73971",
+    "council": "Salford",
+    "planning_ref": "19/73971/FUL",
+    "type": "S106 (counterpart)",
+    "register_types": [
+      "section-106"
+    ],
+    "pages": 35,
+    "text_source": "mixed",
+    "runs": [
+      {
+        "run": 1,
+        "gate": {
+          "pass": 34,
+          "review": 4,
+          "fail": 5,
+          "skip": 16,
+          "parser_errors": 5,
+          "document_discrepancies": 0,
+          "failures": [
+            "H1 Market units + affordable units == total residential units: not extracted: market units, affordable units",
+            "H2 Sum of tenure units == affordable units: no tenure breakdown extracted",
+            "H4 Claimed affordable % vs calculated % (basis: units): not extracted: affordable units",
+            "F7.trig Maximum Contribution: payment trigger located: no trigger clause matched in the schedules",
+            "F8.instcov Affordable Housing Contribution: instalment lead-in imposes a payment: cited payment clause not re-locatable in source (p30)"
+          ],
+          "reviews": [
+            "F7.amt Maximum Contribution: amount stated in cited evidence: holds, but not grounded: amount: cited snippet not re-locatable on p4",
+            "F7.words Maximum Contribution: figures == words: holds, but not grounded: amount: cited snippet not re-locatable on p4; words form: cited snippet not re-locatable on p4",
+            "F8.amt Affordable Housing Contribution: amount stated in cited evidence: holds, but not grounded: amount: cited snippet not re-locatable on p24",
+            "F8.words Affordable Housing Contribution: figures == words: holds, but not grounded: amount: cited snippet not re-locatable on p24; words form: cited snippet not re-locatable on p24"
+          ]
+        },
+        "register": {
+          "extracted_sums": 8,
+          "extracted_sums_matched": 5,
+          "register_amounts": 8,
+          "register_amounts_found": 5,
+          "unmatched_extracted": [
+            "450000",
+            "1611502",
+            "5336500"
+          ],
+          "missed_register": [
+            "transport-and-travel=10000",
+            "highways=200000",
+            "highways=240000"
+          ],
+          "affordable_units": null,
+          "register_affordable_units": [
+            42
+          ],
+          "affordable_units_match": false
+        },
+        "contributions": 8,
+        "cost_usd": 0.0,
+        "tokens_in": 260820,
+        "tokens_out": 12542
+      }
+    ],
+    "agreement": {
+      "runs_compared": 1,
+      "housing_identical": true,
+      "housing_diffs": [],
+      "sums_identical": true,
+      "contribution_names": {
+        "union": 0,
+        "in_every_run": 0,
+        "only_some_runs": []
+      },
+      "field_diffs": []
+    }
+  },
+  "salford-75239": {
+    "id": "salford-75239",
+    "council": "Salford",
+    "planning_ref": "20/75239/FUL",
+    "type": "S106",
+    "register_types": [
+      "section-106"
+    ],
+    "pages": 32,
+    "text_source": "mixed",
+    "runs": [
+      {
+        "run": 1,
+        "gate": {
+          "pass": 6,
+          "review": 1,
+          "fail": 0,
+          "skip": 11,
+          "parser_errors": 0,
+          "document_discrepancies": 0,
+          "failures": [],
+          "reviews": [
+            "H2 Sum of tenure units == affordable units: holds, but not grounded: Shared Ownership units: 3 not stated in its cited snippet"
+          ]
+        },
+        "register": {
+          "extracted_sums": 1,
+          "extracted_sums_matched": 1,
+          "register_amounts": 2,
+          "register_amounts_found": 1,
+          "unmatched_extracted": [],
+          "missed_register": [
+            "monitoring-fees=1863.06"
+          ],
+          "affordable_units": 3,
+          "register_affordable_units": [
+            3
+          ],
+          "affordable_units_match": true
+        },
+        "contributions": 2,
+        "cost_usd": 0.0,
+        "tokens_in": 213168,
+        "tokens_out": 7403
+      }
+    ],
+    "agreement": {
+      "runs_compared": 1,
+      "housing_identical": true,
+      "housing_diffs": [],
+      "sums_identical": true,
+      "contribution_names": {
+        "union": 0,
+        "in_every_run": 0,
+        "only_some_runs": []
+      },
+      "field_diffs": []
+    }
+  },
+  "sunderland-2101544": {
+    "id": "sunderland-2101544",
+    "council": "Sunderland",
+    "planning_ref": "21/01544/FU4",
+    "type": "S106 (redacted)",
+    "register_types": [
+      "section-106"
+    ],
+    "pages": 40,
+    "text_source": "ocr",
+    "runs": [
+      {
+        "run": 1,
+        "gate": {
+          "pass": 43,
+          "review": 0,
+          "fail": 0,
+          "skip": 5,
+          "parser_errors": 0,
+          "document_discrepancies": 0,
+          "failures": [],
+          "reviews": []
+        },
+        "register": {
+          "extracted_sums": 6,
+          "extracted_sums_matched": 3,
+          "register_amounts": 22,
+          "register_amounts_found": 9,
+          "unmatched_extracted": [
+            "5580.00",
+            "20220.00",
+            "55620.00"
+          ],
+          "missed_register": [
+            "monitoring-fees=8750",
+            "open-space-and-leisure=1841.4",
+            "open-space-and-leisure=1841.4",
+            "open-space-and-leisure=1897.2",
+            "green-infrastructure=6672.6",
+            "green-infrastructure=6672.6",
+            "green-infrastructure=6874.8",
+            "open-space-and-leisure=18354.6",
+            "open-space-and-leisure=18354.6",
+            "open-space-and-leisure=18910.8",
+            "green-infrastructure=34650",
+            "green-infrastructure=34650",
+            "green-infrastructure=35700"
+          ],
+          "affordable_units": 6,
+          "register_affordable_units": [
+            1,
+            5
+          ],
+          "affordable_units_match": true
+        },
+        "contributions": 6,
+        "cost_usd": 0.0,
+        "tokens_in": 195834,
+        "tokens_out": 8118
+      }
+    ],
+    "agreement": {
+      "runs_compared": 1,
+      "housing_identical": true,
+      "housing_diffs": [],
+      "sums_identical": true,
+      "contribution_names": {
+        "union": 0,
+        "in_every_run": 0,
+        "only_some_runs": []
+      },
+      "field_diffs": []
+    }
+  },
+  "tmbc-2002239": {
+    "id": "tmbc-2002239",
+    "council": "Tonbridge & Malling",
+    "planning_ref": "20/02239/FL",
+    "type": "Unilateral undertaking",
+    "register_types": [
+      "Unilateral Undertaking",
+      "section-106"
+    ],
+    "pages": 26,
+    "text_source": "ocr",
+    "runs": [
+      {
+        "run": 1,
+        "gate": {
+          "pass": 4,
+          "review": 0,
+          "fail": 2,
+          "skip": 4,
+          "parser_errors": 2,
+          "document_discrepancies": 0,
+          "failures": [
+            "H1 Market units + affordable units == total residential units: not extracted: market units, affordable units",
+            "H2 Sum of tenure units == affordable units: no tenure breakdown extracted"
+          ],
+          "reviews": []
+        },
+        "register": {
+          "extracted_sums": 1,
+          "extracted_sums_matched": 1,
+          "register_amounts": 2,
+          "register_amounts_found": 2,
+          "unmatched_extracted": [],
+          "missed_register": [],
+          "affordable_units": null,
+          "register_affordable_units": [],
+          "affordable_units_match": null
+        },
+        "contributions": 1,
+        "cost_usd": 0.0,
+        "tokens_in": 129726,
+        "tokens_out": 3754
+      }
+    ],
+    "agreement": {
+      "runs_compared": 1,
+      "housing_identical": true,
+      "housing_diffs": [],
+      "sums_identical": true,
+      "contribution_names": {
+        "union": 0,
+        "in_every_run": 0,
+        "only_some_runs": []
+      },
+      "field_diffs": []
+    }
+  },
+  "tmbc-2400842": {
+    "id": "tmbc-2400842",
+    "council": "Tonbridge & Malling",
+    "planning_ref": "24/00842/PA",
+    "type": "Deed of variation",
+    "register_types": [
+      "deed-of-variation",
+      "section-106"
+    ],
+    "pages": 9,
+    "text_source": "ocr",
+    "runs": [
+      {
+        "run": 1,
+        "gate": {
+          "pass": 8,
+          "review": 1,
+          "fail": 0,
+          "skip": 5,
+          "parser_errors": 0,
+          "document_discrepancies": 0,
+          "failures": [],
+          "reviews": [
+            "V2.8 Variation 8: Delete of Paragraph 1.10 of Part 1 of the Third Schedule (Affordable Housing) is cited in the deed: holds, but not grounded: target: cited snippet not re-locatable on p8"
+          ]
+        },
+        "register": {
+          "extracted_sums": 0,
+          "extracted_sums_matched": 0,
+          "register_amounts": 0,
+          "register_amounts_found": 0,
+          "unmatched_extracted": [],
+          "missed_register": [],
+          "affordable_units": null,
+          "register_affordable_units": [
+            37,
+            38
+          ],
+          "affordable_units_match": false
+        },
+        "contributions": 0,
+        "cost_usd": 0.0,
+        "tokens_in": 50580,
+        "tokens_out": 3794
+      }
+    ],
+    "agreement": {
+      "runs_compared": 1,
+      "housing_identical": true,
+      "housing_diffs": [],
+      "sums_identical": true,
+      "contribution_names": {
+        "union": 0,
+        "in_every_run": 0,
+        "only_some_runs": []
+      },
+      "field_diffs": []
+    }
+  }
+}

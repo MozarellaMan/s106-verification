@@ -1,11 +1,21 @@
 //! Page text with provenance: the PDF's text layer where it has one, OCR where it doesn't.
 //!
 //! Every line keeps its bounding box, so evidence can later be tied to a position on the page.
-//! Results are cached under `<cache root>/<sha256[:16]>-<OCR_VERSION>/` as one JSON file per page
-//! plus a `manifest.json`. The key is the PDF's content hash and the OCR settings, so a different
-//! document saved under the same name gets a different cache. Changing local model files under
-//! the same model name requires explicit invalidation; artifact bytes are not part of the key.
+//!
+//! This is the expensive stage (a 109-page scan takes minutes), so its output is kept twice:
+//!
+//! * a working cache, `<cache root>/<sha256[:16]>-<ocr_version>/`, one JSON file per page plus a
+//!   `manifest.json` that records the full [`Producer`]. A warm cache is read without opening the
+//!   PDF in PDFium or loading the OCR runtime.
+//! * a [`Snapshot`]: the whole document's page text in one reviewable file, committed under
+//!   `fixtures/pages/` so replay, regression tests and evaluation run without PDFs or models.
+//!
+//! Both are keyed by the PDF's SHA-256 and by everything that produces the text: the line logic
+//! version, the OCR settings, and the pinned SHA-256 of every runtime artifact (PDFium, ONNX
+//! Runtime, model files; `scripts/runtime-artifacts.tsv`). Changing any of them gives a new key,
+//! so a stale cache is never read. Model files are checked against their pins before use.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
@@ -18,6 +28,56 @@ use crate::evidence::Pages;
 /// A page needs OCR when its text layer has fewer non-whitespace characters than this.
 const MIN_TEXT_CHARS: usize = 50;
 const OCR_DPI: f32 = 200.0;
+/// Bump when `text_layer`, `group_lines`, `ocr_lines` or the OCR filtering change their output for
+/// the same input, then regenerate the snapshots (`s106 pages --write fixtures/pages`). It is part
+/// of the cache key. An unbumped change shows up as a snapshot mismatch in the real-PDF tiers.
+pub const PAGE_TEXT_LOGIC: u32 = 3;
+const PDFIUM_ARCHIVE: &str = "pdfium-linux-x64.tgz";
+const ORT_ARCHIVE: &str = "onnxruntime-linux-x64-1.28.0.tgz";
+const RUNTIME_ARTIFACTS: &str = include_str!("../scripts/runtime-artifacts.tsv");
+pub const SNAPSHOT_FORMAT: &str = "s106-page-text/1";
+const CACHE_FORMAT: &str = "s106-page-text-cache/1";
+
+/// The pinned SHA-256 of a runtime artifact (`scripts/runtime-artifacts.tsv`).
+pub fn pinned_sha256(file: &str) -> Option<&'static str> {
+    RUNTIME_ARTIFACTS
+        .lines()
+        .filter(|l| !l.starts_with('#'))
+        .map(|l| l.split('\t').collect::<Vec<_>>())
+        .find(|f| f.len() == 4 && f[1] == file)
+        .map(|f| f[2])
+}
+
+/// Everything that determines a document's page text apart from the PDF itself.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Producer {
+    pub stage: String,
+    pub logic: u32,
+    pub min_text_chars: usize,
+    pub ocr_dpi: u32,
+    pub ocr_models: String,
+    /// runtime artifact file -> pinned SHA-256
+    pub artifacts: BTreeMap<String, String>,
+}
+
+impl Producer {
+    /// Short content hash of the producer, part of every cache and snapshot key.
+    pub fn key(&self) -> String {
+        let json = serde_json::to_string(self).expect("producer serializes");
+        hex(&Sha256::digest(json.as_bytes()))[..12].to_string()
+    }
+
+    /// Readable cache key: logic version, model set, DPI and the producer hash.
+    pub fn ocr_version(&self) -> String {
+        format!(
+            "v{}-pdfium8100-{}-{}dpi-{}",
+            self.logic,
+            self.ocr_models,
+            self.ocr_dpi,
+            self.key()
+        )
+    }
+}
 
 /// The OCR models, chosen by score against the hand-verified gold set (see README).
 #[derive(Debug, Clone)]
@@ -93,32 +153,57 @@ impl Config {
         }
     }
 
-    /// Everything that changes page text. Bump the leading version when the line logic changes.
+    /// Everything that produces page text, with the pinned SHA-256 of each runtime artifact.
+    pub fn producer(&self) -> Producer {
+        let artifacts = [PDFIUM_ARCHIVE, ORT_ARCHIVE]
+            .into_iter()
+            .map(String::from)
+            .chain(
+                [&self.ocr.det, &self.ocr.rec, &self.ocr.dict]
+                    .iter()
+                    .map(|p| file_name(p)),
+            )
+            .map(|f| {
+                let sha = pinned_sha256(&f).unwrap_or("unpinned").to_string();
+                (f, sha)
+            })
+            .collect();
+        Producer {
+            stage: "page-text".into(),
+            logic: PAGE_TEXT_LOGIC,
+            min_text_chars: MIN_TEXT_CHARS,
+            ocr_dpi: OCR_DPI as u32,
+            ocr_models: self.ocr.name.clone(),
+            artifacts,
+        }
+    }
+
     pub fn ocr_version(&self) -> String {
-        format!("v2-pdfium8100-{}-{}dpi", self.ocr.name, OCR_DPI as u32)
+        self.producer().ocr_version()
     }
 
     /// PDFium can be bound once per process, so the binding is shared. It is also not
     /// thread-safe: every use goes through this lock.
     fn pdfium(&self) -> Result<std::sync::MutexGuard<'static, Pdfium>> {
-        static PDFIUM: std::sync::OnceLock<std::sync::Mutex<Pdfium>> = std::sync::OnceLock::new();
-        if PDFIUM.get().is_none() {
+        // `get_or_init` runs the binding once even when tests load documents in parallel.
+        type Bound = std::result::Result<std::sync::Mutex<Pdfium>, String>;
+        static PDFIUM: std::sync::OnceLock<Bound> = std::sync::OnceLock::new();
+        let bound = PDFIUM.get_or_init(|| {
+            check_pinned(&self.models_dir.join(PDFIUM_ARCHIVE)).map_err(|e| format!("{e:#}"))?;
             let lib = self.models_dir.join("pdfium/lib");
-            let bindings =
-                Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(&lib))
-                    .with_context(|| {
-                        format!(
-                            "load libpdfium from {} (run scripts/fetch-models.sh)",
-                            lib.display()
-                        )
-                    })?;
-            let _ = PDFIUM.set(std::sync::Mutex::new(Pdfium::new(bindings)));
+            Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(&lib))
+                .map(|b| std::sync::Mutex::new(Pdfium::new(b)))
+                .map_err(|e| {
+                    format!(
+                        "load libpdfium from {} (run scripts/fetch-models.sh): {e}",
+                        lib.display()
+                    )
+                })
+        });
+        match bound {
+            Ok(m) => Ok(m.lock().unwrap_or_else(|e| e.into_inner())),
+            Err(e) => bail!("{e}"),
         }
-        Ok(PDFIUM
-            .get()
-            .unwrap()
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()))
     }
 }
 
@@ -227,20 +312,112 @@ fn page_text(p: &PageText) -> String {
         .join("\n")
 }
 
-pub fn sha256_file(path: &Path) -> Result<String> {
-    let bytes = std::fs::read(path).with_context(|| format!("read {}", path.display()))?;
-    Ok(Sha256::digest(&bytes)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect())
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-#[derive(Serialize, Deserialize)]
+fn file_name(p: &Path) -> String {
+    p.file_name()
+        .map(|f| f.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+pub fn sha256_file(path: &Path) -> Result<String> {
+    let bytes = std::fs::read(path).with_context(|| format!("read {}", path.display()))?;
+    Ok(hex(&Sha256::digest(&bytes)))
+}
+
+/// Refuse a runtime artifact whose bytes differ from its pin: its output would be filed under a
+/// cache key that names different files.
+fn check_pinned(path: &Path) -> Result<()> {
+    let name = file_name(path);
+    let Some(pin) = pinned_sha256(&name) else {
+        bail!("{name} is not pinned in scripts/runtime-artifacts.tsv");
+    };
+    let got = sha256_file(path)
+        .with_context(|| format!("{name} missing (run scripts/fetch-models.sh)"))?;
+    if got != pin {
+        bail!(
+            "{} has sha256 {got}, not the pinned {pin} (run scripts/fetch-models.sh)",
+            path.display()
+        );
+    }
+    Ok(())
+}
+
+/// Write via a temporary file, so an interrupted run never leaves a truncated cache entry.
+fn write_atomic(path: &Path, contents: &str) -> Result<()> {
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, contents).with_context(|| format!("write {}", tmp.display()))?;
+    std::fs::rename(&tmp, path).with_context(|| format!("write {}", path.display()))?;
+    Ok(())
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct Manifest {
+    format: String,
     sha256: String,
-    source_path: String,
+    /// set once the PDF has been opened; a warm load needs it to know every page is cached
+    page_count: Option<usize>,
     ocr_version: String,
+    producer: Producer,
+    source_path: String,
     created: String,
+}
+
+/// The cache directory for `sha256`, with its manifest validated (or created).
+fn open_cache(pdf: &Path, sha256: &str, cfg: &Config) -> Result<(PathBuf, Manifest)> {
+    let ocr_version = cfg.ocr_version();
+    let producer = cfg.producer();
+    let dir = cfg
+        .cache_root
+        .join(format!("{}-{}", &sha256[..16], ocr_version));
+    std::fs::create_dir_all(&dir)?;
+    let path = dir.join("manifest.json");
+    if let Ok(s) = std::fs::read_to_string(&path) {
+        let m: Manifest = serde_json::from_str(&s).with_context(|| {
+            format!(
+                "{} is not a current cache manifest; delete {}",
+                path.display(),
+                dir.display()
+            )
+        })?;
+        if m.format != CACHE_FORMAT || m.sha256 != sha256 || m.producer != producer {
+            bail!(
+                "{} describes a different document or producer; delete {}",
+                path.display(),
+                dir.display()
+            );
+        }
+        return Ok((dir, m));
+    }
+    let m = Manifest {
+        format: CACHE_FORMAT.into(),
+        sha256: sha256.into(),
+        page_count: None,
+        ocr_version,
+        producer,
+        source_path: pdf
+            .canonicalize()
+            .unwrap_or(pdf.to_path_buf())
+            .display()
+            .to_string(),
+        created: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+    };
+    write_atomic(&path, &(serde_json::to_string_pretty(&m)? + "\n"))?;
+    Ok((dir, m))
+}
+
+fn read_page(path: &Path, n: usize) -> Result<Option<PageText>> {
+    let Ok(s) = std::fs::read_to_string(path) else {
+        return Ok(None);
+    };
+    let p: PageText =
+        serde_json::from_str(&s).with_context(|| format!("parse {}", path.display()))?;
+    if p.page != n {
+        bail!("{} holds page {}, not {n}", path.display(), p.page);
+    }
+    Ok(Some(p))
 }
 
 /// Load (from cache, text layer or OCR) every page of `pdf`.
@@ -256,24 +433,35 @@ pub fn load_pages(
     verbose: bool,
 ) -> Result<Document> {
     let sha256 = sha256_file(pdf)?;
-    let ocr_version = cfg.ocr_version();
-    let dir = cfg
-        .cache_root
-        .join(format!("{}-{}", &sha256[..16], ocr_version));
-    std::fs::create_dir_all(&dir)?;
-    let manifest = dir.join("manifest.json");
-    if !manifest.exists() {
-        let m = Manifest {
-            sha256: sha256.clone(),
-            source_path: pdf
-                .canonicalize()
-                .unwrap_or(pdf.to_path_buf())
-                .display()
-                .to_string(),
-            ocr_version: ocr_version.clone(),
-            created: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-        };
-        std::fs::write(&manifest, serde_json::to_string_pretty(&m)? + "\n")?;
+    let (dir, mut manifest) = open_cache(pdf, &sha256, cfg)?;
+    let page_file = |n: usize| dir.join(format!("page_{n:03}.json"));
+    let wanted = |count: usize| -> Vec<usize> {
+        only.map_or((1..=count).collect(), |o| {
+            o.iter()
+                .copied()
+                .filter(|&n| n >= 1 && n <= count)
+                .collect()
+        })
+    };
+    let document = |pages: Vec<PageText>| Document {
+        path: pdf.to_path_buf(),
+        sha256: sha256.clone(),
+        ocr_version: manifest.ocr_version.clone(),
+        pages,
+    };
+
+    // Warm cache: every wanted page is on disk, so neither PDFium nor the OCR runtime is needed.
+    if let Some(count) = manifest.page_count {
+        let mut pages = vec![];
+        for n in wanted(count) {
+            match read_page(&page_file(n), n)? {
+                Some(p) => pages.push(p),
+                None => break,
+            }
+        }
+        if pages.len() == wanted(count).len() {
+            return Ok(document(pages));
+        }
     }
 
     let pdfium = cfg.pdfium()?;
@@ -281,20 +469,19 @@ pub fn load_pages(
         .load_pdf_from_file(pdf, None)
         .with_context(|| format!("open {}", pdf.display()))?;
     let count = doc.pages().len() as usize;
+    if manifest.page_count != Some(count) {
+        manifest.page_count = Some(count);
+        write_atomic(
+            &dir.join("manifest.json"),
+            &(serde_json::to_string_pretty(&manifest)? + "\n"),
+        )?;
+    }
     let mut pages: Vec<Option<PageText>> = vec![None; count];
     let mut need_ocr = vec![];
-    let wanted: Vec<usize> = only.map_or((1..=count).collect(), |o| {
-        o.iter()
-            .copied()
-            .filter(|&n| n >= 1 && n <= count)
-            .collect()
-    });
+    let wanted = wanted(count);
     for &n in &wanted {
-        let cached = dir.join(format!("page_{n:03}.json"));
-        if let Ok(s) = std::fs::read_to_string(&cached) {
-            pages[n - 1] = Some(
-                serde_json::from_str(&s).with_context(|| format!("parse {}", cached.display()))?,
-            );
+        if let Some(p) = read_page(&page_file(n), n)? {
+            pages[n - 1] = Some(p);
             continue;
         }
         let page = doc.pages().get((n - 1) as i32)?;
@@ -307,7 +494,7 @@ pub fn load_pages(
             >= MIN_TEXT_CHARS
         {
             let text = PageText { page: n, ..text };
-            std::fs::write(&cached, serde_json::to_string(&text)?)?;
+            write_atomic(&page_file(n), &serde_json::to_string(&text)?)?;
             pages[n - 1] = Some(text);
         } else {
             need_ocr.push(n);
@@ -323,35 +510,32 @@ pub fn load_pages(
             );
         }
         let engine = ocr_engine(&cfg.ocr)?;
-        // PDFium isn't thread-safe, so pages are rendered here, one at a time, and recognised in
-        // small batches (oar-ocr parallelises within a batch).
-        for chunk in need_ocr.chunks(6) {
-            let mut images = vec![];
-            for &n in chunk {
-                let page = doc.pages().get((n - 1) as i32)?;
-                // PDFium applies the page's /Rotate, so the bitmap is upright as displayed.
-                let cfg_r = PdfRenderConfig::new().scale_page_by_factor(OCR_DPI / 72.0);
-                images.push(page.render_with_config(&cfg_r)?.as_image()?.into_rgb8());
+        // One page per call. oar-ocr pads a batch's images and text crops to a common size, so a
+        // page recognised alongside others can read differently (measured: 5 of 9 TMBC pages
+        // changed between batches of 6 and of 1). Alone, a page's text depends only on that page,
+        // whatever else is cached or requested. oar-ocr still parallelises within the page.
+        for &n in &need_ocr {
+            let page = doc.pages().get((n - 1) as i32)?;
+            // PDFium applies the page's /Rotate, so the bitmap is upright as displayed.
+            let cfg_r = PdfRenderConfig::new().scale_page_by_factor(OCR_DPI / 72.0);
+            let image = page.render_with_config(&cfg_r)?.as_image()?.into_rgb8();
+            let (w, h) = image.dimensions();
+            let res = engine
+                .predict(vec![image])?
+                .pop()
+                .context("OCR returned no result")?;
+            let text = PageText {
+                page: n,
+                source: TextSource::Ocr,
+                width: w as f32,
+                height: h as f32,
+                lines: ocr_lines(&res),
+            };
+            write_atomic(&page_file(n), &serde_json::to_string(&text)?)?;
+            if verbose {
+                eprintln!("  page {n}/{count}: {} lines", text.lines.len());
             }
-            let sizes: Vec<(u32, u32)> = images.iter().map(|i| i.dimensions()).collect();
-            let results = engine.predict(images)?;
-            for ((&n, res), (w, h)) in chunk.iter().zip(results).zip(sizes) {
-                let text = PageText {
-                    page: n,
-                    source: TextSource::Ocr,
-                    width: w as f32,
-                    height: h as f32,
-                    lines: ocr_lines(&res),
-                };
-                std::fs::write(
-                    dir.join(format!("page_{n:03}.json")),
-                    serde_json::to_string(&text)?,
-                )?;
-                if verbose {
-                    eprintln!("  page {n}/{count}: {} lines", text.lines.len());
-                }
-                pages[n - 1] = Some(text);
-            }
+            pages[n - 1] = Some(text);
         }
     }
     let pages: Vec<PageText> = pages.into_iter().flatten().collect();
@@ -362,23 +546,191 @@ pub fn load_pages(
             wanted.len()
         );
     }
-    Ok(Document {
-        path: pdf.to_path_buf(),
-        sha256,
-        ocr_version,
-        pages,
-    })
+    Ok(document(pages))
+}
+
+// ------------------------------------------------------------------------------- snapshots
+
+/// A whole document's page text with its provenance: the committed, reviewable form of the
+/// page-text stage (`fixtures/pages/<stem>.pages.json`). Replaying from a snapshot needs no PDF,
+/// PDFium or OCR models.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Snapshot {
+    pub format: String,
+    /// the PDF's file name; its stem names the recorded model responses
+    pub source_file: String,
+    pub sha256: String,
+    pub page_count: usize,
+    pub ocr_version: String,
+    pub producer: Producer,
+    pub pages: Vec<PageText>,
+}
+
+impl Snapshot {
+    pub fn of(doc: &Document, cfg: &Config) -> Result<Snapshot> {
+        if doc.ocr_version != cfg.ocr_version() {
+            bail!(
+                "document was read with {}, not {}",
+                doc.ocr_version,
+                cfg.ocr_version()
+            );
+        }
+        Ok(Snapshot {
+            format: SNAPSHOT_FORMAT.into(),
+            source_file: file_name(&doc.path),
+            sha256: doc.sha256.clone(),
+            page_count: doc.page_count(),
+            ocr_version: doc.ocr_version.clone(),
+            producer: cfg.producer(),
+            pages: doc.pages.clone(),
+        })
+    }
+
+    pub fn path_for(dir: &Path, source_file: &str) -> PathBuf {
+        let stem = Path::new(source_file)
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        dir.join(format!("{stem}.pages.json"))
+    }
+
+    /// One page per line, so a changed page is a one-line diff.
+    pub fn to_json(&self) -> Result<String> {
+        let mut head = serde_json::to_value(self)?;
+        head.as_object_mut().unwrap().remove("pages");
+        let head = serde_json::to_string_pretty(&head)?;
+        let pages = self
+            .pages
+            .iter()
+            .map(serde_json::to_string)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(format!(
+            "{},\n  \"pages\": [\n{}\n  ]\n}}\n",
+            head.trim_end().trim_end_matches('}').trim_end(),
+            pages.join(",\n")
+        ))
+    }
+
+    pub fn write(&self, dir: &Path) -> Result<PathBuf> {
+        std::fs::create_dir_all(dir)?;
+        let path = Self::path_for(dir, &self.source_file);
+        write_atomic(&path, &self.to_json()?)?;
+        Ok(path)
+    }
+
+    pub fn read(path: &Path) -> Result<Snapshot> {
+        let s =
+            std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+        let snap: Snapshot =
+            serde_json::from_str(&s).with_context(|| format!("parse {}", path.display()))?;
+        if snap.format != SNAPSHOT_FORMAT {
+            bail!(
+                "{}: format {}, expected {SNAPSHOT_FORMAT}",
+                path.display(),
+                snap.format
+            );
+        }
+        if snap.ocr_version != snap.producer.ocr_version() {
+            bail!(
+                "{}: ocr_version does not match its producer",
+                path.display()
+            );
+        }
+        let numbered: Vec<usize> = snap.pages.iter().map(|p| p.page).collect();
+        if numbered != (1..=snap.page_count).collect::<Vec<_>>() {
+            bail!("{}: pages are not 1..={}", path.display(), snap.page_count);
+        }
+        Ok(snap)
+    }
+
+    pub fn document(self) -> Document {
+        Document {
+            path: PathBuf::from(self.source_file),
+            sha256: self.sha256,
+            ocr_version: self.ocr_version,
+            pages: self.pages,
+        }
+    }
+
+    /// Differences between this snapshot and freshly produced page text: identity, page count, and
+    /// per page the source, the text of each line, and any box moved by more than `tolerance`
+    /// (pixels or points). An empty list means they agree.
+    pub fn compare(&self, doc: &Document, tolerance: f32) -> Vec<String> {
+        let mut out = vec![];
+        if self.sha256 != doc.sha256 {
+            out.push(format!("sha256 {} vs {}", self.sha256, doc.sha256));
+            return out;
+        }
+        if self.ocr_version != doc.ocr_version {
+            out.push(format!(
+                "ocr_version {} vs {}",
+                self.ocr_version, doc.ocr_version
+            ));
+        }
+        for d in &doc.pages {
+            let Some(s) = self.pages.iter().find(|p| p.page == d.page) else {
+                out.push(format!("page {}: not in the snapshot", d.page));
+                continue;
+            };
+            if s.source != d.source {
+                out.push(format!(
+                    "page {}: source {:?} vs {:?}",
+                    d.page, s.source, d.source
+                ));
+                continue;
+            }
+            let (a, b): (Vec<&str>, Vec<&str>) = (
+                s.lines.iter().map(|l| l.text.as_str()).collect(),
+                d.lines.iter().map(|l| l.text.as_str()).collect(),
+            );
+            if a != b {
+                let first = a
+                    .iter()
+                    .zip(&b)
+                    .position(|(x, y)| x != y)
+                    .unwrap_or(a.len().min(b.len()));
+                out.push(format!(
+                    "page {}: text differs from line {} ({} vs {} lines): {:?} vs {:?}",
+                    d.page,
+                    first + 1,
+                    a.len(),
+                    b.len(),
+                    a.get(first),
+                    b.get(first)
+                ));
+                continue;
+            }
+            let moved = s
+                .lines
+                .iter()
+                .zip(&d.lines)
+                .flat_map(|(x, y)| x.bbox.iter().zip(y.bbox).map(|(p, q)| (p - q).abs()))
+                .fold(0.0f32, f32::max);
+            if moved > tolerance {
+                out.push(format!("page {}: a box moved by {moved:.1}", d.page));
+            }
+        }
+        out
+    }
 }
 
 fn ocr_engine(m: &OcrModels) -> Result<oar_ocr::prelude::OAROCR> {
     for p in [&m.det, &m.rec, &m.dict] {
-        if !p.exists() {
-            bail!(
-                "OCR model file missing: {} (run scripts/fetch-models.sh)",
-                p.display()
-            );
-        }
+        check_pinned(p)?;
     }
+    // ONNX Runtime is bound once per process, from the copy fetched beside the models.
+    static ORT: std::sync::OnceLock<Result<(), String>> = std::sync::OnceLock::new();
+    check_pinned(&m.det.with_file_name(ORT_ARCHIVE))?;
+    let lib = m.det.with_file_name("onnxruntime/lib/libonnxruntime.so");
+    ORT.get_or_init(|| {
+        ort::init_from(&lib)
+            .map(|env| {
+                env.commit();
+            })
+            .map_err(|e| format!("load {} (run scripts/fetch-models.sh): {e}", lib.display()))
+    })
+    .clone()
+    .map_err(anyhow::Error::msg)?;
     Ok(
         oar_ocr::prelude::OAROCRBuilder::new(m.det.clone(), m.rec.clone(), m.dict.clone())
             .build()?,

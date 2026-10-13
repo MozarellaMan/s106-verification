@@ -1,0 +1,28 @@
+# Pages the real-PDF tier re-reads from scratch (tests/pdf_regression.rs) and compares with the
+# snapshots: each layout or failure mode once, plus pages whose evidence drives a REVIEW/FAIL.
+id	page	why
+southwark_s106_sample	4	scan; gold page (two-column definitions)
+southwark_s106_sample	5	scan; gold page; H1 evidence
+southwark_s106_sample	12	scan; gold page
+southwark_s106_sample	14	scan; gold page
+southwark_s106_sample	22	scan; H1 REVIEW evidence (housing mix)
+southwark_s106_sample	44	scan; H1 REVIEW evidence
+southwark_s106_sample	89	scan; gold page; F5 trigger FAIL evidence
+southwark_s106_sample	91	scan; gold page
+ntyneside-1901280	5	scan; binding-mark specks in the side margin read as digits
+ntyneside-1901280	15	scan; instalment shares (REVIEW)
+ntyneside-1901280	42	scan; landscape page
+bolton-0137317	13	scan; variation targets (REVIEW)
+bolton-0137317	27	scan; landscape page
+sunderland-2101544	22	scan; instalment schedule
+tmbc-2002239	7	scan; housing figures (FAIL)
+tmbc-2400842	8	scan; deed of variation (REVIEW)
+dover-1900403	5	text layer; trigger FAIL evidence
+dover-1900403	8	the one image-only page in a text-layer deed
+dover-1800681	5	text layer; variation targets (REVIEW)
+salford-73971	3	text layer; housing FAILs
+salford-73971	12	text layer; landscape page
+salford-73971	13	the one image-only page in a text-layer deed
+salford-75239	3	text layer; gold page
+salford-75239	8	text layer; gold page
+salford-75239	17	the one image-only page in a text-layer deed

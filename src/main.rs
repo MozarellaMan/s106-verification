@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Result, bail};
 use clap::{Parser, Subcommand};
 
-use s106::document::{self, OcrModels};
+use s106::document::{self, OcrModels, Snapshot};
 use s106::extract::{self, Mode};
 use s106::{eval, llm, ocrbench, report, verify};
 
@@ -24,6 +24,8 @@ enum Cmd {
     /// Extract and verify one deed: terminal report + JSON. Exit 0 clean, 1 parser errors or
     /// REVIEW flags, 2 document discrepancies.
     Audit {
+        /// the deed's PDF, or its page-text snapshot (`fixtures/pages/<stem>.pages.json`) to
+        /// replay without the PDF
         pdf: PathBuf,
         #[arg(long, default_value = llm::DEFAULT_MODEL)]
         model: String,
@@ -50,9 +52,34 @@ enum Cmd {
         /// re-verify recorded fixtures instead of calling the API (one run per deed, no cost)
         #[arg(long)]
         replay: bool,
-        /// candidate ids to run (default: all in data/reference/candidates.tsv)
+        /// candidate ids to run (default: all in the candidates file)
         #[arg(long, value_delimiter = ',')]
         only: Vec<String>,
+        /// with --replay: read page text from snapshots in this directory instead of the PDFs
+        #[arg(long)]
+        pages: Option<PathBuf>,
+        /// candidates.tsv (default fixtures/eval/candidates.tsv)
+        #[arg(long)]
+        candidates: Option<PathBuf>,
+        /// register directory (default fixtures/eval/register, the rows for the candidates)
+        #[arg(long)]
+        register: Option<PathBuf>,
+        /// output directory (default data/processed/eval)
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Produce page text (text layer or OCR, through the cache) and write or check its snapshots.
+    Pages {
+        pdfs: Vec<PathBuf>,
+        /// write `<dir>/<stem>.pages.json` for each PDF
+        #[arg(long)]
+        write: Option<PathBuf>,
+        /// compare with `<dir>/<stem>.pages.json`; exit 1 on any difference
+        #[arg(long)]
+        check: Option<PathBuf>,
+        /// largest box movement accepted by --check (pixels or points)
+        #[arg(long, default_value_t = 1.0)]
+        tolerance: f32,
     },
     /// Score OCR model sets against a hand-verified gold file (only the gold pages are read).
     BenchOcr {
@@ -93,7 +120,15 @@ fn main() -> Result<()> {
             quiet,
         } => {
             let cfg = document::Config::from_env(&repo_root());
-            let doc = document::load(&pdf, &cfg, !quiet)?;
+            let from_snapshot = pdf.to_string_lossy().ends_with(".pages.json");
+            if from_snapshot && !matches!(llm_mode, Mode::Replay | Mode::Auto) {
+                bail!("a snapshot has no PDF to send; use --llm-mode replay");
+            }
+            let (doc, llm_mode) = if from_snapshot {
+                (Snapshot::read(&pdf)?.document(), Mode::Replay)
+            } else {
+                (document::load(&pdf, &cfg, !quiet)?, llm_mode)
+            };
             let client = credentials(llm_mode)?;
             let (mut agreement, info) = extract::extract(&doc, &model, llm_mode, client.as_ref())?;
             let pages = doc.pages();
@@ -118,7 +153,7 @@ fn main() -> Result<()> {
             let out = out.unwrap_or_else(|| {
                 repo_root().join("data/processed").join(format!(
                     "{}.audit.json",
-                    pdf.file_stem().unwrap_or_default().to_string_lossy()
+                    doc.path.file_stem().unwrap_or_default().to_string_lossy()
                 ))
             });
             std::fs::create_dir_all(out.parent().unwrap())?;
@@ -137,15 +172,68 @@ fn main() -> Result<()> {
             model,
             replay,
             only,
-        } => eval::run(
-            &eval::EvalArgs {
-                runs,
-                model,
-                replay,
-                only,
-            },
-            &repo_root(),
-        ),
+            pages,
+            candidates,
+            register,
+            out,
+        } => {
+            let d = eval::EvalArgs::defaults(&repo_root());
+            eval::run(
+                &eval::EvalArgs {
+                    runs,
+                    model,
+                    replay,
+                    only,
+                    pages,
+                    candidates: candidates.unwrap_or(d.candidates),
+                    register: register.unwrap_or(d.register),
+                    out: out.unwrap_or(d.out),
+                },
+                &repo_root(),
+            )
+        }
+        Cmd::Pages {
+            pdfs,
+            write,
+            check,
+            tolerance,
+        } => {
+            let cfg = document::Config::from_env(&repo_root());
+            let mut differ = 0;
+            for pdf in &pdfs {
+                let t0 = std::time::Instant::now();
+                let doc = document::load(pdf, &cfg, true)?;
+                eprintln!(
+                    "{}: {} pages ({}) in {:.1}s",
+                    pdf.display(),
+                    doc.page_count(),
+                    doc.text_source(),
+                    t0.elapsed().as_secs_f64()
+                );
+                if let Some(dir) = &write {
+                    let path = Snapshot::of(&doc, &cfg)?.write(dir)?;
+                    eprintln!("  wrote {}", path.display());
+                }
+                if let Some(dir) = &check {
+                    let path = Snapshot::path_for(dir, &pdf.file_name().unwrap().to_string_lossy());
+                    let diffs = Snapshot::read(&path)?.compare(&doc, tolerance);
+                    for d in &diffs {
+                        println!("{}: {d}", pdf.display());
+                    }
+                    if diffs.is_empty() {
+                        eprintln!("  matches {}", path.display());
+                    }
+                    differ += usize::from(!diffs.is_empty());
+                }
+            }
+            if differ > 0 {
+                bail!(
+                    "{differ} of {} documents differ from their snapshots",
+                    pdfs.len()
+                );
+            }
+            Ok(())
+        }
         Cmd::BenchOcr {
             gold,
             pdf,
