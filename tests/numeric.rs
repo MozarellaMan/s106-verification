@@ -474,3 +474,34 @@ fn recorded_words_replay_with_negative_twins() {
     assert!(checked > 0, "no recorded words fields found");
     eprintln!("{checked} recorded words fields reparsed; {checked} corrupted twins rejected");
 }
+
+#[test]
+fn review_regressions_from_pr13() {
+    // exact fields carry no prose suffix
+    for bad in ["50th", "£50%", "50%", "50 per cent", "50percent"] {
+        assert!(quantity::decimal(bad).is_err(), "{bad}");
+    }
+    assert!(found("£50% of the sum").is_empty());
+    // a conjunction after a completed quantity is prose
+    assert_eq!(
+        found("fifty per cent and payable on commencement"),
+        vec![(d("50"), Unit::Percent)]
+    );
+    assert_eq!(
+        found("the sum of ten pounds and payable"),
+        vec![(d("10"), Unit::Gbp)]
+    );
+    assert!(found("one hundred and").is_empty());
+    assert!(quantity::amount("ten pounds and").is_err());
+    assert!(quantity::integer("one hundred and").is_err());
+    // percentage suffixes joined to digits are readable; corrupt runs are not
+    for good in ["50percent", "50per cent", "50percent of"] {
+        assert_eq!(found(good), vec![(d("50"), Unit::Percent)], "{good}");
+    }
+    assert!(found("50percentbanana").is_empty());
+    // a percent sign after number words
+    for good in ["fifty%", "fifty %", "fifty% of the sum"] {
+        assert_eq!(found(good), vec![(d("50"), Unit::Percent)], "{good}");
+    }
+    assert!(found("fifty%%").is_empty());
+}

@@ -265,6 +265,8 @@ fn lex(text: &str) -> Vec<Tok> {
 struct Hit {
     quantity: Quantity,
     digits: bool,
+    /// An ordinal or percent suffix was read; an exact field must not carry one.
+    suffixed: bool,
 }
 
 struct Scanner<'a> {
@@ -339,10 +341,20 @@ impl<'a> Scanner<'a> {
                 continue;
             }
             let readable = |s: &Self, i: usize| {
+                let after_num = i > 0 && s.kind(i - 1) == Some(Kind::Num);
                 (s.is_alpha(i, &["f"]) && s.kind(i + 1) == Some(Kind::Num))
-                    || (s.is_alpha(i, &["st", "nd", "rd", "th"])
-                        && i > 0
-                        && s.kind(i - 1) == Some(Kind::Num))
+                    || (after_num && s.is_alpha(i, &["st", "nd", "rd", "th"]))
+                    // "50percent", "50per cent"
+                    || (after_num && s.kind(i) == Some(Kind::Word("percent")))
+                    || (after_num
+                        && s.kind(i) == Some(Kind::Word("per"))
+                        && (s.kind(i + 1) == Some(Kind::Word("cent"))
+                            || (s.kind(i + 1) == Some(Kind::Space)
+                                && s.kind(i + 2) == Some(Kind::Word("cent")))))
+                    || (i > 1
+                        && s.kind(i) == Some(Kind::Word("cent"))
+                        && s.kind(i - 1) == Some(Kind::Word("per"))
+                        && s.kind(i - 2) == Some(Kind::Num))
             };
             let rest: Vec<usize> = (a..b).filter(|&i| !readable(self, i)).collect();
             let has = |f: fn(Kind) -> bool| rest.iter().any(|&i| f(self.toks[i].kind));
@@ -466,9 +478,9 @@ impl<'a> Scanner<'a> {
 
         // suffix: ordinal, "%", "percent" or "per cent"
         let mut end = i + 1;
-        let (mut percent, mut sign_suffix) = (false, false);
+        let (mut percent, mut sign_suffix, mut ordinal) = (false, false, false);
         if self.is_alpha(end, &["st", "nd", "rd", "th"]) {
-            end += 1;
+            (end, ordinal) = (end + 1, true);
         } else {
             let p = end + usize::from(self.kind(end) == Some(Kind::Space));
             match self.kind(p) {
@@ -531,6 +543,16 @@ impl<'a> Scanner<'a> {
             self.boundary_error(first, end, false);
             return end;
         }
+        // "£50%" or "£50th" is neither an amount nor a share
+        if currency && (percent || ordinal) {
+            self.error(
+                self.toks[first].start..candidate.end,
+                self.toks[i + 1].start..candidate.end,
+                Cause::UnexpectedToken,
+                "a £ amount without a percent or ordinal suffix",
+            );
+            return end;
+        }
         let unit = if currency {
             Unit::Gbp
         } else if percent {
@@ -542,6 +564,7 @@ impl<'a> Scanner<'a> {
         self.hits.push(Hit {
             quantity: Quantity { value, unit, span },
             digits: true,
+            suffixed: percent || ordinal,
         });
         end
     }
@@ -551,11 +574,20 @@ impl<'a> Scanner<'a> {
         if i > 0 && matches!(self.toks[i - 1].kind, Kind::Word(_)) {
             return i + 1;
         }
-        let end = cluster_end(&self.toks, i);
+        let mut end = cluster_end(&self.toks, i);
         if self.mixed[i..end].iter().any(|&m| m) {
             return end;
         }
-        let cluster = self.toks[i].start..self.toks[end - 1].end;
+        // In prose, an "and" followed by more prose ("fifty per cent and payable") is a
+        // conjunction, not a dangling part of the number. At the end of text it stays incomplete.
+        if end - i >= 3
+            && self.kind(end - 1) == Some(Kind::Word("and"))
+            && self.kind(end) == Some(Kind::Space)
+            && matches!(self.kind(end + 1), Some(Kind::Alpha | Kind::Word(_)))
+        {
+            end -= 2;
+        }
+        let mut cluster = self.toks[i].start..self.toks[end - 1].end;
         if !self.left_ok(i) {
             self.boundary_error(i, end, true);
             return end;
@@ -566,17 +598,29 @@ impl<'a> Scanner<'a> {
             .copied()
             .collect();
         match quantity.parse(pieces.as_slice()) {
-            Ok((value, unit)) if self.right_ok(end, false) => {
-                self.hits.push(Hit {
-                    quantity: Quantity {
-                        value,
-                        unit,
-                        span: cluster,
-                    },
-                    digits: false,
-                });
+            Ok((value, mut unit)) => {
+                // "fifty%" and "fifty %": a percent sign after number words
+                let p = end + usize::from(self.kind(end) == Some(Kind::Space));
+                let mut run_on = false;
+                if unit == Unit::Count && self.kind(p) == Some(Kind::Sym('%')) {
+                    (unit, end) = (Unit::Percent, p + 1);
+                    cluster.end = self.toks[p].end;
+                    run_on = matches!(self.kind(end), Some(Kind::Alpha | Kind::Word(_)));
+                }
+                if run_on || self.right_ok(end, false) {
+                    self.hits.push(Hit {
+                        quantity: Quantity {
+                            value,
+                            unit,
+                            span: cluster,
+                        },
+                        digits: false,
+                        suffixed: unit != Unit::Count,
+                    });
+                } else {
+                    self.boundary_error(i, end, false);
+                }
             }
-            Ok(_) => self.boundary_error(i, end, false),
             Err(e) => {
                 let err = cluster_error(&pieces, cluster, e.offset());
                 self.errors.push(err);
@@ -881,7 +925,7 @@ pub fn decimal(input: &str) -> Result<Decimal, ParseError> {
     if q.span.end < trimmed.end {
         return Err(outside(q.span.end));
     }
-    if !hit.digits || q.unit == Unit::Percent {
+    if !hit.digits || hit.suffixed {
         return Err(outside(q.span.end - 1));
     }
     Ok(q.value)
