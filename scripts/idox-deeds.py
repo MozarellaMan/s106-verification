@@ -4,15 +4,21 @@
 For each reference in a sample CSV (column `lpa_app_no`), this searches the register, opens the
 application's Documents tab, and records every document listed there. Documents whose type or
 description looks like a legal agreement (S106, unilateral undertaking, deed of variation) are
-marked as candidates. With --download it also fetches the candidates and records their SHA-256.
+marked as candidates. With --download it also fetches the candidates into the data checkout's
+raw/ folder and records their SHA-256.
+
+Registers rate-limit scrapers. The script waits --delay seconds between requests and stops at the
+first sign of a block (HTTP 429/403, or a page it can't recognise), saving that page next to the
+CSVs and marking the remaining applications "not attempted". Re-run with --only for those later.
 
 Outputs, in --out (default: the sample's directory):
   documents.csv   every document listed for every application (the full listing, for audit)
   retrieval.csv   one row per application: found / no agreement listed / not found / error, and why
-  corpus.tsv      downloaded candidates, in fixtures/corpus.tsv's format (id, path, sha256, url, session)
+  corpus.tsv      downloaded candidates as corpus/manifest.tsv rows (id, path, sha256, url, session),
+                  paths relative to the data checkout
 
 Council registers usually refuse requests from cloud machines, so run this on your own computer:
-  python3 scripts/idox-deeds.py <sample.csv> [--base URL] [--download DIR] [--only REF ...]
+  python3 scripts/idox-deeds.py <sample.csv> [--base URL] [--download] [--only REF ...]
 
 Southwark's server omits its Sectigo intermediate certificate. If you see CERTIFICATE_VERIFY_FAILED,
 download http://crt.sectigo.com/SectigoPublicServerAuthenticationCAOVR36.crt, convert it with
@@ -30,11 +36,16 @@ import re
 import ssl
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
 
 DEFAULT_BASE = "https://planning.southwark.gov.uk/online-applications"
+class Blocked(Exception):
+    """The register is refusing us; stop rather than keep knocking."""
+
+
 UA = "s106-verification research (deed discovery; contact via github.com/MozarellaMan/s106-verification)"
 
 # A document is a candidate when its type or description matches this. Ordered so the label says
@@ -68,9 +79,17 @@ class Session:
             url = urllib.parse.urljoin(self.base + "/", url)
         body = urllib.parse.urlencode(data).encode() if data is not None else None
         req = urllib.request.Request(url, data=body, headers={"User-Agent": UA})
-        with self.opener.open(req, timeout=90) as resp:
-            out = (resp.geturl(), resp.read())
-        self.last = time.monotonic()
+        try:
+            with self.opener.open(req, timeout=90) as resp:
+                out = (resp.geturl(), resp.read())
+        except urllib.error.HTTPError as e:
+            if e.code in (403, 429):
+                raise Blocked(f"HTTP {e.code} from {url}", e.read()) from e
+            raise
+        finally:
+            self.last = time.monotonic()
+        if re.search(rb"(?i)unusual traffic|too many requests|captcha", out[1][:20000]):
+            raise Blocked(f"block page from {url}", out[1])
         return out
 
 
@@ -81,13 +100,14 @@ def text(b):
 def find_key_val(sess, ref):
     """Search by reference; return (keyVal, note). Idox redirects straight to the application when
     exactly one matches, otherwise lists results."""
-    url, page = sess.open("search.do?action=simple&searchType=Application")
+    # The advanced search matches the reference field exactly; the simple search is full-text and
+    # can return dozens of applications that merely mention the reference.
+    url, page = sess.open("search.do?action=advanced&searchType=Application")
     m = re.search(r'name="_csrf"\s+value="([^"]+)"', text(page))
-    form = {"searchType": "Application", "searchCriteria.simpleSearchString": ref,
-            "searchCriteria.simpleSearch": "true"}
+    form = {"searchType": "Application", "searchCriteria.reference": ref}
     if m:
         form["_csrf"] = m.group(1)
-    url, page = sess.open("simpleSearchResults.do?action=firstPage", form)
+    url, page = sess.open("advancedSearchResults.do?action=firstPage", form)
     m = re.search(r"keyVal=([A-Z0-9]+)", url)
     if m:
         return m.group(1), ""
@@ -104,7 +124,7 @@ def find_key_val(sess, ref):
     if not hits:
         if re.search(r"(?i)no results found", body):
             return None, "no results"
-        return None, "search returned no recognisable results"
+        raise Blocked(f"unrecognised search page for {ref}", page)
     return None, f"{len(hits)} results"
 
 
@@ -190,9 +210,12 @@ def main():
     ap.add_argument("--base", default=DEFAULT_BASE, help="Idox online-applications root")
     ap.add_argument("--prefix", default="southwark", help="id prefix for corpus.tsv rows")
     ap.add_argument("--out", help="where to write the CSVs (default: the sample's directory)")
-    ap.add_argument("--download", metavar="DIR", help="also download candidate deeds into DIR")
+    ap.add_argument("--download", action="store_true",
+                    help="also download candidate deeds into the data checkout's raw/")
+    ap.add_argument("--data", default=os.environ.get("S106_DATA", "data"),
+                    help="data checkout (default: $S106_DATA, else data/)")
     ap.add_argument("--cafile", help="CA bundle to trust (for registers missing an intermediate)")
-    ap.add_argument("--delay", type=float, default=2.0, help="seconds between requests (default 2)")
+    ap.add_argument("--delay", type=float, default=8.0, help="seconds between requests (default 8)")
     ap.add_argument("--only", nargs="*", default=[], help="limit to these references")
     a = ap.parse_args()
 
@@ -233,19 +256,30 @@ def main():
                     row["status"] = "found"
                     row["reason"] = ", ".join(sorted({d["kind"] for d in cands}))
                 if a.download:
-                    os.makedirs(a.download, exist_ok=True)
+                    os.makedirs(os.path.join(a.data, "raw"), exist_ok=True)
                     for i, d in enumerate(cands, 1):
-                        name = f"{a.prefix}-{slug(ref)}-{i}.pdf"
-                        path = os.path.join(a.download, name)
+                        path = f"raw/{a.prefix}-{slug(ref)}-{i}.pdf"
                         _, body = sess.open(d["url"])
                         if not body.startswith(b"%PDF"):
                             d["path"] = "(not a PDF)"
                             continue
-                        with open(path, "wb") as f:
+                        with open(os.path.join(a.data, path), "wb") as f:
                             f.write(body)
                         d["sha256"] = hashlib.sha256(body).hexdigest()
                         d["path"] = path
                         corpus_rows.append([f"{a.prefix}-{slug(ref)}-{i}", path, d["sha256"], d["url"], page])
+        except Blocked as e:
+            msg, page = e.args
+            with open(os.path.join(out, "blocked.html"), "wb") as f:
+                f.write(page or b"")
+            row.update(status="error", reason=f"blocked: {msg}")
+            ret_rows.append(row)
+            print(f"{ref}\tblocked\t{msg}; page saved to blocked.html; stopping", file=sys.stderr)
+            for rest in refs[refs.index(ref) + 1:]:
+                ret_rows.append({**row, "lpa_app_no": rest, "key_val": "", "documents_page": "",
+                                 "n_documents": 0, "n_candidates": 0, "status": "not attempted",
+                                 "reason": "register blocked earlier in this run"})
+            break
         except Exception as e:  # noqa: BLE001 - every failure is recorded, not fatal
             row.update(status="error", reason=f"{type(e).__name__}: {e}"[:300])
         ret_rows.append(row)
