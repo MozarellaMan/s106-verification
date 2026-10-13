@@ -233,8 +233,8 @@ fn group_terms_are_dropped_with_a_warning() {
         "instrument": {"kind": "agreement", "evidence": {"page": 1, "snippet": "Agreement pursuant to Section 106"},
                        "parent_description": "", "parent_date": "", "parent_evidence": {"page": 0, "snippet": ""},
                        "scope": "", "scope_evidence": {"page": 0, "snippet": ""}},
-        "metadata": {"council": "London Borough of Southwark", "planning_references": ["19/AP/1773"], "legal_reference": "",
-                     "agreement_date": "28 January 2021", "site_address": "227-255 Ilderton Road", "parties": []},
+        "metadata": {"council": "Example District Council", "planning_references": ["EX/23/0456"], "legal_reference": "",
+                     "agreement_date": "4 March 2024", "site_address": "Former Brickworks, Mill Road", "parties": []},
         "housing": {"total_units": null, "total_units_evidence": {"page": 0, "snippet": ""}, "market_units": null,
                     "market_units_evidence": {"page": 0, "snippet": ""}, "affordable_units": null,
                     "affordable_units_evidence": {"page": 0, "snippet": ""}, "affordable_habitable_rooms": null,
@@ -244,7 +244,7 @@ fn group_terms_are_dropped_with_a_warning() {
                     "claimed_affordable_pct": "", "claimed_affordable_basis": null,
                     "claimed_affordable_evidence": {"page": 0, "snippet": ""}},
         "contributions": [serde_json::to_value(contribution("on or before Implementation", "To pay on or before Implementation")).unwrap(),
-                          {"name": "TfL Contributions", "amount_structure": "none", "amount_gbp": "", "amount_in_words": "",
+                          {"name": "Highway Authority Contributions", "amount_structure": "none", "amount_gbp": "", "amount_in_words": "",
                            "index_linked": false, "amount_evidence": {"page": 0, "snippet": ""}, "conditionality": "unknown",
                            "condition_evidence": {"page": 0, "snippet": ""}, "covenant": "",
                            "covenant_evidence": {"page": 0, "snippet": ""},
@@ -254,10 +254,14 @@ fn group_terms_are_dropped_with_a_warning() {
     let a = extract::to_agreement(&doc(109), &output, &PageMap::identity(109), &info("replay"))
         .unwrap();
     assert_eq!(a.contributions.len(), 1);
-    assert!(a.warnings.iter().any(|w| w.contains("TfL Contributions")));
+    assert!(
+        a.warnings
+            .iter()
+            .any(|w| w.contains("Highway Authority Contributions"))
+    );
     assert_eq!(
         a.metadata.planning_references,
-        vec!["19/AP/1773".to_string()]
+        vec!["EX/23/0456".to_string()]
     );
     assert_eq!(a.schema_version, "2");
 }

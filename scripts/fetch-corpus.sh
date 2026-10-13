@@ -7,7 +7,7 @@
 #   scripts/fetch-corpus.sh [id ...]      (default: every deed)
 # Exit status: 0 every deed present and verified; 1 a file failed its checksum (an integrity
 # failure, never to be ignored); 2 a source could not be reached (third-party outage).
-# Southwark's server omits its Sectigo intermediate certificate; if curl reports an SSL error, add
+# Some council servers omit their Sectigo intermediate certificate; if curl reports an SSL error, add
 # http://crt.sectigo.com/SectigoPublicServerAuthenticationCAOVR36.crt to a CA bundle and set
 # CURL_CA_BUNDLE to it.
 set -euo pipefail
