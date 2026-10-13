@@ -73,10 +73,22 @@ Parser Errors for that field, so the cascade can't make a field worse.
 
 | mode | behaviour |
 |------|-----------|
-| `auto` (default) | live if Anthropic credentials resolve (env key, auth token or `ant auth login` profile), otherwise replay |
+| `auto` (default) | live if Anthropic credentials resolve (key file, env key, auth token or `ant auth login` profile), otherwise replay |
 | `live` | always call the API; fails without credentials |
 | `record` | call the API and save the response to `s106-audit/fixtures/<stem>/<model>.<kind>.json` |
 | `replay` | load the saved response; errors if the page selection changed since it was recorded |
+
+**Credentials for unattended runs.** `run_audit.py` reads a key from `~/.config/s106/anthropic_key`
+(override the path with `S106_KEY_FILE`). The key goes straight to the client and is never exported, so
+it doesn't reach Claude Code or other tools. Create the key in a dedicated Console workspace with a
+monthly spend limit, then:
+
+```bash
+mkdir -p ~/.config/s106 && install -m 600 /dev/null ~/.config/s106/anthropic_key
+```
+
+Paste the key into that file in your editor. Without the file, the SDK's normal resolution applies
+(`ANTHROPIC_API_KEY`, then an `ant auth login` profile), and `auto` mode falls back to replay.
 
 The committed Haiku fixture is a live `claude-haiku-5-5` recording of the sample deed. Re-record it
 after changing the prompt, the schema or the page selection:

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections import Counter
 from dataclasses import asdict
@@ -19,6 +20,7 @@ from extractor import CASCADE_MODEL, cascade_llm_pdf, extract
 from verifier import ErrorClass, Status, verify
 
 DEFAULT_PDF = "./data/raw/southwark_s106_sample.pdf"
+KEY_FILE = Path(os.environ.get("S106_KEY_FILE", "~/.config/s106/anthropic_key")).expanduser()
 
 C = {"PASS": "\033[32m", "FAIL": "\033[31m", "SKIP": "\033[33m", "dim": "\033[2m", "b": "\033[1m", "0": "\033[0m"}
 
@@ -89,6 +91,21 @@ def report(a, results) -> None:
     print("=" * w)
 
 
+def harness_client():
+    """An Anthropic client keyed from KEY_FILE, or None to fall back to normal SDK credential resolution.
+
+    The key goes straight to the client and never into os.environ, so it can't leak into child
+    processes or into Claude Code's own auth.
+    """
+    if not KEY_FILE.is_file():
+        return None
+    key = KEY_FILE.read_text().strip()
+    if not key:
+        return None
+    import anthropic
+    return anthropic.Anthropic(api_key=key)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("pdf", nargs="?", default=DEFAULT_PDF)
@@ -106,12 +123,13 @@ def main() -> int:
     pdf = Path(args.pdf)
     if args.cascade and args.backend != "llm-pdf":
         ap.error("--cascade needs --backend llm-pdf")
+    client = harness_client() if args.backend == "llm-pdf" and args.llm_mode != "replay" else None
     agreement, pages = extract(pdf, backend=args.backend, model=args.model, verbose=not args.quiet,
-                               llm_mode=args.llm_mode)
+                               llm_mode=args.llm_mode, client=client)
     results = verify(agreement, pages)
     if args.cascade:
         agreement = cascade_llm_pdf(pdf, agreement, pages, results, model=args.cascade_model, mode=args.llm_mode,
-                                    verbose=not args.quiet)
+                                    client=client, verbose=not args.quiet)
         results = verify(agreement, pages)
     report(agreement, results)
 
