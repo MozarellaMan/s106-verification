@@ -14,12 +14,11 @@ alphabetic runs, and symbols. A Winnow grammar over those tokens returns values,
 booleans. `scan`, `decimal`, `integer` and `amount` share the tokenizer and grammar, so the
 prose path and the exact path cannot drift apart.
 
-Supported: digit numbers with optional sign, optional `£`, proper comma groups and fractional
-digits; English cardinals up to millions (ASCII case, joined words, hyphens, `and`, commas
-between scale groups); `%`, `per cent` and joined `percent`. Not supported, and reported:
-billions, fractions in words, other currencies, scientific notation, other languages,
-repeated or misplaced conjunctions (`one one`, `and and`), scales out of descending order
-(`one thousand two million`), malformed groups (`1,23`), repeated decimal points.
+| Form | Supported | Reported as an error |
+| --- | --- | --- |
+| Digits | Optional sign, optional `£`, comma groups, fractional digits | Malformed groups (`1,23`), repeated decimal points, scientific notation |
+| Words | English cardinals up to millions: any ASCII case, joined words, hyphens, `and`, commas between scale groups | Billions, fractions in words, other languages, repeated or misplaced conjunctions (`one one`, `and and`), scales out of order (`one thousand two million`) |
+| Units | `£`, `pounds`, `%`, `per cent`, `percent` | Other currencies |
 
 Values are `rust_decimal::Decimal` from `from_str_exact`: overflow or over-precision fails
 (`UnrepresentableDecimal`), and nothing is rounded, saturated or clamped.
@@ -39,30 +38,36 @@ quantity is not produced.
 
 ## Exact and prose paths
 
-- Exact (`decimal`, `integer`, `amount`): the whole field is one expression; leading and
-  trailing whitespace is allowed, anything else outside it is an error. `decimal` takes the
-  digits field (no percent suffix, no words); `integer` takes words with no unit; `amount`
-  takes words with pounds required, with optional pence (`ten pounds and sixty pence`). A
-  dangling `and` or an unknown pence word is an error, never dropped.
-- Prose (`scan`): every quantity in running text and every rejected candidate, each with its
-  span. A single sentence-final dot or comma is punctuation, not part of the number.
-  Quantity spans never overlap.
+The exact path reads a whole field as one expression. Leading and trailing whitespace is
+allowed; anything else outside the expression is an error.
+
+- `decimal` takes the digits field: no percent suffix and no words.
+- `integer` takes words with no unit.
+- `amount` takes words with pounds required and optional pence (`ten pounds and sixty
+  pence`). A dangling `and` or an unknown pence word is an error, never dropped.
+
+The prose path (`scan`) returns every quantity in running text and every rejected candidate,
+each with its span. A single sentence-final dot or comma is punctuation, not part of the
+number. Quantity spans never overlap.
 
 ## Observed fields
 
 Schema numeric fields are `Observed<T> { raw, parsed: Result<T, ParseError> }`. The extractor's
-string is kept verbatim (surrounding whitespace included) next to the outcome. Absence is an
-empty field, not a failed parse. `ParseError` holds the rejected `candidate` span, the precise
-failure `span` (empty at end of input), a `Cause` and what was `expected`; all spans are byte
-offsets into the text that was scanned.
+string is kept verbatim, surrounding whitespace included, next to the outcome. Absence is an
+empty field, not a failed parse.
+
+`ParseError` holds the rejected `candidate` span, the precise failure `span` (empty at end of
+input), a `Cause` and what was `expected`. All spans are byte offsets into the text that was
+scanned.
 
 ## Findings and codes
 
 Each numeric problem becomes one `audit::Finding`, built in one place and used by both the
-terminal report and the audit JSON (`verification[].findings`). A finding carries the check
-id, the field path, the code and category, the cause, what was expected, the observed input
-with its SHA-256 and span, the citation, and `extraction_sha256`. Findings are additive facts;
+terminal report and the audit JSON (`verification[].findings`). Findings are additive facts;
 they do not change `status` or `error_class`.
+
+A finding carries the check id, the field path, the code and category, the cause, what was
+expected, the observed input with its SHA-256 and span, the citation, and `extraction_sha256`.
 
 | Code | Category | Established fact |
 | --- | --- | --- |
@@ -81,22 +86,29 @@ has no span.
 
 For each numeric input the verifier locates the cited snippet on its page once
 (`evidence::locate`), reads the snippet with `scan`, and checks that the claimed value occurs
-among quantities of the right unit. `Located` gives the page, the matched byte range in the
-page text and `repairs`: the OCR digit substitutions the match relied on. A value is never
-verified against a page that had to be rewritten; a match with repairs is
-`RelocationRequiresDigitSubstitution` (NUM005) and stays REVIEW. A snippet whose numbers are
-unreadable yields one finding per unreadable number in addition to the reason. Citation
-matching itself is unchanged and is not a fuzzy score.
+among quantities of the right unit.
+
+`Located` gives the page, the matched byte range in the page text and `repairs`: the OCR digit
+substitutions the match relied on. A value is never verified against a page that had to be
+rewritten, so a match with repairs is `RelocationRequiresDigitSubstitution` (NUM005) and stays
+REVIEW.
+
+A snippet whose numbers are unreadable yields one finding per unreadable number, in addition
+to the reason. Citation matching itself is unchanged and is not a fuzzy score.
 
 ## Provenance and the snapshot gate
 
 `agreement.run` (`audit::RunIdentity`) says what produced an audit:
 
-- `parser_policy` and `parser_fingerprint`; `crate_version`; `cargo_lock_sha256`;
-  `software_revision` (from `S106_SOFTWARE_REVISION` at build time, null if unset; it is
-  never inferred from git);
-- `fixture_reference`/`fixture_sha256` (null when live), `extraction_sha256` of the wire
-  output and `page_text_sha256` of the page text used for grounding;
+- `parser_policy` and `parser_fingerprint`.
+- `crate_version` and `cargo_lock_sha256`.
+- `software_revision`, from `S106_SOFTWARE_REVISION` at build time. It is null if unset and is
+  never inferred from git.
+- `fixture_reference` and `fixture_sha256`: the fixture the extraction was replayed from or
+  recorded to. Both are null for an unrecorded live answer, even if a fixture exists at the
+  usual path.
+- `extraction_sha256` of the wire output and `page_text_sha256` of the page text used for
+  grounding.
 - `replacements`: when escalation adopts a field group (`housing`, `instrument` or a
   contribution name) from a stronger model, that group's own extraction and fixture hashes.
 
@@ -104,28 +116,46 @@ matching itself is unchanged and is not a fuzzy score.
 replacement for its field group, else the base extraction. Rejected candidates leave the
 base provenance untouched.
 
-The parser fingerprint is behavioural. `fixtures/numeric-probes.txt` holds one probe per
-line (newline, carriage return and backslash escaped): every citation snippet and
-`amount_in_words`, `amount_gbp`, `share_pct`, `claimed_affordable_pct` string in the recorded
-fixtures, plus the constructed controls. `audit::parser_fingerprint()` runs `scan`, `decimal`
-and `amount` over every probe, renders quantities with unit and span and errors with cause and
-spans, and hashes that rendering. A comment or refactor leaves it unchanged; any change in
-what the parser accepts, rejects or measures changes it.
+The parser fingerprint is a hash of the parser's results on a selected corpus, diagnostics
+included. `fixtures/numeric-probes.txt` holds one probe per line, with newline, carriage return
+and backslash escaped. It contains every citation snippet and every `amount_in_words`,
+`amount_gbp`, `share_pct` and `claimed_affordable_pct` string in the recorded fixtures, plus
+the constructed controls.
 
-`tests/numeric_snapshot.rs` snapshots the same rendering with `insta`
-(`tests/snapshots/`). That is the gate for weakening: a change that accepts something
-previously rejected shows up as a reviewable snapshot diff, to be justified with a source
-example and a corrupted counterpart that must still fail. `probes_cover_fixtures` fails when a
-fixture string is missing from the probe file; `S106_REGENERATE_PROBES=1 cargo test --test
-numeric_snapshot` adds missing strings, after which `cargo insta review` shows the effect.
-The same file has a property test: `scan` never panics on arbitrary text, every span is on
-char boundaries and inside the text, and quantity spans do not overlap.
+`audit::parser_fingerprint()` runs `scan`, `decimal` and `amount` over every probe and hashes
+the rendering: quantities with unit and span, errors with cause, spans and expected wording.
+A comment or refactor leaves it unchanged. It changes when results on the corpus change,
+including diagnostic wording, and when probes are added. A change in acceptance on input
+outside the corpus does not change it.
 
-Comparing two audit files: a changed PDF or page-text hash means the source changed; a
-changed extraction hash means the extraction changed; unchanged source and extraction with a
-changed `parser_fingerprint` means acceptance changed, so a field that now parses is not
-evidence the extraction was fixed. Fixtures and cached page text are replay inputs, not
-independent legal ground truth.
+`tests/numeric_snapshot.rs` snapshots the same rendering with `insta` (`tests/snapshots/`).
+This is the review gate: a change that accepts something previously rejected shows up as a
+snapshot diff, to be justified with a source example and a corrupted counterpart that must
+still fail. The same file has a property test: `scan` never panics on arbitrary text, every
+span is on char boundaries and inside the text, and quantity spans do not overlap.
+
+`probes_cover_fixtures` fails when a fixture string is missing from the probe file. The probe
+file is compiled into the tests, so updating it takes separate runs:
+
+1. Add the missing strings:
+   `S106_REGENERATE_PROBES=1 cargo test --test numeric_snapshot probes_cover_fixtures`.
+2. Rerun `cargo test --test numeric_snapshot`. This rebuilds the tests with the new probes, and
+   the snapshot test fails if the rendering changed.
+3. Review the diff with `cargo insta review`, or accept it with
+   `INSTA_UPDATE=always cargo test --test numeric_snapshot` and read the `.snap` diff in git.
+4. Commit the probe file and the snapshot together.
+
+When comparing two audit files:
+
+- A changed PDF or page-text hash means the source changed.
+- A changed extraction hash means the extraction changed.
+- With source and extraction unchanged, a changed `parser_fingerprint` means the parser's
+  results on the probe corpus changed: values, diagnostics, or the corpus itself. Check the
+  snapshot diff between the two versions to see which. A field that now parses is not evidence
+  that the extraction was fixed.
+- An unchanged fingerprint does not prove identical acceptance on input outside the corpus.
+
+Fixtures and cached page text are replay inputs, not independent legal ground truth.
 
 ## Validating offline
 

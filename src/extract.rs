@@ -92,7 +92,8 @@ pub struct Info {
     /// "live", "replay" or "replay-v1"
     pub source: String,
     pub usage: Option<Usage>,
-    pub fixture: PathBuf,
+    /// The fixture the output was read from or recorded to; None for an unrecorded live answer.
+    pub fixture: Option<PathBuf>,
 }
 
 impl Info {
@@ -223,7 +224,7 @@ fn answer(
             served_by: r.served_by,
             source: "live".into(),
             usage: Some(r.usage),
-            fixture: path,
+            fixture: (mode == Mode::Record).then_some(path),
         };
         return Ok((r.output, PageMap(pages), info));
     }
@@ -247,7 +248,7 @@ fn answer(
             served_by: fx.served_by,
             source: "replay".into(),
             usage: Some(fx.usage),
-            fixture: path,
+            fixture: Some(path),
         };
         return Ok((fx.output, PageMap(fx.pages), info));
     }
@@ -273,7 +274,7 @@ fn answer(
             served_by: raw["served_by"].as_str().unwrap_or(model).into(),
             source: "replay-v1".into(),
             usage,
-            fixture: v1,
+            fixture: Some(v1),
         };
         return Ok((raw["output"].clone(), PageMap(pages), info));
     }
@@ -362,7 +363,9 @@ pub fn to_agreement(
                 "{} ({}, {})",
                 info.served_by,
                 info.source,
-                info.fixture.display()
+                info.fixture
+                    .as_ref()
+                    .map_or("unrecorded".into(), |f| f.display().to_string())
             ),
         },
         instrument,
@@ -371,7 +374,11 @@ pub fn to_agreement(
         contributions,
         variations,
         warnings,
-        run: Some(RunIdentity::new(output, &doc.pages(), &info.fixture)),
+        run: Some(RunIdentity::new(
+            output,
+            &doc.pages(),
+            info.fixture.as_deref(),
+        )),
     })
 }
 

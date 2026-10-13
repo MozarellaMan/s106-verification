@@ -221,8 +221,8 @@ real-PDF test tiers would expose. Commit the snapshot of the text used for a res
   field groups came from which extraction. Use escalation as a review aid, not an
   established safeguard against loss of obligations.
 - The parser fingerprint covers the probe corpus in `fixtures/numeric-probes.txt`,
-  not every possible input; `tests/numeric_snapshot.rs` is the review gate for any
-  change in what the parser accepts.
+  not every possible input; `tests/numeric_snapshot.rs` is the review gate for changes
+  in the parser's results on that corpus.
 - Register evaluation is a diagnostic cross-check, not an extraction gold set.
   Purpose totals, instalments and duplicate register rows complicate comparisons.
   Run agreement compares selected fields and does not compare complete agreements.

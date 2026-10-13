@@ -216,17 +216,19 @@ impl Finding {
 /// Names the number-reading policy; bump it when the contract (not just the code) changes.
 pub const PARSER_POLICY: &str = "s106-quantity/1";
 
-/// Which extraction produced which parts of an audit, and what the parser accepted at the time.
+/// Which extraction produced which parts of an audit, and which parser results it was read with.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RunIdentity {
     pub parser_policy: String,
-    /// Behavioural: a hash of what the parser does on the probe corpus, not of its source.
+    /// A hash of the parser's results (values and diagnostics) on the probe corpus, not of its
+    /// source. It also changes when probes are added; acceptance outside the corpus is not covered.
     pub parser_fingerprint: String,
     pub crate_version: String,
     pub cargo_lock_sha256: String,
     /// Set by whoever builds (`S106_SOFTWARE_REVISION`); unknown otherwise, never inferred.
     pub software_revision: Option<String>,
-    pub fixture_reference: String,
+    /// The fixture the extraction was read from or recorded to; None for an unrecorded live answer.
+    pub fixture_reference: Option<String>,
     pub fixture_sha256: Option<String>,
     pub extraction_sha256: String,
     pub page_text_sha256: String,
@@ -240,7 +242,7 @@ pub struct ReplacementIdentity {
     /// "housing", "instrument" or a contribution name.
     pub field_group: String,
     pub extraction_sha256: String,
-    pub fixture_reference: String,
+    pub fixture_reference: Option<String>,
     pub fixture_sha256: Option<String>,
 }
 
@@ -248,7 +250,7 @@ impl RunIdentity {
     pub fn new(
         output: &serde_json::Value,
         pages: &Pages,
-        fixture: &std::path::Path,
+        fixture: Option<&std::path::Path>,
     ) -> RunIdentity {
         RunIdentity {
             parser_policy: PARSER_POLICY.into(),
@@ -256,9 +258,9 @@ impl RunIdentity {
             crate_version: env!("CARGO_PKG_VERSION").into(),
             cargo_lock_sha256: sha256_hex(include_str!("../Cargo.lock")),
             software_revision: option_env!("S106_SOFTWARE_REVISION").map(str::to_string),
-            fixture_reference: fixture.display().to_string(),
-            fixture_sha256: std::fs::read_to_string(fixture)
-                .ok()
+            fixture_reference: fixture.map(|f| f.display().to_string()),
+            fixture_sha256: fixture
+                .and_then(|f| std::fs::read_to_string(f).ok())
                 .map(|s| sha256_hex(&s)),
             extraction_sha256: sha256_hex(&serde_json::to_string(output).expect("serializable")),
             page_text_sha256: sha256_hex(&serde_json::to_string(pages).expect("serializable")),
@@ -347,8 +349,8 @@ fn render_error(e: &ParseError) -> String {
     )
 }
 
-/// SHA-256 of `probe_rendering()`. A comment edit leaves it unchanged; any change in what the
-/// parser accepts, rejects or measures on the probe corpus changes it.
+/// SHA-256 of `probe_rendering()`. A comment edit leaves it unchanged. It changes when the parser's
+/// results on the probe corpus change (values, spans or diagnostic wording) or when probes are added.
 pub fn parser_fingerprint() -> &'static str {
     static FP: LazyLock<String> = LazyLock::new(|| sha256_hex(&probe_rendering()));
     &FP

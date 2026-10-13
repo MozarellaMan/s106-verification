@@ -22,13 +22,13 @@ fn latest_replacement_names_the_extraction_for_a_group() {
     let mut run = RunIdentity::new(
         &serde_json::json!({}),
         &Default::default(),
-        Path::new("missing.json"),
+        Some(Path::new("missing.json")),
     );
     let base = run.extraction_sha256.clone();
     let rep = |sha: &str| ReplacementIdentity {
         field_group: "housing".into(),
         extraction_sha256: sha.into(),
-        fixture_reference: "f".into(),
+        fixture_reference: Some("f".into()),
         fixture_sha256: None,
     };
     run.replacements = vec![rep("a"), rep("b")];
@@ -36,4 +36,21 @@ fn latest_replacement_names_the_extraction_for_a_group() {
     assert_eq!(run.extraction_for(Some("Other Contribution")), base);
     assert_eq!(run.extraction_for(None), base);
     assert_eq!(run.parser_fingerprint.len(), 64);
+}
+
+#[test]
+fn only_the_fixture_that_supplied_the_output_is_hashed() {
+    // A stale fixture at the usual path must not be credited with an unrecorded live answer.
+    let stale = Path::new("fixtures/numeric-probes.txt");
+    let output = serde_json::json!({"live": true});
+    let replayed = RunIdentity::new(&output, &Default::default(), Some(stale));
+    assert_eq!(
+        replayed.fixture_reference.as_deref(),
+        Some("fixtures/numeric-probes.txt")
+    );
+    assert!(replayed.fixture_sha256.is_some());
+    let live = RunIdentity::new(&output, &Default::default(), None);
+    assert_eq!(live.fixture_reference, None);
+    assert_eq!(live.fixture_sha256, None);
+    assert_eq!(live.extraction_sha256, replayed.extraction_sha256);
 }
