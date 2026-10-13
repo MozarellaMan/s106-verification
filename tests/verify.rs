@@ -77,6 +77,7 @@ fn agreement(housing: Housing) -> Agreement {
 fn inp(label: &str, value: Option<Value>, evidence: Option<Evidence>) -> Input {
     Input {
         label: label.to_string(),
+        field: None,
         value,
         evidence,
     }
@@ -978,4 +979,35 @@ fn unparseable_amount_does_not_suppress_instalment_checks() {
     let r = m["F3.inst"];
     assert_eq!(r.status, Status::Fail, "{}", r.detail);
     assert_eq!(r.error_class, Some(ErrorClass::DocumentDiscrepancy));
+}
+
+#[test]
+fn h6_grounding_findings_carry_canonical_field_paths() {
+    let mut a = mix_agreement(&[("1 bed", 10, 7), ("2 bed", 24, 5), ("3 bed", 24, 6)]);
+    // values the cited snippets do not state, so every definition-side input yields findings
+    a.housing.tenures[0].units = Some(59);
+    a.housing.affordable_units = Some(77);
+    a.housing.affordable_habitable_rooms = Some(272);
+    let t = a.housing.mix_table.as_mut().unwrap();
+    t.total_units = Some(75);
+    t.total_habitable_rooms = Some(270);
+    let res = check_mix_table(&a, &southwark_pages());
+    let fields: std::collections::BTreeSet<String> = res
+        .iter()
+        .filter(|r| r.check_id == "H6")
+        .flat_map(|r| r.findings.iter().map(|f| f.field.clone()))
+        .collect();
+    for want in [
+        "agreement/housing/tenures/0/units",
+        "agreement/housing/affordable_units",
+        "agreement/housing/affordable_habitable_rooms",
+        "agreement/housing/mix_table/total_units",
+        "agreement/housing/mix_table/total_habitable_rooms",
+    ] {
+        assert!(fields.contains(want), "{want} missing from {fields:?}");
+    }
+    assert!(
+        fields.iter().all(|f| f.starts_with("agreement/housing/")),
+        "{fields:?}"
+    );
 }

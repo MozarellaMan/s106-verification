@@ -20,6 +20,10 @@ fn dec(s: &str) -> Decimal {
 }
 
 fn audit(figure: &str, snippet: &str, page: &str) -> Vec<CheckResult> {
+    audit_with(figure, snippet, page, json!([]))
+}
+
+fn audit_with(figure: &str, snippet: &str, page: &str, instalments: Json) -> Vec<CheckResult> {
     // Recorded shape only: every numeric expectation and source here is constructed.
     let mut output: Json = serde_json::from_str(include_str!(
         "../fixtures/llm/southwark_s106_sample/claude-haiku-5-5.extract.v2.json"
@@ -32,7 +36,7 @@ fn audit(figure: &str, snippet: &str, page: &str) -> Vec<CheckResult> {
     c["amount_in_words"] = json!("");
     c["amount_structure"] = json!("fixed");
     c["amount_evidence"] = json!({"page": 1, "snippet": snippet});
-    c["instalments"] = json!([]);
+    c["instalments"] = instalments;
     output["contributions"] = json!([c]);
     let doc = Document {
         path: PathBuf::from("constructed.pdf"),
@@ -68,6 +72,7 @@ fn control(value: Value, snippet: &str, page: &str) -> CheckResult {
     let pages = Pages::from([(1, page.to_string())]);
     let input = Input {
         label: "amount".into(),
+        field: None,
         value: Some(value),
         evidence: Some(Evidence {
             page: 1,
@@ -150,7 +155,7 @@ fn repaired_only_relocation_is_review_with_the_repair() {
         .find(|f| f.cause == Cause::RelocationRequiresDigitSubstitution)
         .expect("relocation finding");
     assert_eq!(finding.category.0, Category::AmbiguousSource);
-    assert_eq!(finding.field, "amount");
+    assert_eq!(finding.field, "agreement/contributions/0/amount/value_gbp");
     let citation = finding.citation.as_ref().unwrap();
     assert!(citation.relocated);
     assert_eq!(citation.repairs.len(), 1);
@@ -227,4 +232,43 @@ fn word_only_comma_scale_control_passes() {
     let source = "one million, six hundred and two pounds";
     let r = control(Value::Gbp(dec("1000602")), source, source);
     assert_eq!(r.status, Status::Pass);
+}
+
+#[test]
+fn grounding_findings_carry_canonical_field_paths() {
+    // an unreadable amount, and a share written without percentage wording
+    let page = "The sum of £5o payable 50 on commencement";
+    let checks = audit_with(
+        "50",
+        "The sum of £5o",
+        page,
+        json!([
+            {"share_pct": "50", "trigger_phrase": {"page": 1, "snippet": "50 on commencement"}},
+            {"share_pct": "50", "trigger_phrase": {"page": 1, "snippet": "50 on commencement"}},
+        ]),
+    );
+    let amount = amt(&checks);
+    assert!(!amount.findings.is_empty());
+    assert!(
+        amount
+            .findings
+            .iter()
+            .all(|f| f.field == "agreement/contributions/0/amount/value_gbp"),
+        "{:?}",
+        amount.findings.iter().map(|f| &f.field).collect::<Vec<_>>()
+    );
+    let shares = checks.iter().find(|c| c.check_id == "F1.inst").unwrap();
+    let fields: Vec<&str> = shares.findings.iter().map(|f| f.field.as_str()).collect();
+    assert!(!fields.is_empty());
+    assert!(
+        fields.iter().all(
+            |f| f.starts_with("agreement/contributions/0/payment/instalments/")
+                && f.ends_with("/share_pct")
+        ),
+        "{fields:?}"
+    );
+    assert!(shares.findings.iter().any(|f| {
+        matches!(f.cause, Cause::MissingPercentageWording { .. })
+            && f.field == "agreement/contributions/0/payment/instalments/0/share_pct"
+    }));
 }

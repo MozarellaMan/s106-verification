@@ -297,23 +297,20 @@ pub fn locate(ev: &Evidence, pages: &Pages) -> Option<Located> {
     let raw_span = (fixed != *page)
         .then(|| match_span(&needle, &tokens, page))
         .flatten();
-    let (span, repaired) = match raw_span {
-        Some(span) => (span, false),
-        None => (fixed_span, fixed != *page),
-    };
 
     let offsets: Vec<usize> = page.char_indices().map(|(b, _)| b).collect();
     // `to_lowercase()` can change the char count, which breaks the char index mapping;
     // then the range conservatively covers the whole page.
     let aligned = page.to_lowercase().chars().count() == offsets.len();
-    let (first, last) = if aligned {
-        (span.start, span.end)
-    } else {
-        (0, offsets.len())
-    };
     let byte = |c: usize| offsets.get(c).copied().unwrap_or(page.len());
-    let repairs = if repaired {
-        page.chars()
+    let resolve = |span: Range<usize>| {
+        let (first, last) = if aligned {
+            (span.start, span.end)
+        } else {
+            (0, offsets.len())
+        };
+        let repairs: Vec<Repair> = page
+            .chars()
             .zip(fixed.chars())
             .enumerate()
             .skip(first)
@@ -324,13 +321,19 @@ pub fn locate(ev: &Evidence, pages: &Pages) -> Option<Located> {
                 from,
                 to,
             })
-            .collect()
-    } else {
-        Vec::new()
+            .collect();
+        (byte(first)..byte(last), repairs)
+    };
+
+    // The as-printed match wins only if its range holds nothing digit repair would rewrite:
+    // normalisation drops chars like `|`, so "£5|0" can match "£50" while reading as "£510".
+    let (range, repairs) = match raw_span.map(resolve) {
+        Some((range, repairs)) if repairs.is_empty() => (range, repairs),
+        _ => resolve(fixed_span),
     };
     Some(Located {
         page: ev.page,
-        range: byte(first)..byte(last),
+        range,
         repairs,
     })
 }
@@ -377,6 +380,15 @@ mod tests {
             }]
         );
         assert!(loc.range.contains(&at));
+    }
+
+    #[test]
+    fn raw_match_straddling_a_repairable_char_is_not_preferred() {
+        let page = "The sum of £5|0. Other text. The sum of £50.";
+        let loc = locate(&ev("The sum of £50"), &pages(page)).unwrap();
+        assert!(loc.repairs.is_empty());
+        assert_eq!(loc.range.start, page.rfind("The sum").unwrap());
+        assert_eq!(&page[loc.range], "The sum of £50");
     }
 
     #[test]

@@ -98,8 +98,21 @@ fn scoped(mut results: Vec<CheckResult>, scope: Scope) -> Vec<CheckResult> {
 #[derive(Debug, Clone)]
 pub struct Input {
     pub label: String,
+    /// Agreement field path the value was read from, for findings; the label when unset.
+    pub field: Option<String>,
     pub value: Option<Value>,
     pub evidence: Option<Evidence>,
+}
+
+impl Input {
+    fn at(mut self, field: impl Into<String>) -> Self {
+        self.field = Some(field.into());
+        self
+    }
+
+    fn field_path(&self) -> &str {
+        self.field.as_deref().unwrap_or(&self.label)
+    }
 }
 
 // --------------------------------------------------------------------------- helpers
@@ -107,6 +120,7 @@ pub struct Input {
 fn input(label: impl Into<String>, value: Option<Value>, evidence: Option<&Evidence>) -> Input {
     Input {
         label: label.into(),
+        field: None,
         value,
         evidence: evidence.cloned(),
     }
@@ -293,7 +307,7 @@ impl Grounding {
         let located = self.located.as_ref();
         let mut out = vec![Finding::in_excerpt(
             check_id,
-            &input.label,
+            input.field_path(),
             Ok(reason),
             ev,
             located,
@@ -301,7 +315,7 @@ impl Grounding {
         out.extend(
             self.errors
                 .iter()
-                .map(|e| Finding::in_excerpt(check_id, &input.label, Err(e), ev, located)),
+                .map(|e| Finding::in_excerpt(check_id, input.field_path(), Err(e), ev, located)),
         );
         out
     }
@@ -399,17 +413,20 @@ pub fn check_unit_consistency(a: &Agreement, pages: &Pages) -> CheckResult {
             "total units",
             unum(h.total_units),
             h.total_units_evidence.as_ref(),
-        ),
+        )
+        .at("agreement/housing/total_units"),
         input(
             "market units",
             unum(h.market_units),
             h.market_units_evidence.as_ref(),
-        ),
+        )
+        .at("agreement/housing/market_units"),
         input(
             "affordable units",
             unum(h.affordable_units),
             h.affordable_units_evidence.as_ref(),
-        ),
+        )
+        .at("agreement/housing/affordable_units"),
     ];
     if a.instrument.kind.is_variation() {
         return skip(cid, desc, VARIATION_SKIP, vec![]);
@@ -456,17 +473,21 @@ pub fn check_tenure_units(a: &Agreement, pages: &Pages) -> CheckResult {
     if h.tenures.is_empty() {
         return parser_fail(cid, desc, "no tenure breakdown extracted", vec![]);
     }
-    let mut inputs = vec![input(
-        "affordable units",
-        unum(h.affordable_units),
-        h.affordable_units_evidence.as_ref(),
-    )];
-    inputs.extend(h.tenures.iter().map(|t| {
+    let mut inputs = vec![
+        input(
+            "affordable units",
+            unum(h.affordable_units),
+            h.affordable_units_evidence.as_ref(),
+        )
+        .at("agreement/housing/affordable_units"),
+    ];
+    inputs.extend(h.tenures.iter().enumerate().map(|(i, t)| {
         input(
             format!("{} units", t.tenure.label()),
             unum(t.units),
             t.evidence.as_ref(),
         )
+        .at(format!("agreement/housing/tenures/{i}/units"))
     }));
     if inputs.iter().any(|i| i.value.is_none()) {
         return resolve(cid, desc, false, &inputs, pages, None, None, &[]);
@@ -508,17 +529,21 @@ pub fn check_tenure_rooms(a: &Agreement, pages: &Pages) -> CheckResult {
     {
         return skip(cid, desc, "habitable-room breakdown not stated", vec![]);
     }
-    let mut inputs = vec![input(
-        "affordable habitable rooms",
-        unum(h.affordable_habitable_rooms),
-        h.affordable_units_evidence.as_ref(),
-    )];
-    inputs.extend(h.tenures.iter().map(|t| {
+    let mut inputs = vec![
+        input(
+            "affordable habitable rooms",
+            unum(h.affordable_habitable_rooms),
+            h.affordable_units_evidence.as_ref(),
+        )
+        .at("agreement/housing/affordable_habitable_rooms"),
+    ];
+    inputs.extend(h.tenures.iter().enumerate().map(|(i, t)| {
         input(
             format!("{} habitable rooms", t.tenure.label()),
             unum(t.habitable_rooms),
             t.evidence.as_ref(),
         )
+        .at(format!("agreement/housing/tenures/{i}/habitable_rooms"))
     }));
     if inputs.iter().any(|i| i.value.is_none()) {
         return resolve(cid, desc, false, &inputs, pages, None, None, &[]);
@@ -583,28 +608,33 @@ pub fn check_claimed_pct(a: &Agreement, pages: &Pages) -> CheckResult {
         "claimed %",
         Some(Value::Percent(pct)),
         h.claimed_affordable_evidence.as_ref(),
-    );
+    )
+    .at("agreement/housing/claimed_affordable_pct");
     let (num, den) = match basis {
         Some(AffordableBasis::HabitableRooms) => (
             input(
                 "affordable habitable rooms",
                 unum(h.affordable_habitable_rooms),
                 h.affordable_units_evidence.as_ref(),
-            ),
+            )
+            .at("agreement/housing/affordable_habitable_rooms"),
             // the schema carries no evidence for a scheme-wide habitable-room total
-            input("total habitable rooms", unum(h.total_habitable_rooms), None),
+            input("total habitable rooms", unum(h.total_habitable_rooms), None)
+                .at("agreement/housing/total_habitable_rooms"),
         ),
         Some(AffordableBasis::Units) => (
             input(
                 "affordable units",
                 unum(h.affordable_units),
                 h.affordable_units_evidence.as_ref(),
-            ),
+            )
+            .at("agreement/housing/affordable_units"),
             input(
                 "total units",
                 unum(h.total_units),
                 h.total_units_evidence.as_ref(),
-            ),
+            )
+            .at("agreement/housing/total_units"),
         ),
         _ => {
             // Never fall back to units: a floorspace or unstated basis compared by units would be
@@ -757,7 +787,8 @@ pub fn check_mix_table(a: &Agreement, pages: &Pages) -> Vec<CheckResult> {
     } else {
         vec!["sub-total row not found on the cited page".to_string()]
     };
-    let total = input("table total", unum(t.total_units), t.evidence.as_ref());
+    let total = input("table total", unum(t.total_units), t.evidence.as_ref())
+        .at("agreement/housing/mix_table/total_units");
     let mut out = Vec::new();
     let both: Vec<String> = row_problems.iter().chain(&sub_problem).cloned().collect();
     for (ten, sub) in &t.subtotals {
@@ -792,7 +823,7 @@ pub fn check_mix_table(a: &Agreement, pages: &Pages) -> Vec<CheckResult> {
             &sub_problem,
         ));
     }
-    for alloc in &h.tenures {
+    for (i, alloc) in h.tenures.iter().enumerate() {
         let Some((_, sub)) = t.subtotals.iter().find(|(ten, _)| *ten == alloc.tenure) else {
             continue;
         };
@@ -804,17 +835,19 @@ pub fn check_mix_table(a: &Agreement, pages: &Pages) -> Vec<CheckResult> {
                 format!("{} units", alloc.tenure.label()),
                 unum(alloc.units),
                 alloc.evidence.as_ref(),
-            )],
+            )
+            .at(format!("agreement/housing/tenures/{i}/units"))],
             pages,
             Some(format!("{sub} (schedule)")),
             Some(format!("{} (definition)", opt_str(alloc.units))),
             &sub_problem,
         ));
     }
-    for (label, defn, tbl) in [
-        ("units", h.affordable_units, t.total_units),
+    for (label, leaf, defn, tbl) in [
+        ("units", "units", h.affordable_units, t.total_units),
         (
             "habitable rooms",
+            "habitable_rooms",
             h.affordable_habitable_rooms,
             t.total_habitable_rooms,
         ),
@@ -831,12 +864,14 @@ pub fn check_mix_table(a: &Agreement, pages: &Pages) -> Vec<CheckResult> {
                     format!("affordable {label} (definition)"),
                     Some(Value::from(defn)),
                     h.affordable_units_evidence.as_ref(),
-                ),
+                )
+                .at(format!("agreement/housing/affordable_{leaf}")),
                 input(
                     format!("affordable {label} (table)"),
                     Some(Value::from(tbl)),
                     t.evidence.as_ref(),
-                ),
+                )
+                .at(format!("agreement/housing/mix_table/total_{leaf}")),
             ],
             pages,
             Some(format!("{tbl} (schedule)")),
@@ -1037,7 +1072,8 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
             }
         }
         Some(v) => {
-            let amount = input("amount", Some(Value::Gbp(v)), c.amount.evidence.as_ref());
+            let amount = input("amount", Some(Value::Gbp(v)), c.amount.evidence.as_ref())
+                .at(field("value_gbp"));
             out.push(resolve(
                 &format!("{cid}.amt"),
                 &format!("{}: amount stated in cited evidence", c.name),
@@ -1298,6 +1334,8 @@ pub fn check_instalments(
         format!("{cid}.inst"),
         format!("{}: instalment shares sum to 100%", c.name),
     );
+    let share_field =
+        |j: usize| format!("agreement/contributions/{index}/payment/instalments/{j}/share_pct");
     let share = |i: &Instalment| i.share_pct.as_ref().and_then(Observed::ok).copied();
     let bad: Vec<Finding> = insts
         .iter()
@@ -1308,7 +1346,7 @@ pub fn check_instalments(
                 parsed: Err(e),
             } => Some(Finding::new(
                 &id,
-                format!("agreement/contributions/{index}/payment/instalments/{j}/share_pct"),
+                share_field(j),
                 Some((raw, e)),
                 i.trigger_phrase.as_ref(),
                 pages,
@@ -1347,6 +1385,7 @@ pub fn check_instalments(
                     share(i).map(Value::Percent),
                     i.trigger_phrase.as_ref(),
                 )
+                .at(share_field(n))
             })
             .collect();
         // `resolve` already reports unit-aware grounding and unreadable numbers in the trigger
@@ -1357,11 +1396,11 @@ pub fn check_instalments(
             .filter_map(|(n, inst)| Some((n, share(inst)?, inst.trigger_phrase.as_ref()?)))
             .flat_map(|(n, share, ev)| {
                 let located = locate(ev, pages);
-                let label = format!("instalment {} share", n + 1);
+                let field = share_field(n);
                 percentage_errors(share, &ev.snippet)
                     .into_iter()
                     .filter(|e| matches!(e.cause, Cause::MissingPercentageWording { .. }))
-                    .map(|e| Finding::in_excerpt(&id, &label, Err(&e), ev, located.as_ref()))
+                    .map(|e| Finding::in_excerpt(&id, &field, Err(&e), ev, located.as_ref()))
                     .collect::<Vec<_>>()
             })
             .collect();
