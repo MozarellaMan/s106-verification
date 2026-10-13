@@ -327,7 +327,7 @@ pub fn locate(ev: &Evidence, pages: &Pages) -> Option<Located> {
 
     // The as-printed match wins only if its range holds nothing digit repair would rewrite:
     // normalisation drops chars like `|`, so "£5|0" can match "£50" while reading as "£510".
-    let (range, repairs) = match raw_span.map(&resolve) {
+    let (range, repairs) = match raw_span.map(resolve) {
         Some((range, repairs)) if repairs.is_empty() => (range, repairs),
         _ => resolve(fixed_span),
     };
