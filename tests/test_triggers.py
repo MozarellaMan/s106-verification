@@ -103,6 +103,16 @@ class CheckTriggerTest(unittest.TestCase):
         self.assertEqual(r["trig"].status, Status.FAIL)
         self.assertIn("payment clause not re-locatable", r["trig"].detail)
 
+    def test_question_clause_present_in_source_fails(self):
+        # Re-review repro: the clause is verbatim in the deed, but it asks whether a sum is payable.
+        clause = ("Prior to Occupation the Council shall assess whether the Carbon Green Fund Contribution is "
+                  "payable.")
+        c = contribution("Prior to Occupation", clause, E.PRE_OCCUPATION)
+        r = {x.check_id.split(".")[1]: x for x in check_trigger(c, {89: PAGE_89 + "\n" + clause}, "F1", [8])}
+        self.assertEqual(r["trig"].status, Status.FAIL)
+        self.assertIn("does not impose a payment", r["trig"].detail)
+        self.assertNotIn("tlabel", r)
+
     def test_phrase_must_sit_in_the_clause(self):
         c = contribution("Prior to the Occupation of 50% of the Development", CLAUSE_3_5, E.PRE_OCCUPATION)
         r = self.run_check(c)
@@ -130,13 +140,21 @@ class ImposesPaymentTest(unittest.TestCase):
                        "the Owner will pay the Default Employment in the End Use Contribution within 28 days",
                        CLAUSE_3_5,
                        "Not to Implement the Development until the Site and Development Contributions have been "
-                       "paid to the Council in full."):
+                       "paid to the Council in full.",
+                       "The Council shall assess the Contribution. The Contribution is payable within 28 days of "
+                       "demand.",
+                       "The sum (if any) is payable within 28 days of the Assessment."):
             with self.subTest(clause=clause):
                 self.assertTrue(imposes_payment(clause))
 
     def test_mentions_are_not_obligations(self):
         # Review repro: mentioning a payable amount is not imposing payment.
         for clause in ("Prior to Occupation the Council shall assess the amount payable",
+                       # Re-review repro: "is payable" inside a question is not an obligation.
+                       "Prior to Occupation the Council shall assess whether the Carbon Green Fund Contribution "
+                       "is payable.",
+                       "PriortoOccupationtheCouncilshalldeterminewhethertheContributionispayable",
+                       "If the Viability Review shows a surplus the Affordable Housing Contribution is payable",
                        "the Council shall calculate the sum to be paid by the Owner",
                        CLAUSE_3_1):
             with self.subTest(clause=clause):

@@ -39,22 +39,43 @@ _COMPILED = [(event, re.compile(p)) for event, p in PATTERNS]
 # Wording that imposes a payment, as opposed to merely mentioning one ("the Council shall assess
 # the amount payable" schedules an assessment). Matched on squashed text, like PATTERNS.
 _PAYER = r"(?:shall|will|must|agrees?to|covenants?(?:with\w{0,40}?)?to|undertakes?to)"
-OBLIGATIONS = [
-    _PAYER + r"(?:pay|bepaid)",                      # "the Owner shall pay", "covenants ... to pay"
-    r"(?:shall|will)(?:then)?(?:be|become)(?:due(?:and)?)?payable",  # "shall be payable"
-    r"(?:is|are|becomes?)(?:due(?:and)?)?payable",  # "is payable", "becomes due and payable"
-    r"until\w*(?:has|have)beenpaid",                # "Not to Implement until ... have been paid"
+OBLIGATIONS = [  # (pattern, bare): bare "is payable" also gets the conditional-"if" check
+    (_PAYER + r"(?:pay|bepaid)", False),                                   # "the Owner shall pay"
+    (r"(?:shall|will)(?:then)?(?:be|become)(?:due(?:and)?)?payable", False),  # "shall be payable"
+    (r"(?:is|are|becomes?)(?:due(?:and)?)?payable", True),                 # "is payable"
+    (r"until\w*(?:has|have)beenpaid", False),                              # "until ... have been paid"
 ]
-_OBLIGATIONS = [re.compile(p) for p in OBLIGATIONS]
+_OBLIGATIONS = [(re.compile(p), bare) for p, bare in OBLIGATIONS]
 # Covenant list items ("1.3 To pay the ...", "Unless ..., to pay the ...") need the clause or
 # comma boundary, which squashing removes, so this one runs on the raw text.
 _COVENANT_ITEM = re.compile(r"(?:^|[,;:])\s*(?:\d[\d.]*\s*)?(?:\([a-z0-9]+\)\s*)?to\s*pay", re.I | re.M)
+# Sentence or sub-clause breaks; a full stop inside a number ("1.3", "£10,058.60") is not one.
+_SEGMENT = re.compile(r"(?<!\d)\.(?!\d)|;")
+# A conditional "if" (not "if any") before a bare "is payable" makes it a condition, not an obligation.
+_IF = re.compile(r"(?<![a-z])if(?![a-z])(?!\s*any)", re.I)
+
+
+def _asked(seg: str, sq: str, sq_pos: int, bare: bool) -> bool:
+    """Is the match at squashed position sq_pos inside a question ("assess whether ... is payable")?"""
+    if "whether" in sq[:sq_pos]:
+        return True
+    if bare:
+        raw = [i for i, ch in enumerate(seg.lower()) if ch in "0123456789abcdefghijklmnopqrstuvwxyz"]
+        return bool(_IF.search(seg[:raw[sq_pos]]))
+    return False
 
 
 def imposes_payment(clause: str | None) -> bool:
-    """Does the clause oblige someone to pay (or make a sum payable), not just mention payment?"""
-    s = squash(clause or "")
-    return any(rx.search(s) for rx in _OBLIGATIONS) or bool(_COVENANT_ITEM.search(clause or ""))
+    """Does the clause oblige someone to pay (or make a sum payable), not just mention or ask about it?"""
+    for seg in _SEGMENT.split(clause or ""):
+        sq = squash(seg)
+        for rx, bare in _OBLIGATIONS:
+            if any(not _asked(seg, sq, m.start(), bare) for m in rx.finditer(sq)):
+                return True
+        for m in _COVENANT_ITEM.finditer(seg):
+            if "whether" not in squash(seg[:m.start()]):
+                return True
+    return False
 
 
 def squash(s: str) -> str:
