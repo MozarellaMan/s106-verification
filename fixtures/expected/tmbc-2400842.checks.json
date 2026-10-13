@@ -1,0 +1,16 @@
+[
+  {"check":"H1","description":"Market units + affordable units == total residential units","status":"SKIP","error_class":null},
+  {"check":"H2","description":"Sum of tenure units == affordable units","status":"SKIP","error_class":null},
+  {"check":"H3","description":"Sum of tenure habitable rooms == affordable habitable rooms","status":"SKIP","error_class":null},
+  {"check":"H4","description":"Claimed affordable % vs calculated % (basis: units)","status":"SKIP","error_class":null},
+  {"check":"H5","description":"Approved mix table: rows sum to subtotals","status":"SKIP","error_class":null},
+  {"check":"V1","description":"Variation/supplemental deed identifies its parent instrument","status":"PASS","error_class":null},
+  {"check":"V2.1","description":"Variation 1: Replace of definition \"Affordable Housing Dwellings\" is cited in the deed","status":"PASS","error_class":null},
+  {"check":"V2.2","description":"Variation 2: Replace of definition \"Affordable Rented Units\" is cited in the deed","status":"PASS","error_class":null},
+  {"check":"V2.3","description":"Variation 3: Amend of definition \"Chargee\" is cited in the deed","status":"PASS","error_class":null},
+  {"check":"V2.4","description":"Variation 4: Insert of new clause 7.15 is cited in the deed","status":"PASS","error_class":null},
+  {"check":"V2.5","description":"Variation 5: Insert of new clause 7.16 is cited in the deed","status":"PASS","error_class":null},
+  {"check":"V2.6","description":"Variation 6: Amend of Paragraph 1.5.1 of Part 1 of the Third Schedule (Affordable Housing) is cited in the deed","status":"PASS","error_class":null},
+  {"check":"V2.7","description":"Variation 7: Replace of Paragraphs 1.5.2 to 1.5.4 of Part 1 of the Third Schedule (Affordable Housing) is cited in the deed","status":"PASS","error_class":null},
+  {"check":"V2.8","description":"Variation 8: Delete of Paragraph 1.10 of Part 1 of the Third Schedule (Affordable Housing) is cited in the deed","status":"REVIEW","error_class":null}
+]

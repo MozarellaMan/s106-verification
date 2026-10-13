@@ -23,7 +23,8 @@ flowchart LR
 1. **Load the document.** `document::load` hashes the file, opens it with PDFium,
    and visits every PDF page. A page with at least 50 non-whitespace text-layer
    characters uses that layer. Otherwise it is rendered at 200 DPI and recognised
-   with the configured OCR models, in batches of six. OCR starts only when needed.
+   with the configured OCR models, one page per call so that a page's text never
+   depends on which other pages were read with it. OCR starts only when needed.
    This threshold detects sparse text, not whether a substantial text layer is
    accurate; a bad existing OCR layer may therefore be used.
 
@@ -161,9 +162,10 @@ uses the stem), the recorded model fixture, the code revision and OCR configurat
 
 ```sh
 cargo run --release -- audit data/raw/southwark_s106_sample.pdf --llm-mode replay
+cargo run --release -- audit fixtures/pages/southwark_s106_sample.pages.json   # no PDF needed
 cargo run --release -- eval --replay
-cargo test
-cargo test --release -- --ignored
+cargo test                    # tiers 1-2, see docs/testing.md
+cargo test-pdf && cargo test-corpus
 ```
 
 `S106_FIXTURES`, `S106_MODELS` and `S106_OCR_CACHE` override locations. Fixtures live
@@ -172,21 +174,24 @@ hashes. When no v2 fixture exists, `llm-v1` can replay through an adapter; it do
 not have the same prompt-hash validation. Page positions in old excerpts are mapped
 by their stored page list. No replay path requires credentials.
 
-The candidate TSV and register CSVs under `data/reference/` are local, ignored
-inputs; they must also be supplied for `eval --replay` in a clean checkout. The
-current repository does not contain a retrieval manifest for those snapshots.
+The candidate list and the register rows for those deeds are committed under
+`fixtures/eval/` (see its README for where they came from); `--register` points the
+evaluation at a full download instead. `fixtures/corpus.tsv` is the retrieval manifest
+for the deeds themselves.
 
-Page text lives at `data/interim/ocr/<sha256-prefix>-<ocr-version>/page_NNN.json`.
+Page text lives at `data/interim/ocr/<sha256-prefix>-<ocr-version>/page_NNN.json` and,
+for the committed corpus, in `fixtures/pages/<stem>.pages.json` (one page per line).
 Open the cited page record, check the literal snippet and value, then inspect the
 original PDF page. If relocation fails, compare `Document::pages()`'s row text
 with the retained boxes. A matching amount elsewhere on a page is insufficient.
 `tests/evidence.rs` and `tests/verify.rs` show how to reduce a discrepancy to a small
 reproducible excerpt without a PDF or live call.
 
-The cache key uses a version string, renderer/model names and DPI. It does not hash
-local model binaries or authenticate cached page files; changed local artifacts
-require explicit cache invalidation. The current manifest is not validated on read.
-Record runtime artifacts and preserve the exact cached text used for a research run.
+The cache key hashes the line-logic version, OCR settings and the pinned SHA-256 of
+every runtime artifact; files that differ from their pins are refused before use, and
+the manifest is validated on read. Cached page files are not authenticated individually:
+a hand-edited cache file is read as it is, which the snapshot comparison in the
+real-PDF test tiers would expose. Commit the snapshot of the text used for a research run.
 
 ## Remaining complexity and limits
 
@@ -208,4 +213,6 @@ Record runtime artifacts and preserve the exact cached text used for a research 
   Run agreement compares selected fields and does not compare complete agreements.
 - Cached replay and frozen Python outputs test reproducibility/compatibility. The
   small OCR gold set helped select the OCR model; it is not held-out validation.
+  Replay from snapshots is only as good as the snapshots' agreement with the PDFs,
+  which tiers 3 and 4 check (docs/testing.md).
   No live model calls are needed to test deterministic verification changes.

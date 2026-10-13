@@ -10,13 +10,15 @@
 //! rows, and record indexed or partial figures. So a sum "matches" when it equals one register
 //! amount (±£1) or the total of one purpose's amounts, and misses are listed for a human to check.
 //!
-//! Inputs: `data/reference/{candidates.tsv,developer-agreement*.csv}`, `data/raw/eval/<id>.pdf`.
-//! Writes `data/processed/eval/<id>/run<k>.audit.json` and `data/processed/eval/summary.{json,md}`.
+//! Inputs: `fixtures/eval/candidates.tsv`, the register rows for those deeds
+//! (`fixtures/eval/register/developer-agreement*.csv`, or a full download with `--register`), and
+//! page text from `data/raw/eval/<id>.pdf` or, with `--pages`, from committed snapshots.
+//! Writes `<out>/<id>/run<k>.audit.json` and `<out>/summary.{json,md}` (default `data/processed/eval`).
 //! Runs are sequential: PDFium sits behind a process-wide lock and `extract` calls the API synchronously.
 
 use crate::schema::Observed;
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Instant;
 
@@ -25,7 +27,7 @@ use regex::Regex;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use crate::document::{self, Config};
+use crate::document::{self, Config, Snapshot};
 use crate::extract::{self, Mode};
 use crate::llm;
 use crate::report::AuditJson;
@@ -45,6 +47,30 @@ pub struct EvalArgs {
     pub replay: bool,
     /// candidate ids to run (all when empty)
     pub only: Vec<String>,
+    /// read page text from these snapshots (`<id>.pages.json`) instead of the PDFs
+    pub pages: Option<PathBuf>,
+    /// candidates.tsv: id, council, planning_ref, type
+    pub candidates: PathBuf,
+    /// directory holding developer-agreement.csv and developer-agreement-contribution.csv
+    pub register: PathBuf,
+    /// where audits and summary.{json,md} are written
+    pub out: PathBuf,
+}
+
+impl EvalArgs {
+    /// The repository defaults: committed candidates and register rows, PDFs, `data/processed/eval`.
+    pub fn defaults(repo_root: &Path) -> EvalArgs {
+        EvalArgs {
+            runs: 3,
+            model: llm::DEFAULT_MODEL.into(),
+            replay: false,
+            only: vec![],
+            pages: None,
+            candidates: repo_root.join("fixtures/eval/candidates.tsv"),
+            register: repo_root.join("fixtures/eval/register"),
+            out: repo_root.join("data/processed/eval"),
+        }
+    }
 }
 
 // --------------------------------------------------------------------------- register
@@ -649,62 +675,61 @@ fn run_once(
     }
 }
 
-// The eight arguments are the run configuration, passed through from `run`; bundling them into a
-// struct purely to satisfy the lint would add a type used once.
-#[allow(clippy::too_many_arguments)]
+/// Page text for one deed: its snapshot when `--pages` is given, otherwise its PDF (via the cache).
+fn page_text(args: &EvalArgs, id: &str, root: &Path, cfg: &Config) -> Result<document::Document> {
+    if let Some(dir) = &args.pages {
+        return Ok(Snapshot::read(&Snapshot::path_for(dir, &format!("{id}.pdf")))?.document());
+    }
+    let pdf = root.join("data/raw/eval").join(format!("{id}.pdf"));
+    if !pdf.exists() {
+        anyhow::bail!(
+            "corpus missing: fetch with scripts/fetch-corpus.sh (no {})",
+            pdf.strip_prefix(root).unwrap_or(&pdf).display()
+        );
+    }
+    document::load(&pdf, cfg, false).with_context(|| format!("load {}", pdf.display()))
+}
+
 fn evaluate(
     row: &Candidate,
-    runs: usize,
-    model: &str,
+    args: &EvalArgs,
     register: &Register,
     client: Option<&rust_claude_sdk::Client>,
-    replay: bool,
     root: &Path,
     cfg: &Config,
 ) -> Result<DeedSummary> {
-    let pdf = root.join("data/raw/eval").join(format!("{}.pdf", row.id));
-    let out = root.join("data/processed/eval").join(&row.id);
+    let (model, replay) = (args.model.as_str(), args.replay);
+    let out = args.out.join(&row.id);
     std::fs::create_dir_all(&out)?;
     // replay re-verifies the recorded response: one run, free, offline, reproducible
-    let runs = if replay { 1 } else { runs.max(1) };
+    let runs = if replay { 1 } else { args.runs.max(1) };
     let reference = register_reference(&row.planning_ref, register);
 
     let mut rows: Vec<RunRow> = vec![];
     let mut ok: Vec<Agreement> = vec![];
-    if !pdf.exists() {
-        rows.push(error_row(
-            1,
-            format!(
-                "corpus missing: fetch with data/reference/candidates.tsv (no {})",
-                pdf.strip_prefix(root).unwrap_or(&pdf).display()
-            ),
-            0.0,
-        ));
-    } else {
-        match document::load(&pdf, cfg, false) {
-            Err(e) => rows.push(error_row(1, format!("load {}: {e:#}", pdf.display()), 0.0)),
-            Ok(doc) => {
-                for k in 1..=runs {
-                    // Page text was loaded once above; only the first model response is recorded.
-                    let mode = if replay {
-                        Mode::Replay
-                    } else if k == 1 {
-                        Mode::Record
-                    } else {
-                        Mode::Live
-                    };
-                    let (r, a) = run_once(
-                        &doc,
-                        k,
-                        model,
-                        mode,
-                        &out.join(format!("run{k}.audit.json")),
-                        client,
-                        &reference,
-                    );
-                    rows.push(r);
-                    ok.extend(a);
-                }
+    match page_text(args, &row.id, root, cfg) {
+        Err(e) => rows.push(error_row(1, format!("{e:#}"), 0.0)),
+        Ok(doc) => {
+            for k in 1..=runs {
+                // Page text was loaded once above; only the first model response is recorded.
+                let mode = if replay {
+                    Mode::Replay
+                } else if k == 1 {
+                    Mode::Record
+                } else {
+                    Mode::Live
+                };
+                let (r, a) = run_once(
+                    &doc,
+                    k,
+                    model,
+                    mode,
+                    &out.join(format!("run{k}.audit.json")),
+                    client,
+                    &reference,
+                );
+                rows.push(r);
+                ok.extend(a);
             }
         }
     }
@@ -762,7 +787,7 @@ pub fn markdown(summary: &[DeedSummary], model: &str) -> String {
                 .is_some_and(|e| e.starts_with("corpus missing"))
         })
     }) {
-        lines.insert(2, "Some deeds are missing from data/raw/eval: corpus missing: fetch with data/reference/candidates.tsv".into());
+        lines.insert(2, "Some deeds are missing from data/raw/eval: corpus missing: fetch with scripts/fetch-corpus.sh".into());
         lines.insert(3, String::new());
     }
     for d in summary {
@@ -898,41 +923,79 @@ fn read_candidates(path: &Path) -> Result<Vec<Candidate>> {
         .with_context(|| format!("read {}", path.display()))
 }
 
-pub fn run(args: &EvalArgs, repo_root: &Path) -> Result<()> {
-    let reference_dir = repo_root.join("data/reference");
-    let out = repo_root.join("data/processed/eval");
-    let mut rows = read_candidates(&reference_dir.join("candidates.tsv"))?;
+/// Evaluate every candidate; writes each run's audit and `summary.{json,md}` under `args.out`.
+pub fn evaluate_all(args: &EvalArgs, repo_root: &Path) -> Result<Vec<DeedSummary>> {
+    if args.pages.is_some() && !args.replay {
+        anyhow::bail!("--pages replays recorded responses; live extraction needs the PDFs");
+    }
+    let mut rows = read_candidates(&args.candidates)?;
     if !args.only.is_empty() {
+        let unknown: Vec<&String> = args
+            .only
+            .iter()
+            .filter(|id| !rows.iter().any(|r| &r.id == *id))
+            .collect();
+        if !unknown.is_empty() {
+            anyhow::bail!("not in {}: {unknown:?}", args.candidates.display());
+        }
         rows.retain(|r| args.only.contains(&r.id));
     }
-    let register = load_register(&reference_dir)?;
+    if rows.is_empty() {
+        anyhow::bail!("{} lists no candidates", args.candidates.display());
+    }
+    let register = load_register(&args.register)?;
     let client = if args.replay {
         None
     } else {
         Some(llm::client()?)
     };
     let cfg = Config::from_env(repo_root);
-    std::fs::create_dir_all(&out)?;
+    std::fs::create_dir_all(&args.out)?;
     let mut summary: Vec<DeedSummary> = vec![];
     for row in &rows {
         eprintln!("== {} ({} {})", row.id, row.council, row.planning_ref);
         summary.push(evaluate(
             row,
-            args.runs,
-            &args.model,
+            args,
             &register,
             client.as_ref(),
-            args.replay,
             repo_root,
             &cfg,
         )?);
         std::fs::write(
-            out.join("summary.json"),
+            args.out.join("summary.json"),
             serde_json::to_string_pretty(&summary)?,
         )?;
     }
-    let md = markdown(&summary, &args.model);
-    std::fs::write(out.join("summary.md"), &md)?;
-    println!("{md}");
+    std::fs::write(args.out.join("summary.md"), markdown(&summary, &args.model))?;
+    Ok(summary)
+}
+
+/// Deeds without every requested run completed (one run each when replaying).
+pub fn incomplete(summary: &[DeedSummary], args: &EvalArgs) -> Vec<String> {
+    let want = if args.replay { 1 } else { args.runs.max(1) };
+    summary
+        .iter()
+        .filter_map(|d| {
+            let ok = d.runs.iter().filter(|r| r.gate.is_some()).count();
+            (ok != want).then(|| format!("{} ({ok}/{want} runs)", d.id))
+        })
+        .collect()
+}
+
+/// Prints the summary; fails, after writing it, unless every deed completed every run.
+pub fn run(args: &EvalArgs, repo_root: &Path) -> Result<()> {
+    let summary = evaluate_all(args, repo_root)?;
+    println!("{}", markdown(&summary, &args.model));
+    let missing = incomplete(&summary, args);
+    if !missing.is_empty() {
+        anyhow::bail!(
+            "{} of {} deeds incomplete: {} (details in {})",
+            missing.len(),
+            summary.len(),
+            missing.join(", "),
+            args.out.join("summary.md").display()
+        );
+    }
     Ok(())
 }

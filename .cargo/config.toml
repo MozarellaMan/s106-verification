@@ -1,0 +1,4 @@
+# Shorthands for the slower test tiers (see README "Tests"). `cargo test` alone runs tiers 1-2.
+[alias]
+test-pdf = "test --release --test pdf_regression -- --ignored"
+test-corpus = "test --release --test corpus -- --ignored --nocapture"

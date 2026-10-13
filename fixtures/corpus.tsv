@@ -1,0 +1,14 @@
+# The deed corpus: every PDF the fixtures were recorded from. scripts/fetch-corpus.sh downloads
+# each into `path` and refuses a file whose SHA-256 differs. `session` is a page to visit first
+# for a cookie (Idox registers that need one); `-` when not needed.
+id	path	sha256	url	session
+southwark_s106_sample	data/raw/southwark_s106_sample.pdf	0baed481b09feeb4e515d3752439448fee7e5993103d2085116da7854cb5f85b	https://planning.southwark.gov.uk/online-applications/files/CFCAC9FF6638E1A5FE9D3B098E9E71CD/pdf/19_AP_1773-AGREEMENT_28_01_2021-1089043.pdf	https://planning.southwark.gov.uk/online-applications/applicationDetails.do?keyVal=ZZZV0MKBWR618&activeTab=documents
+salford-73971	data/raw/eval/salford-73971.pdf	13714f6b131d5d12c05a69b9468ab1b30b1c74c483b61c5c077949ddb2a35469	https://www.salford.gov.uk/media/396048/404-73971-scc-counterpart.pdf	-
+salford-75239	data/raw/eval/salford-75239.pdf	cb8bbb789eaa877f023828c990c1c2bf16d17a6ef9a1cb9107e8bf597c3230ce	https://www.salford.gov.uk/media/398738/311-315-bury-new-rd-42675239.pdf	-
+dover-1800681	data/raw/eval/dover-1800681.pdf	faec9cbf6412da9d0a94aedf9aa3f031043aa4fe2d07b2dc6c78331f12509b40	https://www.dover.gov.uk/Planning/Local-Land-Charges/Section-106-Agreements/Redacted/SEC106A383-Land-at-Former-Kumor-Nursery-and-121-Dover-Road-Redacted.pdf	-
+dover-1900403	data/raw/eval/dover-1900403.pdf	f225dd87fadc3de72a49479d9ea1119b0833d2073d1f8d34b121639172155be1	https://www.dover.gov.uk/Planning/Local-Land-Charges/Section-106-Agreements/Redacted/SEC106A384-Land-at-Woodnesborough-Lane-Eastry-Redacted.pdf	-
+sunderland-2101544	data/raw/eval/sunderland-2101544.pdf	4bfda56cd8d67fdd76571621a04678b6345e22f01db90a7b26ff35ca540a6a30	https://online-applications.sunderland.gov.uk/online-applications/files/C238B32DAD7265D8C4E3518EE17E42C3/pdf/21_01544_FU4-SECTION_106_AGREEMENT_-_REDACTED-1211808.pdf	-
+ntyneside-1901280	data/raw/eval/ntyneside-1901280.pdf	a49dbf7d138fa9d02a873ebe86ec15efae853f31e201c60d7ae00be7aa9b79d5	https://idoxpublicaccess.northtyneside.gov.uk/online-applications/files/72731AC7CC51F9EE7D568E06E60055DD/pdf/19_01280_FUL-LEGAL_AGREEMENT_SECTION_106-703483.pdf	-
+bolton-0137317	data/raw/eval/bolton-0137317.pdf	c73209d0b4baf4a4da5fc76a647261c80dac0f258d5bb0e27dc55629a32b2c11	https://paplanning.bolton.gov.uk/online-applications/files/64D78E584B6E2D3B30FD84DA658C3F69/pdf/01373_17--962032.pdf	-
+tmbc-2002239	data/raw/eval/tmbc-2002239.pdf	07f25ce0b7e59546a2e0d43978a821bd7d6498b16ccb6cc1ab9064c83c2d3ab3	https://planningapi.agileapplications.co.uk//api/application/document/TMBC/86GJTVCR6K9AYQTASLLREFYA3L8HMZ5D3RUCCVDVLXEMXYURSAJGFG42KM4R9WKDJPSFZCGUMKVQ5	-
+tmbc-2400842	data/raw/eval/tmbc-2400842.pdf	bcc3c42be41cffec41fdb9b783ee5aa5d8d0948aea760f0518443cbe51488105	https://planningapi.agileapplications.co.uk//api/application/document/TMBC/7KE68L4QWL8JFLRPLSJG92LF6735NZYCM2LXC37T2GA2X5CNKXWYG9C5R52U596Q5KMMD45DC84DX	-

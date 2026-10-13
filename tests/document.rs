@@ -107,3 +107,72 @@ fn text_layer_lines_are_used_as_they_are() {
     assert_eq!(d.pages()[&5], "1\nPlan the plan attached");
     assert_eq!(d.text_source(), "text-layer");
 }
+
+// ------------------------------------------------------------------------------- snapshots
+
+fn snapshot_of(d: &Document) -> s106::document::Snapshot {
+    let producer = s106::document::Config::from_env(std::path::Path::new(".")).producer();
+    s106::document::Snapshot {
+        format: s106::document::SNAPSHOT_FORMAT.into(),
+        source_file: "x.pdf".into(),
+        sha256: d.sha256.clone(),
+        page_count: 1,
+        ocr_version: d.ocr_version.clone(),
+        producer,
+        pages: d.pages.clone(),
+    }
+}
+
+fn speck_page() -> Document {
+    // the binding-mark speck at x=25 is dropped from matching text only while it lies in the margin
+    let mut d = doc(
+        TextSource::Ocr,
+        vec![
+            line("twelve", [277.0, 1366.0, 400.0, 1442.0]),
+            line("1", [25.0, 1366.0, 66.0, 1442.0]),
+        ],
+    );
+    d.pages[0].page = 1;
+    d
+}
+
+#[test]
+fn a_whole_document_must_have_every_page() {
+    let d = speck_page();
+    let snap = snapshot_of(&d);
+    assert!(snap.compare_document(&d).is_empty());
+    let empty = Document {
+        pages: vec![],
+        ..d.clone()
+    };
+    assert!(
+        snap.compare_pages(&empty).is_empty(),
+        "a selection of no pages has nothing to differ"
+    );
+    let diffs = snap.compare_document(&empty);
+    assert!(diffs[0].contains("snapshot has 1..=1"), "{diffs:?}");
+}
+
+#[test]
+fn a_changed_page_size_is_a_difference_because_it_changes_the_evidence_text() {
+    let d = speck_page();
+    let snap = snapshot_of(&d);
+    let mut narrow = d.clone();
+    narrow.pages[0].width = 300.0; // the speck is no longer within 6% of the left edge
+    assert_ne!(
+        d.pages()[&1],
+        narrow.pages()[&1],
+        "width changes the matching text"
+    );
+    let diffs = snap.compare_document(&narrow);
+    assert!(diffs.len() == 1 && diffs[0].contains("size"), "{diffs:?}");
+}
+
+#[test]
+fn a_moved_box_is_a_difference() {
+    let d = speck_page();
+    let snap = snapshot_of(&d);
+    let mut moved = d.clone();
+    moved.pages[0].lines[0].bbox[0] += 0.5;
+    assert_eq!(snap.compare_document(&moved).len(), 1);
+}

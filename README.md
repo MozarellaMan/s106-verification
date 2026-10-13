@@ -31,8 +31,9 @@ src/
 
 ## Setup
 
-Rust 1.85+ (edition 2024). Then fetch PDFium and the OCR models; each file is checked against a
-pinned SHA-256:
+Rust 1.85+ (edition 2024). `cargo build` and `cargo test` need nothing else: no network, PDFs,
+PDFium, ONNX Runtime or models. To read PDFs, fetch PDFium, ONNX Runtime and the OCR models;
+each file is checked against its pinned SHA-256 in `scripts/runtime-artifacts.tsv`:
 
 ```bash
 scripts/fetch-models.sh
@@ -62,9 +63,11 @@ its Sectigo intermediate certificate. If curl reports an SSL error, add the inte
 `http://crt.sectigo.com/SectigoPublicServerAuthenticationCAOVR36.crt` to a CA bundle and pass it
 with `--cacert`.
 
-The nine evaluation deeds are listed, with URLs, in `data/reference/candidates.tsv` and go in
-`data/raw/eval/<id>.pdf`. Their SHA-256s are in the recorded fixtures (`fixtures/llm/<id>/`),
-which refuse to replay against a different file.
+All ten deeds are listed with their URLs and SHA-256s in `fixtures/corpus.tsv`;
+`scripts/fetch-corpus.sh` downloads them (the nine evaluation deeds into `data/raw/eval/<id>.pdf`)
+and refuses a file with a different hash, as do the recorded fixtures (`fixtures/llm/<id>/`).
+The evaluation's candidate list and the register rows for those deeds are committed under
+`fixtures/eval/`.
 
 ## Run
 
@@ -72,7 +75,10 @@ which refuse to replay against a different file.
 s106 audit data/raw/southwark_s106_sample.pdf                      # replay if no credentials, else live
 s106 audit data/raw/southwark_s106_sample.pdf --llm-mode record    # call the API and save the fixture
 s106 audit <pdf> --escalate                                        # re-read Parser-Error fields with Opus 5.5
+s106 audit fixtures/pages/southwark_s106_sample.pages.json         # replay from committed page text, no PDF
 s106 eval --replay                                                 # all candidate deeds vs the register, offline
+s106 eval --replay --pages fixtures/pages                          # the same from committed page text, no PDFs
+s106 pages <pdf>... --check fixtures/pages                         # read PDFs afresh and compare with the snapshots
 s106 eval --runs 3                                                 # live, three runs per deed (run-to-run agreement)
 s106 bench-ocr gold/southwark_19_AP_1773.json data/raw/southwark_s106_sample.pdf --models ppocrv5-en-mobile,ppocrv4-mobile
 ```
@@ -124,23 +130,35 @@ when one line on the table's page states all of its counts.
 
 ## Reproducibility
 
-- **Page text** is cached under `data/interim/ocr/<sha256[:16]>-<ocr version>/`, keyed by
-  document content and OCR settings (renderer, model set, DPI), with a `manifest.json`. A
-  replaced PDF or changed version string gets a different cache. Local model-file changes
-  are not detected automatically; invalidate the cache when changing runtime artifacts.
+- **Page text** is cached under `data/interim/ocr/<sha256[:16]>-<ocr version>/` and committed,
+  per deed, as a snapshot in `fixtures/pages/<stem>.pages.json`. Both are keyed by the PDF's
+  SHA-256 and a hash of everything that produces the text: line-logic version, OCR settings and
+  the pinned SHA-256 of PDFium, ONNX Runtime and each model file. Changing any of them gives a new
+  key; artifact files that differ from their pins are refused; the cache manifest is validated on
+  read. Each image-only page is OCR'd on its own, so its text does not depend on other pages.
 - **Model responses** are recorded in `fixtures/llm/<stem>/<model>.extract.v2.json`, tied to the
   PDF's SHA-256 and to a hash of the prompts and schemas. A different deed or a changed prompt
   refuses to replay. v1 fixtures from the former Python harness (`fixtures/llm-v1/`) still replay.
-- **Runtime artifacts** (PDFium, OCR models) are pinned by SHA-256 in `scripts/fetch-models.sh`.
+- **Runtime artifacts** (PDFium, ONNX Runtime, OCR models) are pinned by SHA-256 in
+  `scripts/runtime-artifacts.tsv`.
 - **Determinism:** trigger labels come from the cited phrase, not the model. Plural group terms
   are dropped. Truncated structured output is retried.
 
 ## Tests
 
+Five tiers, from always-on to on-request. Details, timings and how to update the snapshots:
+[docs/testing.md](docs/testing.md).
+
 ```bash
-cargo test                                              # offline, no deeds, no credentials
-cargo test --release -- --ignored                       # also: OCR vs hand-verified gold, and the
-                                                        # frozen Python M1 results (needs the deeds)
+cargo test                      # 1 unit + 2 offline replay: no PDFs, models, credentials or network
+cargo test-pdf                  # 3 difficult pages read afresh from the PDFs, OCR gold thresholds
+cargo test-corpus               # 4 every deed read through PDFium/OCR, compared with its snapshot
+s106 eval --replay              # 4 register evaluation on the PDFs
+s106 eval --runs 3              # 5 live model calls (costs money; manual only)
 ```
 
-The ignored tests fail with "corpus missing" if the deeds aren't present; they never skip silently.
+Tiers 3 and 4 need `scripts/fetch-models.sh` and `scripts/fetch-corpus.sh`. They fail with
+"corpus missing" when deeds are absent; they never skip silently. CI runs tiers 1-2 on every push,
+3-4 weekly on a cold cache, and 5 only when started by hand (`.github/workflows/`). Only tiers
+1-2 gate pull requests; the weekly job skips the PDF tiers with a warning when the council sites
+it downloads from are unreachable.
