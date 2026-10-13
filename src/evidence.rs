@@ -1,6 +1,5 @@
 //! Re-locating a cited snippet in the page text, robust to OCR (dropped spaces, two-column
 //! interleaving at line wraps, a few garbled plain words) without accepting changed numbers.
-//! Port of `evidence_found` / `_layout_match` from the former `s106-audit/verifier.py`.
 
 use std::collections::{BTreeMap, HashSet};
 use std::sync::LazyLock;
@@ -24,31 +23,63 @@ pub type Pages = BTreeMap<usize, String>;
 const MAX_GAP: usize = 40;
 /// Shorter snippets must match contiguously.
 const MIN_TOKENS: usize = 4;
-/// Share of plain words OCR may have garbled ("fifty" -> "fty").
+/// Share of non-number words OCR may have garbled ("the" -> "thie").
 const MAX_SKIP_SHARE: f64 = 0.1;
 
 static TOKEN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[a-z]+|[0-9]+(?:[.,][0-9]+)*").unwrap());
 
-/// Words and numbers; '£12,650.00' -> '1265000', the same digits squash() keeps.
+/// Words and numbers; ignore grouping commas, but preserve decimal points.
 fn tokens(s: &str) -> Vec<String> {
     TOKEN
         .find_iter(&s.to_lowercase())
-        .map(|m| {
-            m.as_str()
-                .chars()
-                .filter(|c| !matches!(c, '.' | ','))
-                .collect()
+        .map(|m| m.as_str().chars().filter(|c| *c != ',').collect())
+        .collect()
+}
+
+fn is_numeric_token(tok: &str) -> bool {
+    tok.bytes().any(|b| b.is_ascii_digit()) && tok.bytes().all(|b| b.is_ascii_digit() || b == b'.')
+}
+
+// Whitespace and currency punctuation may vary in OCR; decimal position may not.
+// Used by both matching paths so the contiguous shortcut cannot weaken the fallback.
+fn matching_char(chars: &[char], i: usize) -> bool {
+    chars[i].is_ascii_alphanumeric()
+        || (chars[i] == '.'
+            && i > 0
+            && chars[i - 1].is_ascii_digit()
+            && chars.get(i + 1).is_some_and(char::is_ascii_digit))
+        // Keep one separator between numeric runs. Otherwise "1.1.1. 50%" becomes
+        // one number and the digit-boundary check rejects the valid 50% citation.
+        || (chars[i].is_ascii_whitespace()
+            && chars.get(i + 1).is_some_and(char::is_ascii_digit)
+            && chars[..i]
+                .iter()
+                .rev()
+                .find(|c| !c.is_ascii_whitespace())
+                .is_some_and(|c| c.is_ascii_digit() || *c == '.'))
+}
+
+fn matching_text(text: &str) -> String {
+    let chars: Vec<char> = text.to_lowercase().chars().collect();
+    (0..chars.len())
+        .filter(|&i| matching_char(&chars, i))
+        .map(|i| {
+            if chars[i].is_ascii_whitespace() {
+                ' '
+            } else {
+                chars[i]
+            }
         })
         .collect()
 }
 
-fn is_digits(tok: &str) -> bool {
-    !tok.is_empty() && tok.bytes().all(|b| b.is_ascii_digit())
+fn numeric_char(b: u8) -> bool {
+    b.is_ascii_digit() || b == b'.'
 }
 
 fn is_number(tok: &str) -> bool {
-    is_digits(tok) || NUMBER_WORDS.contains(&tok)
+    is_numeric_token(tok) || NUMBER_WORDS.contains(&tok)
 }
 
 // "one", "two", "ten" also sit inside common words (network, maintenance), so they
@@ -82,7 +113,7 @@ struct Layout<'a> {
     raw: Vec<char>,
     /// Char index in `raw` of each char of `hay`.
     idx: Vec<usize>,
-    /// == squash(page)
+    /// Normalised page bytes, retaining decimal points.
     hay: Vec<u8>,
     tokens: &'a [String],
     max_skips: usize,
@@ -109,15 +140,15 @@ impl Layout<'_> {
     fn occurrences(&self, tok: &str, lo: usize, hi: usize) -> Vec<(usize, usize)> {
         let t = tok.as_bytes();
         let hi = hi.min(self.hay.len());
-        let digits = is_digits(tok);
+        let digits = is_numeric_token(tok);
         let mut out = Vec::new();
         let mut i = lo;
         while i + t.len() <= hi {
             if &self.hay[i..i + t.len()] == t {
                 let end = i + t.len();
                 if !digits
-                    || ((i == 0 || !self.hay[i - 1].is_ascii_digit())
-                        && (end == self.hay.len() || !self.hay[end].is_ascii_digit()))
+                    || ((i == 0 || !numeric_char(self.hay[i - 1]))
+                        && (end == self.hay.len() || !numeric_char(self.hay[end])))
                 {
                     out.push((i, end));
                 }
@@ -170,10 +201,17 @@ impl Layout<'_> {
 
 fn layout_match(tokens: &[String], page: &str) -> bool {
     let raw: Vec<char> = page.to_lowercase().chars().collect();
-    let idx: Vec<usize> = (0..raw.len())
-        .filter(|&i| raw[i].is_ascii_alphanumeric())
+    let idx: Vec<usize> = (0..raw.len()).filter(|&i| matching_char(&raw, i)).collect();
+    let hay: Vec<u8> = idx
+        .iter()
+        .map(|&i| {
+            if raw[i].is_ascii_whitespace() {
+                b' '
+            } else {
+                raw[i] as u8
+            }
+        })
         .collect();
-    let hay: Vec<u8> = idx.iter().map(|&i| raw[i] as u8).collect();
     let plain = tokens.iter().filter(|t| !is_number(t)).count();
     let mut layout = Layout {
         raw,
@@ -192,12 +230,22 @@ pub fn evidence_found(ev: Option<&Evidence>, pages: &Pages) -> bool {
     let Some(page) = pages.get(&ev.page) else {
         return false;
     };
-    let needle = squash(&ev.snippet);
+    let needle = matching_text(&ev.snippet);
     if needle.is_empty() {
         return false;
     }
     let page = ocr_digits(page);
-    if squash(&page).contains(&needle) {
+    let hay = matching_text(&page);
+    if hay.match_indices(&needle).any(|(start, _)| {
+        let end = start + needle.len();
+        let left_ok = !needle.as_bytes()[0].is_ascii_digit()
+            || start == 0
+            || !numeric_char(hay.as_bytes()[start - 1]);
+        let right_ok = !needle.as_bytes()[needle.len() - 1].is_ascii_digit()
+            || end == hay.len()
+            || !numeric_char(hay.as_bytes()[end]);
+        left_ok && right_ok
+    }) {
         return true;
     }
     let tokens = tokens(&ev.snippet);

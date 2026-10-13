@@ -249,6 +249,16 @@ pub struct Amount {
     pub evidence: Option<Evidence>,
 }
 
+impl Amount {
+    /// A contribution total, excluding rates and formula parameters.
+    pub fn stated_sum_gbp(&self) -> Option<Decimal> {
+        match self.structure {
+            AmountStructure::Fixed | AmountStructure::Cap => self.value_gbp,
+            AmountStructure::Formula | AmountStructure::Rate | AmountStructure::None => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ConditionalityKind {
@@ -350,7 +360,7 @@ impl Agreement {
     pub fn total_stated_gbp(&self) -> Decimal {
         self.contributions
             .iter()
-            .filter_map(|c| c.amount.value_gbp)
+            .filter_map(|c| c.amount.stated_sum_gbp())
             .sum()
     }
 }

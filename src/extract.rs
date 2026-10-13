@@ -94,6 +94,25 @@ pub struct Info {
     pub fixture: PathBuf,
 }
 
+impl Info {
+    /// Include recorded usage in replay reports without suggesting a new API charge.
+    pub fn usage_note(&self) -> Option<String> {
+        let usage = self.usage.as_ref()?;
+        let recorded = if self.source == "live" {
+            ""
+        } else {
+            " when recorded"
+        };
+        Some(format!(
+            "{}: {} in / {} out tokens, ~${:.3}{recorded}",
+            self.source,
+            usage.input_tokens,
+            usage.output_tokens,
+            llm::cost_usd(&self.model, usage),
+        ))
+    }
+}
+
 pub fn fixtures_root() -> PathBuf {
     std::env::var_os("S106_FIXTURES")
         .map(PathBuf::from)
@@ -161,26 +180,26 @@ fn answer(
         }
         let client = client.context("live extraction needs Anthropic credentials")?;
         let pdf = std::fs::read(&doc.path)?;
-        // Three calls over the same (cached) PDF: one schema for everything compiles to a grammar
+        // Three calls over the same PDF: one schema for everything compiles to a grammar
         // the API rejects as too large (see wire.rs).
         let call = |prompt: String, schema: Value| {
             llm::extract(client, model, &pdf, &prompt, &schema, ExtractEffort::Medium)
         };
         let i = call(prompt_instrument(), llm::schema_for::<WireInstrumentPart>())?;
-        let h = call(prompt_housing(), llm::schema_for::<WireHousingPart>())?;
-        let c = call(
+        let mut h = call(prompt_housing(), llm::schema_for::<WireHousingPart>())?;
+        let mut c = call(
             prompt_contributions(),
             llm::schema_for::<WireContributionsPart>(),
         )?;
-        let mut output = i.output.clone();
-        output["housing"] = h.output["housing"].clone();
-        output["contributions"] = c.output["contributions"].clone();
-        let mut usage = i.usage.clone();
+        let mut output = i.output;
+        output["housing"] = h.output["housing"].take();
+        output["contributions"] = c.output["contributions"].take();
+        let mut usage = i.usage;
         usage.add(&h.usage);
         usage.add(&c.usage);
         let r = llm::Response {
             output,
-            served_by: i.served_by.clone(),
+            served_by: i.served_by,
             usage,
         };
         if mode == Mode::Record {
@@ -274,7 +293,7 @@ pub fn to_agreement(
     let mut warnings = vec![];
     let (instrument, metadata, housing, contributions, variations) = if info.source == "replay-v1" {
         let w: WireExtractionV1 =
-            serde_json::from_value(output.clone()).context("v1 fixture output")?;
+            serde_path_to_error::deserialize(output).context("v1 fixture output")?;
         warnings.push(
             "v1 fixture: instrument, metadata, conditions and instalments were not extracted"
                 .into(),
@@ -293,7 +312,7 @@ pub fn to_agreement(
             vec![],
         )
     } else {
-        let w: WireExtraction = serde_json::from_value(output.clone())
+        let w: WireExtraction = serde_path_to_error::deserialize(output)
             .context("fixture output does not match the v2 wire schema")?;
         let groups: Vec<&str> = w
             .contributions
