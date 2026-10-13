@@ -590,8 +590,11 @@ def run_llm_pdf(pdf_path: Path, page_numbers: list[int], prompt: str, model: str
                 print(f"  {model}: live call, {len(page_numbers)} pages as a PDF document block", file=sys.stderr)
             out, usage, served_by = _call_claude(client, model, pdf_subset_b64(pdf_path, page_numbers), prompt, effort)
         except TypeError as e:  # the SDK raises this when no API key / token / profile resolves
-            if mode != "auto" or "authentication" not in str(e):
+            if "authentication" not in str(e):
                 raise
+            if mode != "auto":
+                raise SystemExit(f"--llm-mode {mode} needs Anthropic credentials: set ANTHROPIC_API_KEY in the same "
+                                 "command, or run `ant auth login`") from None
             if verbose:
                 print(f"  {model}: no Anthropic credentials, replaying {fx.name}", file=sys.stderr)
         else:
