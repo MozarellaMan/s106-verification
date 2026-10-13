@@ -1,0 +1,72 @@
+{
+  "model": "claude-haiku-5-5",
+  "served_by": "claude-haiku-5-5",
+  "kind": "extract",
+  "provenance": "live",
+  "pdf_sha256": "faec9cbf6412da9d0a94aedf9aa3f031043aa4fe2d07b2dc6c78331f12509b40",
+  "pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "usage": {
+    "input_tokens": 24046,
+    "output_tokens": 1804,
+    "attempts": 1
+  },
+  "output": {
+    "housing": {
+      "total_units": null,
+      "total_units_evidence": {
+        "page": 0,
+        "snippet": ""
+      },
+      "market_units": null,
+      "market_units_evidence": {
+        "page": 0,
+        "snippet": ""
+      },
+      "affordable_units": 17,
+      "affordable_units_evidence": {
+        "page": 5,
+        "snippet": "comprising 17 Dwellings which shall be constructed for Affordable Housing in accordance with the approved Affordable Housing Scheme"
+      },
+      "affordable_habitable_rooms": null,
+      "total_habitable_rooms": null,
+      "tenures": [
+        {
+          "tenure": "Shared Ownership",
+          "units": 5,
+          "habitable_rooms": null,
+          "evidence": {
+            "page": 5,
+            "snippet": "30% (5 Dwellings) of which shall be Shared Ownership Housing"
+          }
+        }
+      ],
+      "mix_table": {
+        "rows": [],
+        "subtotals": [],
+        "total_units": null,
+        "total_habitable_rooms": null,
+        "evidence": {
+          "page": 0,
+          "snippet": ""
+        }
+      },
+      "claimed_affordable_pct": null,
+      "claimed_affordable_basis": null,
+      "claimed_affordable_evidence": {
+        "page": 0,
+        "snippet": ""
+      }
+    },
+    "contributions": []
+  }
+}

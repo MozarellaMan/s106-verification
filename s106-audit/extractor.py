@@ -10,6 +10,7 @@ Two backends fill the same Pydantic schema:
 from __future__ import annotations
 
 import re
+import threading
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -472,16 +473,23 @@ cite the trigger phrase (e.g. "within 20 Working Days of", "on or before Impleme
 ALL_CONTRIBUTIONS = 'every defined term whose name ends in "Contribution", plus the "Administration Cost"'
 
 
-def llm_pdf_pages(pages: dict[int, str]) -> list[int]:
-    """Deed pages to send: the definitions, plus later pages that impose payment or hold the mix table.
+FULL_DEED_PAGES = 60  # shorter deeds go whole: cheap, and no layout-specific page selection to get wrong
 
-    Chosen from the OCR text, which keeps the request around 40 of 109 pages.
+
+def llm_pdf_pages(pages: dict[int, str]) -> list[int]:
+    """Deed pages to send: all of a short deed; otherwise the definitions plus later pages that
+    impose payment or hold the mix table (chosen from the OCR text: 42 of 109 pages for Southwark).
     """
+    if len(pages) <= FULL_DEED_PAGES:
+        return sorted(pages)
     def_pages, _ = locate_sections(pages)
     later = [n for n, t in pages.items() if n > def_pages[-1] and (
         (re.search(fuzzy("Contribution") + "|" + fuzzy("Administration Cost"), t, re.I) and PAY_RE.search(t))
         or re.search(fuzzy("Affordable Housing Mix"), t, re.I))]
     return def_pages + later
+
+
+_PDFIUM_LOCK = threading.Lock()  # PDFium is not thread-safe; concurrent use corrupts its global state
 
 
 def pdf_subset_b64(pdf_path: Path, page_numbers: list[int]) -> str:
@@ -490,11 +498,16 @@ def pdf_subset_b64(pdf_path: Path, page_numbers: list[int]) -> str:
 
     import pypdfium2 as pdfium
 
-    src = pdfium.PdfDocument(str(pdf_path))
-    dst = pdfium.PdfDocument.new()
-    dst.import_pages(src, [n - 1 for n in page_numbers])
-    buf = io.BytesIO()
-    dst.save(buf)
+    with _PDFIUM_LOCK:
+        src = pdfium.PdfDocument(str(pdf_path))
+        dst = pdfium.PdfDocument.new()
+        try:
+            dst.import_pages(src, [n - 1 for n in page_numbers])
+            buf = io.BytesIO()
+            dst.save(buf)
+        finally:
+            dst.close()
+            src.close()
     return base64.standard_b64encode(buf.getvalue()).decode("ascii")
 
 
