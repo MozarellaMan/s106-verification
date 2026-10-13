@@ -23,8 +23,8 @@ use serde::Serialize;
 
 use crate::evidence::{Pages, evidence_found};
 use crate::schema::{
-    Agreement, AffordableBasis, AmountStructure, ConditionalityKind, Contribution, Evidence, Instalment, Tenure,
-    Variation,
+    AffordableBasis, Agreement, AmountStructure, ConditionalityKind, Contribution, Evidence,
+    Instalment, Tenure, Variation,
 };
 use crate::text::{Value, ocr_digits, squash, value_in_snippet, words_to_amount};
 use crate::triggers::{classify, classify_cited, imposes_payment};
@@ -74,7 +74,11 @@ pub struct Input {
 // --------------------------------------------------------------------------- helpers
 
 fn input(label: impl Into<String>, value: Option<Value>, evidence: Option<&Evidence>) -> Input {
-    Input { label: label.into(), value, evidence: evidence.cloned() }
+    Input {
+        label: label.into(),
+        value,
+        evidence: evidence.cloned(),
+    }
 }
 
 fn unum(v: Option<u32>) -> Option<Value> {
@@ -82,7 +86,12 @@ fn unum(v: Option<u32>) -> Option<Value> {
 }
 
 fn page_list<'a>(evs: impl IntoIterator<Item = Option<&'a Evidence>>) -> Vec<usize> {
-    evs.into_iter().flatten().map(|e| e.page).collect::<BTreeSet<_>>().into_iter().collect()
+    evs.into_iter()
+        .flatten()
+        .map(|e| e.page)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -113,7 +122,16 @@ fn skip(id: &str, desc: &str, detail: &str, pages: Vec<usize>) -> CheckResult {
 }
 
 fn parser_fail(id: &str, desc: &str, detail: &str, pages: Vec<usize>) -> CheckResult {
-    result(id, desc, Status::Fail, None, None, Some(ErrorClass::ParserError), detail, pages)
+    result(
+        id,
+        desc,
+        Status::Fail,
+        None,
+        None,
+        Some(ErrorClass::ParserError),
+        detail,
+        pages,
+    )
 }
 
 /// Python's `f"{x:,.2f}"` for pounds: 10058.6 -> "£10,058.60".
@@ -129,7 +147,14 @@ fn gbp(d: Decimal) -> String {
         }
         grouped.push(ch);
     }
-    format!("{}£{grouped}.{frac}", if r.is_sign_negative() && !r.is_zero() { "-" } else { "" })
+    format!(
+        "{}£{grouped}.{frac}",
+        if r.is_sign_negative() && !r.is_zero() {
+            "-"
+        } else {
+            ""
+        }
+    )
 }
 
 fn basis_name(b: AffordableBasis) -> &'static str {
@@ -155,10 +180,16 @@ pub fn grounding_problem(input: &Input, pages: &Pages) -> Option<String> {
         return Some(format!("{}: not extracted", input.label));
     };
     if !value_in_snippet(value, &ev.snippet) {
-        return Some(format!("{}: {} not stated in its cited snippet", input.label, value));
+        return Some(format!(
+            "{}: {} not stated in its cited snippet",
+            input.label, value
+        ));
     }
     if !evidence_found(Some(ev), pages) {
-        return Some(format!("{}: cited snippet not re-locatable on p{}", input.label, ev.page));
+        return Some(format!(
+            "{}: cited snippet not re-locatable on p{}",
+            input.label, ev.page
+        ));
     }
     None
 }
@@ -176,7 +207,11 @@ pub fn resolve(
     extra_problems: &[String],
 ) -> CheckResult {
     let pg = page_list(inputs.iter().map(|i| i.evidence.as_ref()));
-    let missing: Vec<&str> = inputs.iter().filter(|i| i.value.is_none()).map(|i| i.label.as_str()).collect();
+    let missing: Vec<&str> = inputs
+        .iter()
+        .filter(|i| i.value.is_none())
+        .map(|i| i.label.as_str())
+        .collect();
     if !missing.is_empty() {
         return result(
             check_id,
@@ -189,11 +224,23 @@ pub fn resolve(
             pg,
         );
     }
-    let mut problems: Vec<String> = inputs.iter().filter_map(|i| grounding_problem(i, pages)).collect();
+    let mut problems: Vec<String> = inputs
+        .iter()
+        .filter_map(|i| grounding_problem(i, pages))
+        .collect();
     problems.extend(extra_problems.iter().cloned());
     if holds {
         if problems.is_empty() {
-            return result(check_id, description, Status::Pass, expected, actual, None, "", pg);
+            return result(
+                check_id,
+                description,
+                Status::Pass,
+                expected,
+                actual,
+                None,
+                "",
+                pg,
+            );
         }
         return result(
             check_id,
@@ -235,11 +282,26 @@ pub fn resolve(
 
 pub fn check_unit_consistency(a: &Agreement, pages: &Pages) -> CheckResult {
     let h = &a.housing;
-    let (cid, desc) = ("H1", "Market units + affordable units == total residential units");
+    let (cid, desc) = (
+        "H1",
+        "Market units + affordable units == total residential units",
+    );
     let inputs = [
-        input("total units", unum(h.total_units), h.total_units_evidence.as_ref()),
-        input("market units", unum(h.market_units), h.market_units_evidence.as_ref()),
-        input("affordable units", unum(h.affordable_units), h.affordable_units_evidence.as_ref()),
+        input(
+            "total units",
+            unum(h.total_units),
+            h.total_units_evidence.as_ref(),
+        ),
+        input(
+            "market units",
+            unum(h.market_units),
+            h.market_units_evidence.as_ref(),
+        ),
+        input(
+            "affordable units",
+            unum(h.affordable_units),
+            h.affordable_units_evidence.as_ref(),
+        ),
     ];
     if a.instrument.kind.is_variation() {
         return skip(cid, desc, VARIATION_SKIP, vec![]);
@@ -258,8 +320,23 @@ pub fn check_unit_consistency(a: &Agreement, pages: &Pages) -> CheckResult {
     };
     let holds = matches!((h.total_units, sum), (Some(t), Some(s)) if u64::from(t) == s)
         && h.market_units.is_some();
-    let actual = sum.map(|s| format!("{} + {} = {s}", h.market_units.unwrap_or(0), h.affordable_units.unwrap_or(0)));
-    resolve(cid, desc, holds, &inputs, pages, h.total_units.map(|t| t.to_string()), actual, &[])
+    let actual = sum.map(|s| {
+        format!(
+            "{} + {} = {s}",
+            h.market_units.unwrap_or(0),
+            h.affordable_units.unwrap_or(0)
+        )
+    });
+    resolve(
+        cid,
+        desc,
+        holds,
+        &inputs,
+        pages,
+        h.total_units.map(|t| t.to_string()),
+        actual,
+        &[],
+    )
 }
 
 pub fn check_tenure_units(a: &Agreement, pages: &Pages) -> CheckResult {
@@ -271,14 +348,26 @@ pub fn check_tenure_units(a: &Agreement, pages: &Pages) -> CheckResult {
     if h.tenures.is_empty() {
         return parser_fail(cid, desc, "no tenure breakdown extracted", vec![]);
     }
-    let mut inputs = vec![input("affordable units", unum(h.affordable_units), h.affordable_units_evidence.as_ref())];
-    inputs.extend(
-        h.tenures.iter().map(|t| input(format!("{} units", t.tenure.label()), unum(t.units), t.evidence.as_ref())),
-    );
+    let mut inputs = vec![input(
+        "affordable units",
+        unum(h.affordable_units),
+        h.affordable_units_evidence.as_ref(),
+    )];
+    inputs.extend(h.tenures.iter().map(|t| {
+        input(
+            format!("{} units", t.tenure.label()),
+            unum(t.units),
+            t.evidence.as_ref(),
+        )
+    }));
     if inputs.iter().any(|i| i.value.is_none()) {
         return resolve(cid, desc, false, &inputs, pages, None, None, &[]);
     }
-    let got: u64 = h.tenures.iter().map(|t| u64::from(t.units.unwrap_or(0))).sum();
+    let got: u64 = h
+        .tenures
+        .iter()
+        .map(|t| u64::from(t.units.unwrap_or(0)))
+        .sum();
     let breakdown = h
         .tenures
         .iter()
@@ -299,11 +388,16 @@ pub fn check_tenure_units(a: &Agreement, pages: &Pages) -> CheckResult {
 
 pub fn check_tenure_rooms(a: &Agreement, pages: &Pages) -> CheckResult {
     let h = &a.housing;
-    let (cid, desc) = ("H3", "Sum of tenure habitable rooms == affordable habitable rooms");
+    let (cid, desc) = (
+        "H3",
+        "Sum of tenure habitable rooms == affordable habitable rooms",
+    );
     if a.instrument.kind.is_variation() {
         return skip(cid, desc, VARIATION_SKIP, vec![]);
     }
-    if h.affordable_habitable_rooms.is_none() || !h.tenures.iter().any(|t| t.habitable_rooms.unwrap_or(0) > 0) {
+    if h.affordable_habitable_rooms.is_none()
+        || !h.tenures.iter().any(|t| t.habitable_rooms.unwrap_or(0) > 0)
+    {
         return skip(cid, desc, "habitable-room breakdown not stated", vec![]);
     }
     let mut inputs = vec![input(
@@ -312,12 +406,20 @@ pub fn check_tenure_rooms(a: &Agreement, pages: &Pages) -> CheckResult {
         h.affordable_units_evidence.as_ref(),
     )];
     inputs.extend(h.tenures.iter().map(|t| {
-        input(format!("{} habitable rooms", t.tenure.label()), unum(t.habitable_rooms), t.evidence.as_ref())
+        input(
+            format!("{} habitable rooms", t.tenure.label()),
+            unum(t.habitable_rooms),
+            t.evidence.as_ref(),
+        )
     }));
     if inputs.iter().any(|i| i.value.is_none()) {
         return resolve(cid, desc, false, &inputs, pages, None, None, &[]);
     }
-    let got: u64 = h.tenures.iter().map(|t| u64::from(t.habitable_rooms.unwrap_or(0))).sum();
+    let got: u64 = h
+        .tenures
+        .iter()
+        .map(|t| u64::from(t.habitable_rooms.unwrap_or(0)))
+        .sum();
     let breakdown = h
         .tenures
         .iter()
@@ -350,16 +452,32 @@ pub fn check_claimed_pct(a: &Agreement, pages: &Pages) -> CheckResult {
     let Some(pct) = h.claimed_affordable_pct else {
         return skip(cid, &desc, "no affordable % stated in the deed", vec![]);
     };
-    let claimed = input("claimed %", Some(Value::Num(pct)), h.claimed_affordable_evidence.as_ref());
+    let claimed = input(
+        "claimed %",
+        Some(Value::Num(pct)),
+        h.claimed_affordable_evidence.as_ref(),
+    );
     let (num, den) = match basis {
         Some(AffordableBasis::HabitableRooms) => (
-            input("affordable habitable rooms", unum(h.affordable_habitable_rooms), h.affordable_units_evidence.as_ref()),
+            input(
+                "affordable habitable rooms",
+                unum(h.affordable_habitable_rooms),
+                h.affordable_units_evidence.as_ref(),
+            ),
             // the schema carries no evidence for a scheme-wide habitable-room total
             input("total habitable rooms", unum(h.total_habitable_rooms), None),
         ),
         Some(AffordableBasis::Units) => (
-            input("affordable units", unum(h.affordable_units), h.affordable_units_evidence.as_ref()),
-            input("total units", unum(h.total_units), h.total_units_evidence.as_ref()),
+            input(
+                "affordable units",
+                unum(h.affordable_units),
+                h.affordable_units_evidence.as_ref(),
+            ),
+            input(
+                "total units",
+                unum(h.total_units),
+                h.total_units_evidence.as_ref(),
+            ),
         ),
         _ => {
             // Never fall back to units: a floorspace or unstated basis compared by units would be
@@ -385,7 +503,10 @@ pub fn check_claimed_pct(a: &Agreement, pages: &Pages) -> CheckResult {
         Some(Value::Num(d)) => Some(*d),
         _ => None,
     };
-    let (num_d, den_d) = (as_dec(&num.value), as_dec(&den.value).filter(|d| !d.is_zero()));
+    let (num_d, den_d) = (
+        as_dec(&num.value),
+        as_dec(&den.value).filter(|d| !d.is_zero()),
+    );
     if basis == Some(AffordableBasis::HabitableRooms) && num_d.is_some() && den_d.is_none() {
         // Deeds commonly quote the % by habitable room without the scheme-wide room count;
         // the check can't be closed from the deed alone. Report the implied denominator instead.
@@ -393,7 +514,8 @@ pub fn check_claimed_pct(a: &Agreement, pages: &Pages) -> CheckResult {
         let implied = if pct.is_zero() {
             "implied total not computable".to_string()
         } else {
-            let mut v = (n * Decimal::from(100) / pct).round_dp_with_strategy(1, RoundingStrategy::MidpointNearestEven);
+            let mut v = (n * Decimal::from(100) / pct)
+                .round_dp_with_strategy(1, RoundingStrategy::MidpointNearestEven);
             v.rescale(1);
             format!("implied total = {n}/{pct}% = {v} rooms (confirm against the approved plans)")
         };
@@ -409,9 +531,19 @@ pub fn check_claimed_pct(a: &Agreement, pages: &Pages) -> CheckResult {
         );
     }
     let (Some(n), Some(d)) = (num_d, den_d) else {
-        return resolve(cid, &desc, false, &[claimed, num, den], pages, Some(format!("{pct}%")), None, &[]);
+        return resolve(
+            cid,
+            &desc,
+            false,
+            &[claimed, num, den],
+            pages,
+            Some(format!("{pct}%")),
+            None,
+            &[],
+        );
     };
-    let mut calc = (n * Decimal::from(100) / d).round_dp_with_strategy(2, RoundingStrategy::MidpointAwayFromZero);
+    let mut calc = (n * Decimal::from(100) / d)
+        .round_dp_with_strategy(2, RoundingStrategy::MidpointAwayFromZero);
     calc.rescale(2);
     let diff = (calc - pct).abs();
     let mut r = resolve(
@@ -432,8 +564,9 @@ pub fn check_claimed_pct(a: &Agreement, pages: &Pages) -> CheckResult {
 
 // --------------------------------------------------------------------------- mix table
 
-static NUMBER: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?").expect("valid regex"));
+static NUMBER: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?").expect("valid regex")
+});
 
 fn counts_of(nums: impl IntoIterator<Item = Decimal>) -> BTreeMap<Decimal, usize> {
     let mut m = BTreeMap::new();
@@ -453,12 +586,17 @@ fn row_on_page(counts: &[u32], page: Option<&String>) -> bool {
                 .find_iter(&ocr_digits(ln))
                 .filter_map(|m| Decimal::from_str(&m.as_str().replace(',', "")).ok()),
         );
-        want.iter().all(|(k, v)| have.get(k).copied().unwrap_or(0) >= *v)
+        want.iter()
+            .all(|(k, v)| have.get(k).copied().unwrap_or(0) >= *v)
     })
 }
 
 fn cell(row: &crate::schema::MixRow, ten: Tenure) -> u32 {
-    row.units_by_tenure.iter().filter(|(t, _)| *t == ten).map(|(_, n)| *n).sum()
+    row.units_by_tenure
+        .iter()
+        .filter(|(t, _)| *t == ten)
+        .map(|(_, n)| *n)
+        .sum()
 }
 
 /// Schedule mix table is an independent restatement of the tenure counts: cross-check it.
@@ -468,10 +606,18 @@ fn cell(row: &crate::schema::MixRow, ten: Tenure) -> u32 {
 pub fn check_mix_table(a: &Agreement, pages: &Pages) -> Vec<CheckResult> {
     let h = &a.housing;
     let Some(t) = h.mix_table.as_ref() else {
-        return vec![skip("H5", "Approved mix table: rows sum to subtotals", "no mix table found", vec![])];
+        return vec![skip(
+            "H5",
+            "Approved mix table: rows sum to subtotals",
+            "no mix table found",
+            vec![],
+        )];
     };
     let page = t.evidence.as_ref().and_then(|e| pages.get(&e.page));
-    let where_ = t.evidence.as_ref().map_or("?".to_string(), |e| e.page.to_string());
+    let where_ = t
+        .evidence
+        .as_ref()
+        .map_or("?".to_string(), |e| e.page.to_string());
     let row_problems: Vec<String> = t
         .rows
         .iter()
@@ -492,7 +638,12 @@ pub fn check_mix_table(a: &Agreement, pages: &Pages) -> Vec<CheckResult> {
     let both: Vec<String> = row_problems.iter().chain(&sub_problem).cloned().collect();
     for (ten, sub) in &t.subtotals {
         let col: u32 = t.rows.iter().map(|r| cell(r, *ten)).sum();
-        let parts = t.rows.iter().map(|r| cell(r, *ten).to_string()).collect::<Vec<_>>().join(" + ");
+        let parts = t
+            .rows
+            .iter()
+            .map(|r| cell(r, *ten).to_string())
+            .collect::<Vec<_>>()
+            .join(" + ");
         out.push(resolve(
             "H5",
             &format!("Mix table: Σ {} rows == sub-total", ten.label()),
@@ -518,12 +669,18 @@ pub fn check_mix_table(a: &Agreement, pages: &Pages) -> Vec<CheckResult> {
         ));
     }
     for alloc in &h.tenures {
-        let Some((_, sub)) = t.subtotals.iter().find(|(ten, _)| *ten == alloc.tenure) else { continue };
+        let Some((_, sub)) = t.subtotals.iter().find(|(ten, _)| *ten == alloc.tenure) else {
+            continue;
+        };
         out.push(resolve(
             "H6",
             &format!("Definitions vs mix table: {} units", alloc.tenure.label()),
             alloc.units == Some(*sub),
-            &[input(format!("{} units", alloc.tenure.label()), unum(alloc.units), alloc.evidence.as_ref())],
+            &[input(
+                format!("{} units", alloc.tenure.label()),
+                unum(alloc.units),
+                alloc.evidence.as_ref(),
+            )],
             pages,
             Some(format!("{sub} (schedule)")),
             Some(format!("{} (definition)", opt_str(alloc.units))),
@@ -532,16 +689,30 @@ pub fn check_mix_table(a: &Agreement, pages: &Pages) -> Vec<CheckResult> {
     }
     for (label, defn, tbl) in [
         ("units", h.affordable_units, t.total_units),
-        ("habitable rooms", h.affordable_habitable_rooms, t.total_habitable_rooms),
+        (
+            "habitable rooms",
+            h.affordable_habitable_rooms,
+            t.total_habitable_rooms,
+        ),
     ] {
-        let (Some(defn), Some(tbl)) = (defn, tbl) else { continue };
+        let (Some(defn), Some(tbl)) = (defn, tbl) else {
+            continue;
+        };
         out.push(resolve(
             "H6",
             &format!("Definitions vs mix table: affordable {label}"),
             defn == tbl,
             &[
-                input(format!("affordable {label} (definition)"), Some(Value::from(defn)), h.affordable_units_evidence.as_ref()),
-                input(format!("affordable {label} (table)"), Some(Value::from(tbl)), t.evidence.as_ref()),
+                input(
+                    format!("affordable {label} (definition)"),
+                    Some(Value::from(defn)),
+                    h.affordable_units_evidence.as_ref(),
+                ),
+                input(
+                    format!("affordable {label} (table)"),
+                    Some(Value::from(tbl)),
+                    t.evidence.as_ref(),
+                ),
             ],
             pages,
             Some(format!("{tbl} (schedule)")),
@@ -556,16 +727,33 @@ pub fn check_mix_table(a: &Agreement, pages: &Pages) -> Vec<CheckResult> {
 
 /// V1: a variation or supplemental deed cites the instrument it varies, and that citation is in the deed.
 pub fn check_instrument(a: &Agreement, pages: &Pages) -> CheckResult {
-    let (cid, desc) = ("V1", "Variation/supplemental deed identifies its parent instrument");
+    let (cid, desc) = (
+        "V1",
+        "Variation/supplemental deed identifies its parent instrument",
+    );
     if !a.instrument.kind.is_variation() {
         return skip(cid, desc, "not a variation or supplemental deed", vec![]);
     }
     let Some(parent) = a.instrument.parent.as_ref() else {
-        return parser_fail(cid, desc, "no parent instrument cited", page_list([a.instrument.evidence.as_ref()]));
+        return parser_fail(
+            cid,
+            desc,
+            "no parent instrument cited",
+            page_list([a.instrument.evidence.as_ref()]),
+        );
     };
     let pg = page_list([parent.evidence.as_ref()]);
     if evidence_found(parent.evidence.as_ref(), pages) {
-        return result(cid, desc, Status::Pass, None, Some(parent.description.clone()), None, "", pg);
+        return result(
+            cid,
+            desc,
+            Status::Pass,
+            None,
+            Some(parent.description.clone()),
+            None,
+            "",
+            pg,
+        );
     }
     let why = match parent.evidence.as_ref() {
         None => "no evidence cited for the parent instrument".to_string(),
@@ -585,8 +773,9 @@ pub fn check_instrument(a: &Agreement, pages: &Pages) -> CheckResult {
 
 /// The quoted term inside a target like `definition "Affordable Housing Units"`, if any.
 fn quoted_term(target: &str) -> Option<String> {
-    static QUOTED: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new("[\"\u{201c}\u{201d}\u{2018}\u{2019}']([^\"\u{201c}\u{201d}\u{2018}\u{2019}']+)[\"\u{201c}\u{201d}\u{2018}\u{2019}']").expect("valid regex"));
+    static QUOTED: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new("[\"\u{201c}\u{201d}\u{2018}\u{2019}']([^\"\u{201c}\u{201d}\u{2018}\u{2019}']+)[\"\u{201c}\u{201d}\u{2018}\u{2019}']").expect("valid regex")
+    });
     QUOTED.captures(target).map(|c| c[1].to_string())
 }
 
@@ -595,13 +784,22 @@ fn quoted_term(target: &str) -> Option<String> {
 /// ("Clause 1.1.8 and definition of Chargee") rather than quoting them, so the description itself
 /// is never verbatim; these tokens are.
 fn target_tokens(target: &str) -> Vec<String> {
-    static NUM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b\d+(?:\.\d+)+[A-Za-z]?\b").expect("valid regex"));
-    static TERM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)definition of (?:the )?(.+?)(?:\s+(?:in|of)\s+(?:clause|schedule|paragraph)\b.*)?$").expect("valid regex"));
-    let mut out: Vec<String> = NUM.find_iter(target).map(|m| m.as_str().to_string()).collect();
+    static NUM: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b\d+(?:\.\d+)+[A-Za-z]?\b").expect("valid regex"));
+    static TERM: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)definition of (?:the )?(.+?)(?:\s+(?:in|of)\s+(?:clause|schedule|paragraph)\b.*)?$").expect("valid regex")
+    });
+    let mut out: Vec<String> = NUM
+        .find_iter(target)
+        .map(|m| m.as_str().to_string())
+        .collect();
     if let Some(q) = quoted_term(target) {
         out.push(q);
     } else if let Some(c) = TERM.captures(target) {
-        out.push(c[1].trim_matches(|ch: char| "\"'\u{201c}\u{201d}\u{2018}\u{2019} ".contains(ch)).to_string());
+        out.push(
+            c[1].trim_matches(|ch: char| "\"'\u{201c}\u{201d}\u{2018}\u{2019} ".contains(ch))
+                .to_string(),
+        );
     } else if let Some(last) = NUM.find_iter(target).last() {
         // "New clause 1.1.5A Affordable Rent": the term follows the number
         out.push(target[last.end()..].trim().to_string());
@@ -614,14 +812,36 @@ fn target_tokens(target: &str) -> Vec<String> {
 /// The new wording is reported, not grounded: it usually runs past a 30-word citation.
 pub fn check_variation(v: &Variation, idx: usize, pages: &Pages) -> CheckResult {
     let cid = format!("V2.{idx}");
-    let desc = format!("Variation {idx}: {:?} of {} is cited in the deed", v.op, v.target);
-    let snippet = v.evidence.as_ref().map(|e| e.snippet.as_str()).unwrap_or("");
+    let desc = format!(
+        "Variation {idx}: {:?} of {} is cited in the deed",
+        v.op, v.target
+    );
+    let snippet = v
+        .evidence
+        .as_ref()
+        .map(|e| e.snippet.as_str())
+        .unwrap_or("");
     let tokens = target_tokens(&v.target);
     // the first identifying token the citation states, else the whole description (which then fails honestly)
-    let target_value = tokens.iter().find(|t| value_in_snippet(&Value::Text((*t).clone()), snippet)).cloned()
+    let target_value = tokens
+        .iter()
+        .find(|t| value_in_snippet(&Value::Text((*t).clone()), snippet))
+        .cloned()
         .unwrap_or_else(|| v.target.clone());
-    resolve(&cid, &desc, true, &[input("target", Some(Value::Text(target_value)), v.evidence.as_ref())], pages, None,
-            v.new_text.as_ref().map(|t| t.chars().take(80).collect()), &[])
+    resolve(
+        &cid,
+        &desc,
+        true,
+        &[input(
+            "target",
+            Some(Value::Text(target_value)),
+            v.evidence.as_ref(),
+        )],
+        pages,
+        None,
+        v.new_text.as_ref().map(|t| t.chars().take(80).collect()),
+        &[],
+    )
 }
 
 // --------------------------------------------------------------------------- contributions
@@ -633,9 +853,11 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
     let value = c.amount.value_gbp;
     match value {
         None => {
-            let figureless_ok = matches!(c.amount.structure, AmountStructure::Formula | AmountStructure::Rate)
-                || (c.amount.structure == AmountStructure::None
-                    && c.conditionality.kind != ConditionalityKind::Unconditional);
+            let figureless_ok = matches!(
+                c.amount.structure,
+                AmountStructure::Formula | AmountStructure::Rate
+            ) || (c.amount.structure == AmountStructure::None
+                && c.conditionality.kind != ConditionalityKind::Unconditional);
             let desc = format!("{}: amount extracted", c.name);
             if figureless_ok {
                 out.push(skip(
@@ -645,7 +867,12 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
                     pg.clone(),
                 ));
             } else {
-                out.push(parser_fail(&format!("{cid}.amt"), &desc, "no figure parsed", pg));
+                out.push(parser_fail(
+                    &format!("{cid}.amt"),
+                    &desc,
+                    "no figure parsed",
+                    pg,
+                ));
                 return out;
             }
         }
@@ -681,7 +908,14 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
                         &wid,
                         &desc,
                         w == v,
-                        &[amount, input("words form", Some(Value::Text(words.to_string())), c.amount.evidence.as_ref())],
+                        &[
+                            amount,
+                            input(
+                                "words form",
+                                Some(Value::Text(words.to_string())),
+                                c.amount.evidence.as_ref(),
+                            ),
+                        ],
                         pages,
                         Some(gbp(v)),
                         Some(gbp(w)),
@@ -721,8 +955,16 @@ pub fn check_conditionality(c: &Contribution, pages: &Pages, cid: &str) -> Optio
             page_list([c.conditionality.evidence.as_ref()]),
         )),
         ConditionalityKind::Conditional => {
-            let cond = c.conditionality.condition.as_ref().filter(|s| !s.trim().is_empty());
-            let inp = input("condition", cond.map(|s| Value::Text(s.clone())), c.conditionality.evidence.as_ref());
+            let cond = c
+                .conditionality
+                .condition
+                .as_ref()
+                .filter(|s| !s.trim().is_empty());
+            let inp = input(
+                "condition",
+                cond.map(|s| Value::Text(s.clone())),
+                c.conditionality.evidence.as_ref(),
+            );
             Some(resolve(&id, &desc, true, &[inp], pages, None, None, &[]))
         }
     }
@@ -738,9 +980,14 @@ fn spread(page: usize, pages: &Pages) -> Pages {
 /// Why the clause can't be trusted as a payment covenant on `page`: it must itself be in the deed
 /// (on that page, or running onto the next) and its wording must impose a payment.
 fn covenant_problem(clause: &str, page: usize, pages: &Pages) -> Option<String> {
-    let ev = Evidence { page, snippet: clause.to_string() };
+    let ev = Evidence {
+        page,
+        snippet: clause.to_string(),
+    };
     if !evidence_found(Some(&ev), &spread(page, pages)) {
-        return Some(format!("cited payment clause not re-locatable in source (p{page})"));
+        return Some(format!(
+            "cited payment clause not re-locatable in source (p{page})"
+        ));
     }
     if !imposes_payment(Some(clause)) {
         // e.g. "Prior to Occupation ... the Council shall assess the amount payable" schedules an
@@ -767,28 +1014,63 @@ pub fn check_trigger(c: &Contribution, pages: &Pages, cid: &str, pg: &[usize]) -
     let id = format!("{cid}.trig");
     let desc = format!("{}: payment trigger located", c.name);
     let p = &c.payment;
-    let (Some(event), Some(clause)) = (p.trigger_event, p.covenant.as_ref().map(|q| q.text.as_str()).filter(|t| !t.is_empty()))
-    else {
-        return vec![parser_fail(&id, &desc, "no trigger clause matched in the schedules", pg.to_vec())];
+    let (Some(event), Some(clause)) = (
+        p.trigger_event,
+        p.covenant
+            .as_ref()
+            .map(|q| q.text.as_str())
+            .filter(|t| !t.is_empty()),
+    ) else {
+        return vec![parser_fail(
+            &id,
+            &desc,
+            "no trigger clause matched in the schedules",
+            pg.to_vec(),
+        )];
     };
     let tpg = page_list([p.trigger_phrase.as_ref()]);
     let fail = |detail: String| {
-        result(&id, &desc, Status::Fail, None, Some(event.label().to_string()), Some(ErrorClass::ParserError), detail, tpg.clone())
+        result(
+            &id,
+            &desc,
+            Status::Fail,
+            None,
+            Some(event.label().to_string()),
+            Some(ErrorClass::ParserError),
+            detail,
+            tpg.clone(),
+        )
     };
     let phrase = match p.trigger_phrase.as_ref() {
         Some(ph) if evidence_found(Some(ph), pages) => ph,
         other => {
             let where_ = other.map_or("no evidence cited".to_string(), |e| format!("p{}", e.page));
-            return vec![fail(format!("cited trigger phrase not re-locatable in source ({where_})"))];
+            return vec![fail(format!(
+                "cited trigger phrase not re-locatable in source ({where_})"
+            ))];
         }
     };
     if let Some(problem) = trigger_clause_problem(phrase, clause, pages) {
         return vec![fail(problem)];
     }
-    let mut out = vec![result(&id, &desc, Status::Pass, None, Some(event.label().to_string()), None, "", tpg.clone())];
-    let (tid, tdesc) = (format!("{cid}.tlabel"), format!("{}: trigger label follows from cited phrase", c.name));
+    let mut out = vec![result(
+        &id,
+        &desc,
+        Status::Pass,
+        None,
+        Some(event.label().to_string()),
+        None,
+        "",
+        tpg.clone(),
+    )];
+    let (tid, tdesc) = (
+        format!("{cid}.tlabel"),
+        format!("{}: trigger label follows from cited phrase", c.name),
+    );
     let derived = classify_cited(Some(&phrase.snippet), Some(clause));
-    let note = p.trigger_event_model.map_or(String::new(), |m| format!("model proposed '{}'", m.label()));
+    let note = p
+        .trigger_event_model
+        .map_or(String::new(), |m| format!("model proposed '{}'", m.label()));
     out.push(match derived {
         None => result(
             &tid,
@@ -834,15 +1116,28 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
     let all_pg = page_list(insts.iter().map(|i| i.trigger_phrase.as_ref()));
 
     // (a) shares sum to 100
-    let (id, desc) = (format!("{cid}.inst"), format!("{}: instalment shares sum to 100%", c.name));
+    let (id, desc) = (
+        format!("{cid}.inst"),
+        format!("{}: instalment shares sum to 100%", c.name),
+    );
     if insts.iter().all(|i| i.share_pct.is_some()) {
         let sum: Decimal = insts.iter().filter_map(|i| i.share_pct).sum();
-        let parts = insts.iter().filter_map(|i| i.share_pct).map(|d| d.to_string()).collect::<Vec<_>>().join(" + ");
+        let parts = insts
+            .iter()
+            .filter_map(|i| i.share_pct)
+            .map(|d| d.to_string())
+            .collect::<Vec<_>>()
+            .join(" + ");
         let ungrounded: Vec<String> = insts
             .iter()
             .enumerate()
             .filter(|(_, i)| !evidence_found(i.trigger_phrase.as_ref(), pages))
-            .map(|(n, _)| format!("instalment {} trigger phrase not re-locatable in source", n + 1))
+            .map(|(n, _)| {
+                format!(
+                    "instalment {} trigger phrase not re-locatable in source",
+                    n + 1
+                )
+            })
             .collect();
         let mut r = resolve(
             &id,
@@ -857,18 +1152,40 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
         r.pages = all_pg.clone();
         out.push(r);
     } else {
-        out.push(skip(&id, &desc, "instalment shares not all stated as percentages", all_pg.clone()));
+        out.push(skip(
+            &id,
+            &desc,
+            "instalment shares not all stated as percentages",
+            all_pg.clone(),
+        ));
     }
 
     // (c) the lead-in imposes the payment and is in the deed
-    let (id, desc) = (format!("{cid}.instcov"), format!("{}: instalment lead-in imposes a payment", c.name));
+    let (id, desc) = (
+        format!("{cid}.instcov"),
+        format!("{}: instalment lead-in imposes a payment", c.name),
+    );
     match c.payment.covenant.as_ref().filter(|q| !q.text.is_empty()) {
-        None => out.push(parser_fail(&id, &desc, "no covenant or lead-in cited for the instalments", all_pg.clone())),
+        None => out.push(parser_fail(
+            &id,
+            &desc,
+            "no covenant or lead-in cited for the instalments",
+            all_pg.clone(),
+        )),
         Some(q) => {
-            let page = q.evidence.as_ref().map(|e| e.page).or_else(|| insts.iter().find_map(|i| i.trigger_phrase.as_ref().map(|e| e.page)));
+            let page = q.evidence.as_ref().map(|e| e.page).or_else(|| {
+                insts
+                    .iter()
+                    .find_map(|i| i.trigger_phrase.as_ref().map(|e| e.page))
+            });
             let pg = page_list([q.evidence.as_ref()]);
             match page.map(|p| covenant_problem(&q.text, p, pages)) {
-                None => out.push(parser_fail(&id, &desc, "no page cited for the covenant", vec![])),
+                None => out.push(parser_fail(
+                    &id,
+                    &desc,
+                    "no page cited for the covenant",
+                    vec![],
+                )),
                 Some(Some(problem)) => out.push(result(
                     &id,
                     &desc,
@@ -887,7 +1204,10 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
     // (b) + (d) each instalment's trigger phrase is in the deed and decides its label
     for (n, inst) in insts.iter().enumerate() {
         let n = n + 1;
-        let (id, desc) = (format!("{cid}.inst{n}"), format!("{}: instalment {n} trigger located and labelled", c.name));
+        let (id, desc) = (
+            format!("{cid}.inst{n}"),
+            format!("{}: instalment {n} trigger located and labelled", c.name),
+        );
         let Some(phrase) = inst.trigger_phrase.as_ref() else {
             out.push(parser_fail(&id, &desc, "no trigger phrase cited", vec![]));
             continue;
@@ -922,7 +1242,16 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
                     Some(Value::Text(phrase.snippet.clone())),
                     Some(phrase),
                 );
-                out.push(resolve(&id, &desc, true, &[inp], pages, derived.map(|d| d.label().to_string()), actual, &[]));
+                out.push(resolve(
+                    &id,
+                    &desc,
+                    true,
+                    &[inp],
+                    pages,
+                    derived.map(|d| d.label().to_string()),
+                    actual,
+                    &[],
+                ));
             }
         }
     }

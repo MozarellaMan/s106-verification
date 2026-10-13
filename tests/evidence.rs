@@ -32,11 +32,19 @@ inaccordancewithparagraph1ofSchedule6andappliedby thie
 Council towardsthecostofmonitoring theDemolitionEnvironmental
 "#;
 
-static PAGES: LazyLock<Pages> =
-    LazyLock::new(|| Pages::from([(4, PAGE_4.to_string()), (12, PAGE_12.to_string()), (17, PAGE_17.to_string())]));
+static PAGES: LazyLock<Pages> = LazyLock::new(|| {
+    Pages::from([
+        (4, PAGE_4.to_string()),
+        (12, PAGE_12.to_string()),
+        (17, PAGE_17.to_string()),
+    ])
+});
 
 fn ev(page: usize, snippet: &str) -> Evidence {
-    Evidence { page, snippet: snippet.to_string() }
+    Evidence {
+        page,
+        snippet: snippet.to_string(),
+    }
 }
 
 fn found(page: usize, snippet: &str) -> bool {
@@ -44,22 +52,40 @@ fn found(page: usize, snippet: &str) -> bool {
 }
 
 fn found_in(page_text: &str, snippet: &str) -> bool {
-    evidence_found(Some(&ev(1, snippet)), &Pages::from([(1, page_text.to_string())]))
+    evidence_found(
+        Some(&ev(1, snippet)),
+        &Pages::from([(1, page_text.to_string())]),
+    )
 }
 
 // ---- InterleavingTest
 
 #[test]
 fn left_column_term_spliced_at_line_wrap() {
-    assert!(found(4, "£10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked"));
-    assert!(found(12, "£73,100 (seventy three thousand one hundred pounds) Index Linked"));
-    assert!(found(17, "£10,120 (ten thousand and one hundred and twenty pounds) Index Linked"));
+    assert!(found(
+        4,
+        "£10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked"
+    ));
+    assert!(found(
+        12,
+        "£73,100 (seventy three thousand one hundred pounds) Index Linked"
+    ));
+    assert!(found(
+        17,
+        "£10,120 (ten thousand and one hundred and twenty pounds) Index Linked"
+    ));
 }
 
 #[test]
 fn pound_sign_read_as_f() {
-    assert!(found(4, "means the sum of £10,058.60 (ten thousand and fifty eight pounds"));
-    assert!(found(12, "means the sum of £12,650 (twelve thousand and six hundred and"));
+    assert!(found(
+        4,
+        "means the sum of £10,058.60 (ten thousand and fifty eight pounds"
+    ));
+    assert!(found(
+        12,
+        "means the sum of £12,650 (twelve thousand and six hundred and"
+    ));
 }
 
 #[test]
@@ -80,36 +106,67 @@ fn exact_substring_still_matches() {
 
 #[test]
 fn changed_figure_fails() {
-    assert!(!found(12, "means the sum of £12,560 (twelve thousand and six hundred and"));
-    assert!(!found(4, "£10,058.50 (ten thousand and fifty eight pounds and sixty pence) Index Linked"));
+    assert!(!found(
+        12,
+        "means the sum of £12,560 (twelve thousand and six hundred and"
+    ));
+    assert!(!found(
+        4,
+        "£10,058.50 (ten thousand and fifty eight pounds and sixty pence) Index Linked"
+    ));
 }
 
 #[test]
 fn figure_must_be_digit_bounded() {
-    assert!(!found(12, "means the sum of £2,650 (twelve thousand and six hundred and"));
-    assert!(!found(12, "means the sum of £12,65 (twelve thousand and six hundred and"));
+    assert!(!found(
+        12,
+        "means the sum of £2,650 (twelve thousand and six hundred and"
+    ));
+    assert!(!found(
+        12,
+        "means the sum of £12,65 (twelve thousand and six hundred and"
+    ));
 }
 
 #[test]
 fn changed_number_word_fails() {
-    assert!(!found(4, "£10,058.60 (ten thousand and fifty eight pounds and seventy pence) Index Linked"));
-    assert!(!found(17, "£10,120 (ten thousand and two hundred and twenty pounds) Index Linked"));
+    assert!(!found(
+        4,
+        "£10,058.60 (ten thousand and fifty eight pounds and seventy pence) Index Linked"
+    ));
+    assert!(!found(
+        17,
+        "£10,120 (ten thousand and two hundred and twenty pounds) Index Linked"
+    ));
 }
 
 #[test]
 fn dropped_words_are_not_absorbed_by_a_gap() {
     // the page reads "six hundred and [fifty] pounds"; the snippet leaves out "and fifty"
-    assert!(!found(12, "£12,650 (twelve thousand and six hundred pounds)"));
-    assert!(!found(17, "£10,120 (ten thousand and one hundred pounds) Index Linked"));
+    assert!(!found(
+        12,
+        "£12,650 (twelve thousand and six hundred pounds)"
+    ));
+    assert!(!found(
+        17,
+        "£10,120 (ten thousand and one hundred pounds) Index Linked"
+    ));
 }
 
 #[test]
 fn joined_number_words_at_line_wrap_are_not_absorbed() {
     // review repro: the snippet leaves out "and twenty", which OCR joined at the line start
-    let page = "means the sumoff10,120(ten thousand and one hundred\nandtwenty pounds)Index Linked\n";
-    assert!(!found_in(page, "£10,120 (ten thousand and one hundred pounds) Index Linked"));
+    let page =
+        "means the sumoff10,120(ten thousand and one hundred\nandtwenty pounds)Index Linked\n";
+    assert!(!found_in(
+        page,
+        "£10,120 (ten thousand and one hundred pounds) Index Linked"
+    ));
     let page = "means the sumoff10,010(ten thousand and\nandten pounds)Index Linked\n";
-    assert!(!found_in(page, "£10,010 (ten thousand and pounds) Index Linked"));
+    assert!(!found_in(
+        page,
+        "£10,010 (ten thousand and pounds) Index Linked"
+    ));
 }
 
 #[test]
@@ -122,7 +179,8 @@ fn short_number_words_joined_to_column_fragment_are_not_absorbed() {
     assert!(!found_in(page, snippet));
     // the same split with no amount words re-locates, as do terms with "ten" mid-word
     let snippet = "£10,000 (ten thousand pounds) Index Linked";
-    let page = "means the sumoff10,000(ten thousand\nMaintenanceContribution\" pounds)Index Linked\n";
+    let page =
+        "means the sumoff10,000(ten thousand\nMaintenanceContribution\" pounds)Index Linked\n";
     assert!(found_in(page, snippet));
 }
 
@@ -138,9 +196,18 @@ fn digits_at_line_wrap_are_not_absorbed() {
 
 #[test]
 fn snippet_from_another_page_fails() {
-    assert!(found(4, "£10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked"));
-    assert!(!found(12, "£10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked"));
-    assert!(!found(17, "£73,100 (seventy three thousand one hundred pounds) Index Linked"));
+    assert!(found(
+        4,
+        "£10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked"
+    ));
+    assert!(!found(
+        12,
+        "£10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked"
+    ));
+    assert!(!found(
+        17,
+        "£73,100 (seventy three thousand one hundred pounds) Index Linked"
+    ));
 }
 
 #[test]

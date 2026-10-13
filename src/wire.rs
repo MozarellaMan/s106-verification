@@ -228,19 +228,33 @@ impl PageMap {
         if c.snippet.trim().is_empty() {
             return None;
         }
-        let page = if c.page >= 1 && (c.page as usize) <= self.0.len() { self.0[c.page as usize - 1] } else { 0 };
-        Some(Evidence { page, snippet: c.snippet.clone() })
+        let page = if c.page >= 1 && (c.page as usize) <= self.0.len() {
+            self.0[c.page as usize - 1]
+        } else {
+            0
+        };
+        Some(Evidence {
+            page,
+            snippet: c.snippet.clone(),
+        })
     }
 }
 
 pub fn money(s: Option<&str>) -> Option<Decimal> {
-    let s: String = s?.chars().filter(|c| !matches!(c, '£' | ',' ) && !c.is_whitespace()).collect();
+    let s: String = s?
+        .chars()
+        .filter(|c| !matches!(c, '£' | ',') && !c.is_whitespace())
+        .collect();
     if s.is_empty() { None } else { s.parse().ok() }
 }
 
 fn nonempty(s: &str) -> Option<String> {
     let t = s.trim();
-    if t.is_empty() { None } else { Some(t.to_string()) }
+    if t.is_empty() {
+        None
+    } else {
+        Some(t.to_string())
+    }
 }
 
 /// Plural defined terms ("Site and Development Contributions") only group other contributions
@@ -252,10 +266,14 @@ pub fn is_group_term(name: &str) -> bool {
 pub fn housing(w: &WireHousing, pm: &PageMap) -> Housing {
     let t = &w.mix_table;
     let mix = (!t.rows.is_empty() || !t.subtotals.is_empty()).then(|| MixTable {
-        rows: t.rows.iter().map(|r| MixRow {
-            unit_type: r.unit_type.clone(),
-            units_by_tenure: r.counts.iter().map(|c| (c.tenure, c.units)).collect(),
-        }).collect(),
+        rows: t
+            .rows
+            .iter()
+            .map(|r| MixRow {
+                unit_type: r.unit_type.clone(),
+                units_by_tenure: r.counts.iter().map(|c| (c.tenure, c.units)).collect(),
+            })
+            .collect(),
         subtotals: t.subtotals.iter().map(|c| (c.tenure, c.units)).collect(),
         total_units: t.total_units,
         total_habitable_rooms: t.total_habitable_rooms,
@@ -270,13 +288,17 @@ pub fn housing(w: &WireHousing, pm: &PageMap) -> Housing {
         affordable_units_evidence: pm.ev(&w.affordable_units_evidence),
         affordable_habitable_rooms: w.affordable_habitable_rooms,
         total_habitable_rooms: w.total_habitable_rooms,
-        tenures: w.tenures.iter().map(|t| TenureAllocation {
-            tenure: t.tenure,
-            label: nonempty(&t.label),
-            units: t.units,
-            habitable_rooms: t.habitable_rooms,
-            evidence: pm.ev(&t.evidence),
-        }).collect(),
+        tenures: w
+            .tenures
+            .iter()
+            .map(|t| TenureAllocation {
+                tenure: t.tenure,
+                label: nonempty(&t.label),
+                units: t.units,
+                habitable_rooms: t.habitable_rooms,
+                evidence: pm.ev(&t.evidence),
+            })
+            .collect(),
         mix_table: mix,
         claimed_affordable_pct: money(Some(&w.claimed_affordable_pct)),
         claimed_affordable_basis: w.claimed_affordable_basis,
@@ -287,22 +309,36 @@ pub fn housing(w: &WireHousing, pm: &PageMap) -> Housing {
 pub fn contribution(w: &WireContribution, pm: &PageMap) -> Contribution {
     let value = money(Some(&w.amount_gbp));
     let phrase = pm.ev(&w.trigger_phrase);
-    let covenant = nonempty(&w.covenant).map(|text| Quoted { text, evidence: pm.ev(&w.covenant_evidence) });
+    let covenant = nonempty(&w.covenant).map(|text| Quoted {
+        text,
+        evidence: pm.ev(&w.covenant_evidence),
+    });
     // the label is decided by the cited phrase only (the model isn't asked for one)
-    let event = classify_cited(phrase.as_ref().map(|e| e.snippet.as_str()), covenant.as_ref().map(|q| q.text.as_str()));
-    let instalments: Vec<Instalment> = w.instalments.iter().map(|i| {
-        let p = pm.ev(&i.trigger_phrase);
-        Instalment {
-            share_pct: money(Some(&i.share_pct)),
-            trigger_event: crate::triggers::classify(p.as_ref().map(|e| e.snippet.as_str())),
-            trigger_phrase: p,
-        }
-    }).collect();
+    let event = classify_cited(
+        phrase.as_ref().map(|e| e.snippet.as_str()),
+        covenant.as_ref().map(|q| q.text.as_str()),
+    );
+    let instalments: Vec<Instalment> = w
+        .instalments
+        .iter()
+        .map(|i| {
+            let p = pm.ev(&i.trigger_phrase);
+            Instalment {
+                share_pct: money(Some(&i.share_pct)),
+                trigger_event: crate::triggers::classify(p.as_ref().map(|e| e.snippet.as_str())),
+                trigger_phrase: p,
+            }
+        })
+        .collect();
     Contribution {
         name: w.name.clone(),
         amount: Amount {
             // "none" with a figure is a contradiction in the model's answer: keep the figure, call it fixed
-            structure: if value.is_some() && w.amount_structure == AmountStructure::None { AmountStructure::Fixed } else { w.amount_structure },
+            structure: if value.is_some() && w.amount_structure == AmountStructure::None {
+                AmountStructure::Fixed
+            } else {
+                w.amount_structure
+            },
             value_gbp: value,
             words: nonempty(&w.amount_in_words),
             index_linked: w.index_linked,
@@ -329,9 +365,19 @@ pub fn contribution(w: &WireContribution, pm: &PageMap) -> Contribution {
 pub fn contribution_v1(w: &WireContributionV1, pm: &PageMap) -> Contribution {
     let value = money(w.amount_gbp.as_deref());
     let phrase = pm.ev(&w.trigger_evidence);
-    let covenant = w.trigger_clause.as_deref().and_then(nonempty).map(|text| Quoted { text, evidence: phrase.clone() });
-    let event = classify_cited(phrase.as_ref().map(|e| e.snippet.as_str()), covenant.as_ref().map(|q| q.text.as_str()))
-        .or(w.trigger_event);
+    let covenant = w
+        .trigger_clause
+        .as_deref()
+        .and_then(nonempty)
+        .map(|text| Quoted {
+            text,
+            evidence: phrase.clone(),
+        });
+    let event = classify_cited(
+        phrase.as_ref().map(|e| e.snippet.as_str()),
+        covenant.as_ref().map(|q| q.text.as_str()),
+    )
+    .or(w.trigger_event);
     let structure = match (value.is_some(), w.is_cap) {
         (true, true) => AmountStructure::Cap,
         (true, false) => AmountStructure::Fixed,
@@ -355,7 +401,11 @@ pub fn contribution_v1(w: &WireContributionV1, pm: &PageMap) -> Contribution {
         payment: Payment {
             covenant,
             trigger_event: event,
-            trigger_event_model: if w.trigger_event != event { w.trigger_event } else { None },
+            trigger_event_model: if w.trigger_event != event {
+                w.trigger_event
+            } else {
+                None
+            },
             trigger_phrase: phrase,
             instalments: vec![],
         },
@@ -363,7 +413,12 @@ pub fn contribution_v1(w: &WireContributionV1, pm: &PageMap) -> Contribution {
 }
 
 pub fn variation(w: &WireVariation, pm: &PageMap) -> Variation {
-    Variation { op: w.op, target: w.target.clone(), new_text: nonempty(&w.new_text), evidence: pm.ev(&w.evidence) }
+    Variation {
+        op: w.op,
+        target: w.target.clone(),
+        new_text: nonempty(&w.new_text),
+        evidence: pm.ev(&w.evidence),
+    }
 }
 
 pub fn instrument(w: &WireInstrument, pm: &PageMap) -> Instrument {
@@ -375,14 +430,21 @@ pub fn instrument(w: &WireInstrument, pm: &PageMap) -> Instrument {
             date: nonempty(&w.parent_date),
             evidence: pm.ev(&w.parent_evidence),
         }),
-        scope: nonempty(&w.scope).map(|text| Quoted { text, evidence: pm.ev(&w.scope_evidence) }),
+        scope: nonempty(&w.scope).map(|text| Quoted {
+            text,
+            evidence: pm.ev(&w.scope_evidence),
+        }),
     }
 }
 
 pub fn metadata(w: &WireMetadata) -> Metadata {
     Metadata {
         council: nonempty(&w.council),
-        planning_references: w.planning_references.iter().filter_map(|s| nonempty(s)).collect(),
+        planning_references: w
+            .planning_references
+            .iter()
+            .filter_map(|s| nonempty(s))
+            .collect(),
         legal_reference: nonempty(&w.legal_reference),
         agreement_date: nonempty(&w.agreement_date),
         site_address: nonempty(&w.site_address),

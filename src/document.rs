@@ -36,13 +36,34 @@ impl OcrModels {
     /// The model sets fetched by scripts/fetch-models.sh.
     pub fn named(name: &str, models_dir: &Path) -> Option<OcrModels> {
         let (det, rec, dict) = match name {
-            "ppocrv4-mobile" => ("pp-ocrv4_mobile_det.onnx", "pp-ocrv4_mobile_rec.onnx", "ppocr_keys_v1.txt"),
-            "ppocrv5-en-mobile" => ("pp-ocrv5_mobile_det.onnx", "en_pp-ocrv5_mobile_rec.onnx", "ppocrv5_en_dict.txt"),
-            "ppocrv5-latin-mobile" => ("pp-ocrv5_mobile_det.onnx", "latin_pp-ocrv5_mobile_rec.onnx", "ppocrv5_latin_dict.txt"),
-            "ppocrv6-small" => ("pp-ocrv6_small_det.onnx", "pp-ocrv6_small_rec.onnx", "ppocrv6_dict.txt"),
+            "ppocrv4-mobile" => (
+                "pp-ocrv4_mobile_det.onnx",
+                "pp-ocrv4_mobile_rec.onnx",
+                "ppocr_keys_v1.txt",
+            ),
+            "ppocrv5-en-mobile" => (
+                "pp-ocrv5_mobile_det.onnx",
+                "en_pp-ocrv5_mobile_rec.onnx",
+                "ppocrv5_en_dict.txt",
+            ),
+            "ppocrv5-latin-mobile" => (
+                "pp-ocrv5_mobile_det.onnx",
+                "latin_pp-ocrv5_mobile_rec.onnx",
+                "ppocrv5_latin_dict.txt",
+            ),
+            "ppocrv6-small" => (
+                "pp-ocrv6_small_det.onnx",
+                "pp-ocrv6_small_rec.onnx",
+                "ppocrv6_dict.txt",
+            ),
             _ => return None,
         };
-        Some(OcrModels { det: models_dir.join(det), rec: models_dir.join(rec), dict: models_dir.join(dict), name: name.into() })
+        Some(OcrModels {
+            det: models_dir.join(det),
+            rec: models_dir.join(rec),
+            dict: models_dir.join(dict),
+            name: name.into(),
+        })
     }
 }
 
@@ -57,11 +78,18 @@ impl Config {
     /// Defaults relative to the repository: `models/` and `data/interim/ocr/`.
     /// `S106_MODELS` and `S106_OCR_CACHE` override them.
     pub fn from_env(repo_root: &Path) -> Config {
-        let models_dir = std::env::var_os("S106_MODELS").map(PathBuf::from).unwrap_or(repo_root.join("models"));
-        let cache_root =
-            std::env::var_os("S106_OCR_CACHE").map(PathBuf::from).unwrap_or(repo_root.join("data/interim/ocr"));
+        let models_dir = std::env::var_os("S106_MODELS")
+            .map(PathBuf::from)
+            .unwrap_or(repo_root.join("models"));
+        let cache_root = std::env::var_os("S106_OCR_CACHE")
+            .map(PathBuf::from)
+            .unwrap_or(repo_root.join("data/interim/ocr"));
         let ocr = OcrModels::default_in(&models_dir);
-        Config { models_dir, cache_root, ocr }
+        Config {
+            models_dir,
+            cache_root,
+            ocr,
+        }
     }
 
     /// Everything that changes page text. Bump the leading version when the line logic changes.
@@ -75,11 +103,21 @@ impl Config {
         static PDFIUM: std::sync::OnceLock<std::sync::Mutex<Pdfium>> = std::sync::OnceLock::new();
         if PDFIUM.get().is_none() {
             let lib = self.models_dir.join("pdfium/lib");
-            let bindings = Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(&lib))
-                .with_context(|| format!("load libpdfium from {} (run scripts/fetch-models.sh)", lib.display()))?;
+            let bindings =
+                Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(&lib))
+                    .with_context(|| {
+                        format!(
+                            "load libpdfium from {} (run scripts/fetch-models.sh)",
+                            lib.display()
+                        )
+                    })?;
             let _ = PDFIUM.set(std::sync::Mutex::new(Pdfium::new(bindings)));
         }
-        Ok(PDFIUM.get().unwrap().lock().unwrap_or_else(|e| e.into_inner()))
+        Ok(PDFIUM
+            .get()
+            .unwrap()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()))
     }
 }
 
@@ -133,7 +171,11 @@ impl Document {
 
     /// "text-layer", "ocr" or "mixed".
     pub fn text_source(&self) -> &'static str {
-        let ocr = self.pages.iter().filter(|p| p.source == TextSource::Ocr).count();
+        let ocr = self
+            .pages
+            .iter()
+            .filter(|p| p.source == TextSource::Ocr)
+            .count();
         match ocr {
             0 => "text-layer",
             n if n == self.pages.len() => "ocr",
@@ -144,26 +186,52 @@ impl Document {
 
 fn page_text(p: &PageText) -> String {
     if p.source == TextSource::TextLayer {
-        return p.lines.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n");
+        return p
+            .lines
+            .iter()
+            .map(|l| l.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
     }
     // Binding marks and punch holes in the side margins OCR as stray digits ("1"); joined into a row
     // they would put a number inside a sentence, which the evidence matcher (rightly) never skips.
     // They stay in `lines` for provenance; they're left out of the matching text.
-    let margin_speck = |l: &Line| l.text.chars().count() <= 2 && (l.bbox[2] < 0.06 * p.width || l.bbox[0] > 0.94 * p.width);
+    let margin_speck = |l: &Line| {
+        l.text.chars().count() <= 2 && (l.bbox[2] < 0.06 * p.width || l.bbox[0] > 0.94 * p.width)
+    };
     // `lines` are already in row order (see ocr_lines); start a new row when the vertical centre moves
     let mut rows: Vec<Vec<&Line>> = vec![];
     for l in p.lines.iter().filter(|l| !margin_speck(l)) {
         let c = (l.bbox[1] + l.bbox[3]) / 2.0;
         let h = l.bbox[3] - l.bbox[1];
-        let same = rows.last().is_some_and(|r| r.iter().any(|o| ((o.bbox[1] + o.bbox[3]) / 2.0 - c).abs() < 0.5 * h.min(o.bbox[3] - o.bbox[1])));
-        if same { rows.last_mut().unwrap().push(l) } else { rows.push(vec![l]) }
+        let same = rows.last().is_some_and(|r| {
+            r.iter().any(|o| {
+                ((o.bbox[1] + o.bbox[3]) / 2.0 - c).abs() < 0.5 * h.min(o.bbox[3] - o.bbox[1])
+            })
+        });
+        if same {
+            rows.last_mut().unwrap().push(l)
+        } else {
+            rows.push(vec![l])
+        }
     }
-    rows.iter().map(|r| r.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join(" ")).collect::<Vec<_>>().join("\n")
+    rows.iter()
+        .map(|r| {
+            r.iter()
+                .map(|l| l.text.as_str())
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 pub fn sha256_file(path: &Path) -> Result<String> {
     let bytes = std::fs::read(path).with_context(|| format!("read {}", path.display()))?;
-    Ok(Sha256::digest(&bytes).iter().map(|b| format!("{b:02x}")).collect())
+    Ok(Sha256::digest(&bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -180,16 +248,27 @@ pub fn load(pdf: &Path, cfg: &Config, verbose: bool) -> Result<Document> {
 }
 
 /// As `load`, restricted to `only` (1-based page indices) when given.
-pub fn load_pages(pdf: &Path, cfg: &Config, only: Option<&[usize]>, verbose: bool) -> Result<Document> {
+pub fn load_pages(
+    pdf: &Path,
+    cfg: &Config,
+    only: Option<&[usize]>,
+    verbose: bool,
+) -> Result<Document> {
     let sha256 = sha256_file(pdf)?;
     let ocr_version = cfg.ocr_version();
-    let dir = cfg.cache_root.join(format!("{}-{}", &sha256[..16], ocr_version));
+    let dir = cfg
+        .cache_root
+        .join(format!("{}-{}", &sha256[..16], ocr_version));
     std::fs::create_dir_all(&dir)?;
     let manifest = dir.join("manifest.json");
     if !manifest.exists() {
         let m = Manifest {
             sha256: sha256.clone(),
-            source_path: pdf.canonicalize().unwrap_or(pdf.to_path_buf()).display().to_string(),
+            source_path: pdf
+                .canonicalize()
+                .unwrap_or(pdf.to_path_buf())
+                .display()
+                .to_string(),
             ocr_version: ocr_version.clone(),
             created: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
         };
@@ -197,20 +276,35 @@ pub fn load_pages(pdf: &Path, cfg: &Config, only: Option<&[usize]>, verbose: boo
     }
 
     let pdfium = cfg.pdfium()?;
-    let doc = pdfium.load_pdf_from_file(pdf, None).with_context(|| format!("open {}", pdf.display()))?;
+    let doc = pdfium
+        .load_pdf_from_file(pdf, None)
+        .with_context(|| format!("open {}", pdf.display()))?;
     let count = doc.pages().len() as usize;
     let mut pages: Vec<Option<PageText>> = vec![None; count];
     let mut need_ocr = vec![];
-    let wanted: Vec<usize> = only.map_or((1..=count).collect(), |o| o.iter().copied().filter(|&n| n >= 1 && n <= count).collect());
+    let wanted: Vec<usize> = only.map_or((1..=count).collect(), |o| {
+        o.iter()
+            .copied()
+            .filter(|&n| n >= 1 && n <= count)
+            .collect()
+    });
     for &n in &wanted {
         let cached = dir.join(format!("page_{n:03}.json"));
         if let Ok(s) = std::fs::read_to_string(&cached) {
-            pages[n - 1] = Some(serde_json::from_str(&s).with_context(|| format!("parse {}", cached.display()))?);
+            pages[n - 1] = Some(
+                serde_json::from_str(&s).with_context(|| format!("parse {}", cached.display()))?,
+            );
             continue;
         }
         let page = doc.pages().get((n - 1) as i32)?;
         let text = text_layer(&page)?;
-        if text.lines.iter().map(|l| l.text.chars().filter(|c| !c.is_whitespace()).count()).sum::<usize>() >= MIN_TEXT_CHARS {
+        if text
+            .lines
+            .iter()
+            .map(|l| l.text.chars().filter(|c| !c.is_whitespace()).count())
+            .sum::<usize>()
+            >= MIN_TEXT_CHARS
+        {
             let text = PageText { page: n, ..text };
             std::fs::write(&cached, serde_json::to_string(&text)?)?;
             pages[n - 1] = Some(text);
@@ -221,7 +315,11 @@ pub fn load_pages(pdf: &Path, cfg: &Config, only: Option<&[usize]>, verbose: boo
 
     if !need_ocr.is_empty() {
         if verbose {
-            eprintln!("  OCR: {} image-only pages ({})", need_ocr.len(), cfg.ocr.name);
+            eprintln!(
+                "  OCR: {} image-only pages ({})",
+                need_ocr.len(),
+                cfg.ocr.name
+            );
         }
         let engine = ocr_engine(&cfg.ocr)?;
         // PDFium isn't thread-safe, so pages are rendered here, one at a time, and recognised in
@@ -237,8 +335,17 @@ pub fn load_pages(pdf: &Path, cfg: &Config, only: Option<&[usize]>, verbose: boo
             let sizes: Vec<(u32, u32)> = images.iter().map(|i| i.dimensions()).collect();
             let results = engine.predict(images)?;
             for ((&n, res), (w, h)) in chunk.iter().zip(results).zip(sizes) {
-                let text = PageText { page: n, source: TextSource::Ocr, width: w as f32, height: h as f32, lines: ocr_lines(&res) };
-                std::fs::write(dir.join(format!("page_{n:03}.json")), serde_json::to_string(&text)?)?;
+                let text = PageText {
+                    page: n,
+                    source: TextSource::Ocr,
+                    width: w as f32,
+                    height: h as f32,
+                    lines: ocr_lines(&res),
+                };
+                std::fs::write(
+                    dir.join(format!("page_{n:03}.json")),
+                    serde_json::to_string(&text)?,
+                )?;
                 if verbose {
                     eprintln!("  page {n}/{count}: {} lines", text.lines.len());
                 }
@@ -248,18 +355,33 @@ pub fn load_pages(pdf: &Path, cfg: &Config, only: Option<&[usize]>, verbose: boo
     }
     let pages: Vec<PageText> = pages.into_iter().flatten().collect();
     if pages.len() != wanted.len() {
-        bail!("{} of {} requested pages missing after load", wanted.len() - pages.len(), wanted.len());
+        bail!(
+            "{} of {} requested pages missing after load",
+            wanted.len() - pages.len(),
+            wanted.len()
+        );
     }
-    Ok(Document { path: pdf.to_path_buf(), sha256, ocr_version, pages })
+    Ok(Document {
+        path: pdf.to_path_buf(),
+        sha256,
+        ocr_version,
+        pages,
+    })
 }
 
 fn ocr_engine(m: &OcrModels) -> Result<oar_ocr::prelude::OAROCR> {
     for p in [&m.det, &m.rec, &m.dict] {
         if !p.exists() {
-            bail!("OCR model file missing: {} (run scripts/fetch-models.sh)", p.display());
+            bail!(
+                "OCR model file missing: {} (run scripts/fetch-models.sh)",
+                p.display()
+            );
         }
     }
-    Ok(oar_ocr::prelude::OAROCRBuilder::new(m.det.clone(), m.rec.clone(), m.dict.clone()).build()?)
+    Ok(
+        oar_ocr::prelude::OAROCRBuilder::new(m.det.clone(), m.rec.clone(), m.dict.clone())
+            .build()?,
+    )
 }
 
 /// OCR regions -> lines in reading order. Regions whose vertical centres align form a row; rows
@@ -272,11 +394,16 @@ fn ocr_lines(res: &oar_ocr::prelude::OAROCRResult) -> Vec<Line> {
         .filter_map(|r| {
             let text = r.text.as_deref()?.trim().to_string();
             // single characters are mostly specks and binding marks; keep digits (folios, table cells)
-            if text.is_empty() || (text.chars().count() < 2 && !text.chars().all(|c| c.is_ascii_digit())) {
+            if text.is_empty()
+                || (text.chars().count() < 2 && !text.chars().all(|c| c.is_ascii_digit()))
+            {
                 return None;
             }
             let b = &r.bounding_box;
-            Some(Line { text, bbox: [b.x_min(), b.y_min(), b.x_max(), b.y_max()] })
+            Some(Line {
+                text,
+                bbox: [b.x_min(), b.y_min(), b.x_max(), b.y_max()],
+            })
         })
         .collect();
     lines.sort_by(|a, b| (a.bbox[1] + a.bbox[3]).total_cmp(&(b.bbox[1] + b.bbox[3])));
@@ -285,7 +412,11 @@ fn ocr_lines(res: &oar_ocr::prelude::OAROCRResult) -> Vec<Line> {
         let c = (l.bbox[1] + l.bbox[3]) / 2.0;
         let h = l.bbox[3] - l.bbox[1];
         match rows.last_mut() {
-            Some(row) if row.iter().any(|o| ((o.bbox[1] + o.bbox[3]) / 2.0 - c).abs() < 0.5 * h.min(o.bbox[3] - o.bbox[1])) => {
+            Some(row)
+                if row.iter().any(|o| {
+                    ((o.bbox[1] + o.bbox[3]) / 2.0 - c).abs() < 0.5 * h.min(o.bbox[3] - o.bbox[1])
+                }) =>
+            {
                 row.push(l)
             }
             _ => rows.push(vec![l]),
@@ -307,10 +438,26 @@ fn text_layer(page: &PdfPage) -> Result<PageText> {
     let text = page.text()?;
     let mut chars: Vec<(char, [f32; 4])> = vec![];
     for c in text.chars().iter() {
-        let (Some(ch), Ok(b)) = (c.unicode_char(), c.loose_bounds()) else { continue };
-        chars.push((ch, [b.left().value, ph - b.top().value, b.right().value, ph - b.bottom().value]));
+        let (Some(ch), Ok(b)) = (c.unicode_char(), c.loose_bounds()) else {
+            continue;
+        };
+        chars.push((
+            ch,
+            [
+                b.left().value,
+                ph - b.top().value,
+                b.right().value,
+                ph - b.bottom().value,
+            ],
+        ));
     }
-    Ok(PageText { page: 0, source: TextSource::TextLayer, width: pw, height: ph, lines: group_lines(&chars) })
+    Ok(PageText {
+        page: 0,
+        source: TextSource::TextLayer,
+        width: pw,
+        height: ph,
+        lines: group_lines(&chars),
+    })
 }
 
 fn group_lines(chars: &[(char, [f32; 4])]) -> Vec<Line> {
@@ -323,7 +470,9 @@ fn group_lines(chars: &[(char, [f32; 4])]) -> Vec<Line> {
         }
         if let Some(&(_, last)) = cur.iter().rev().find(|(ch, _)| !ch.is_whitespace()) {
             let line_h = (last[3] - last[1]).abs().max(1.0);
-            if !c.is_whitespace() && ((b[1] - last[1]).abs() > 0.6 * line_h || b[0] < last[0] - 2.0 * line_h) {
+            if !c.is_whitespace()
+                && ((b[1] - last[1]).abs() > 0.6 * line_h || b[0] < last[0] - 2.0 * line_h)
+            {
                 flush(&mut cur, &mut lines);
             }
         }
@@ -351,12 +500,31 @@ fn flush(cur: &mut Vec<(char, [f32; 4])>, lines: &mut Vec<Line>) {
         }
         let w = words.last_mut().unwrap();
         w.0.push(c);
-        w.1 = [w.1[0].min(b[0]), w.1[1].min(b[1]), w.1[2].max(b[2]), w.1[3].max(b[3])];
+        w.1 = [
+            w.1[0].min(b[0]),
+            w.1[1].min(b[1]),
+            w.1[2].max(b[2]),
+            w.1[3].max(b[3]),
+        ];
         prev_right = b[2];
     }
-    let bbox = words.iter().fold([f32::MAX, f32::MAX, f32::MIN, f32::MIN], |a, (_, w)| {
-        [a[0].min(w[0]), a[1].min(w[1]), a[2].max(w[2]), a[3].max(w[3])]
+    let bbox = words
+        .iter()
+        .fold([f32::MAX, f32::MAX, f32::MIN, f32::MIN], |a, (_, w)| {
+            [
+                a[0].min(w[0]),
+                a[1].min(w[1]),
+                a[2].max(w[2]),
+                a[3].max(w[3]),
+            ]
+        });
+    lines.push(Line {
+        text: words
+            .iter()
+            .map(|(t, _)| t.as_str())
+            .collect::<Vec<_>>()
+            .join(" "),
+        bbox,
     });
-    lines.push(Line { text: words.iter().map(|(t, _)| t.as_str()).collect::<Vec<_>>().join(" "), bbox });
     cur.clear();
 }

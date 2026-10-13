@@ -10,7 +10,10 @@ use s106::extract::{self, Mode};
 use s106::{eval, llm, ocrbench, report, verify};
 
 #[derive(Parser)]
-#[command(name = "s106", about = "Verification harness for UK Section 106 planning agreements")]
+#[command(
+    name = "s106",
+    about = "Verification harness for UK Section 106 planning agreements"
+)]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
@@ -80,7 +83,15 @@ fn credentials(mode: Mode) -> Result<Option<rust_claude_sdk::Client>> {
 
 fn main() -> Result<()> {
     match Cli::parse().cmd {
-        Cmd::Audit { pdf, model, llm_mode, escalate, escalation_model, out, quiet } => {
+        Cmd::Audit {
+            pdf,
+            model,
+            llm_mode,
+            escalate,
+            escalation_model,
+            out,
+            quiet,
+        } => {
             let cfg = document::Config::from_env(&repo_root());
             let doc = document::load(&pdf, &cfg, !quiet)?;
             let client = credentials(llm_mode)?;
@@ -88,7 +99,14 @@ fn main() -> Result<()> {
             let pages = doc.pages();
             let mut results = verify::verify(&agreement, &pages);
             if escalate {
-                let (merged, log) = extract::escalate(&doc, agreement, &results, &escalation_model, llm_mode, client.as_ref())?;
+                let (merged, log) = extract::escalate(
+                    &doc,
+                    agreement,
+                    &results,
+                    &escalation_model,
+                    llm_mode,
+                    client.as_ref(),
+                )?;
                 for l in &log {
                     eprintln!("  escalation: {l}");
                 }
@@ -96,32 +114,80 @@ fn main() -> Result<()> {
                 results = verify::verify(&agreement, &pages);
             }
             if let Some(u) = &info.usage {
-                agreement.warnings.push(format!("{}: {} in / {} out tokens, ~${:.3}{}", info.source, u.input_tokens, u.output_tokens,
-                    llm::cost_usd(&info.model, u), if info.source == "live" { "" } else { " when recorded" }));
+                agreement.warnings.push(format!(
+                    "{}: {} in / {} out tokens, ~${:.3}{}",
+                    info.source,
+                    u.input_tokens,
+                    u.output_tokens,
+                    llm::cost_usd(&info.model, u),
+                    if info.source == "live" {
+                        ""
+                    } else {
+                        " when recorded"
+                    }
+                ));
             }
             println!("{}", report::render(&agreement, &results));
-            let out = out.unwrap_or_else(|| repo_root().join("data/processed").join(format!(
-                "{}.audit.json", pdf.file_stem().unwrap_or_default().to_string_lossy())));
+            let out = out.unwrap_or_else(|| {
+                repo_root().join("data/processed").join(format!(
+                    "{}.audit.json",
+                    pdf.file_stem().unwrap_or_default().to_string_lossy()
+                ))
+            });
             std::fs::create_dir_all(out.parent().unwrap())?;
-            std::fs::write(&out, serde_json::to_string_pretty(&report::AuditJson { agreement: &agreement, verification: &results })?)?;
+            std::fs::write(
+                &out,
+                serde_json::to_string_pretty(&report::AuditJson {
+                    agreement: &agreement,
+                    verification: &results,
+                })?,
+            )?;
             println!("\nJSON written to {}", out.display());
             std::process::exit(report::exit_code(&results));
         }
-        Cmd::Eval { runs, model, replay, only } => eval::run(&eval::EvalArgs { runs, model, replay, only }, &repo_root()),
-        Cmd::BenchOcr { gold, pdf, models, detail } => {
+        Cmd::Eval {
+            runs,
+            model,
+            replay,
+            only,
+        } => eval::run(
+            &eval::EvalArgs {
+                runs,
+                model,
+                replay,
+                only,
+            },
+            &repo_root(),
+        ),
+        Cmd::BenchOcr {
+            gold,
+            pdf,
+            models,
+            detail,
+        } => {
             let g = ocrbench::Gold::load(&gold)?;
             let sha = document::sha256_file(&pdf)?;
             if sha != g.sha256 {
-                bail!("{} does not match the gold file's document (sha256 {} vs {})", pdf.display(), sha, g.sha256);
+                bail!(
+                    "{} does not match the gold file's document (sha256 {} vs {})",
+                    pdf.display(),
+                    sha,
+                    g.sha256
+                );
             }
             let pages = g.pages();
             for name in models {
                 let mut cfg = document::Config::from_env(&repo_root());
-                cfg.ocr = OcrModels::named(&name, &cfg.models_dir).ok_or_else(|| anyhow::anyhow!("unknown model set {name}"))?;
+                cfg.ocr = OcrModels::named(&name, &cfg.models_dir)
+                    .ok_or_else(|| anyhow::anyhow!("unknown model set {name}"))?;
                 let t0 = std::time::Instant::now();
                 let doc = document::load_pages(&pdf, &cfg, Some(&pages), false)?;
                 let s = ocrbench::score(&g, &doc);
-                println!("== {name} ({}; {:.1}s incl. cache)\n{s}", doc.text_source(), t0.elapsed().as_secs_f64());
+                println!(
+                    "== {name} ({}; {:.1}s incl. cache)\n{s}",
+                    doc.text_source(),
+                    t0.elapsed().as_secs_f64()
+                );
                 if detail {
                     for (p, sp, sq, gold, got) in &s.detail {
                         println!("  p{p:<3} {sp:.3} {sq:.3}  {gold}\n                 got: {got}");

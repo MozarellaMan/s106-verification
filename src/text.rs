@@ -43,8 +43,26 @@ pub fn ocr_digits(text: &str) -> String {
 }
 
 const UNITS: [&str; 20] = [
-    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
-    "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen",
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
 ];
 const TENS: [(&str, u64); 8] = [
     ("twenty", 20),
@@ -76,7 +94,10 @@ static VOCAB: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
 });
 
 fn letters_only(text: &str) -> String {
-    text.to_lowercase().chars().filter(|c| c.is_ascii_lowercase()).collect()
+    text.to_lowercase()
+        .chars()
+        .filter(|c| c.is_ascii_lowercase())
+        .collect()
 }
 
 /// "sixteen thousand nine hundred and thirteen" -> 16913; tolerant of run-together words.
@@ -123,11 +144,13 @@ pub fn words_to_amount(text: &str) -> Option<Decimal> {
     Some(Decimal::from(pounds) + Decimal::new(i64::try_from(pence).ok()?, 2))
 }
 
-static NUMBER: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?").unwrap());
+static NUMBER: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?").unwrap()
+});
 static WORD_RUN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(&format!(r"(?i)(?:(?:{})[\s-]*)+", VOCAB.join("|"))).unwrap());
-static TRAILING_FILLER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)(?:\band\b|[\s-])+$").unwrap());
+static TRAILING_FILLER: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)(?:\band\b|[\s-])+$").unwrap());
 
 /// Every number written in `text`, as digits (with OCR repair) or number words.
 pub fn numbers_in(text: &str) -> BTreeSet<Decimal> {

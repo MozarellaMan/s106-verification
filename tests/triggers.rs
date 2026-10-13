@@ -19,14 +19,38 @@ the Development against the Agreed Carbon Targets";
 fn classify_cited_phrases() {
     let cases = [
         ("within 28 days of receiving written request", E::OnDemand),
-        ("the Owner will pay the Default Employment in the End Use Contribution within 28 days", E::OnDemand),
-        ("shall be payable within 20 Working Days of such agreement or determination.", E::OnDemand),
-        ("To pay the Site and Development Contributions on or before Implementation.", E::PreImplementation),
-        ("not to Implement the Development until the Green Run-off Rate Off-Set", E::PreImplementation),
-        ("to pay the Bus Contribution on or before first Occupation of any part of the Development", E::PreOccupation),
-        ("The Owner shall not Occupy or permit Occupation of more than 50 per cent of the Market", E::PreOccupation),
-        ("To pay the Carbon Green Fund Contribution in accordance with the procedure outlined in paragraph 3", E::Other),
-        ("prior to Commencement of the Development", E::PreCommencement),
+        (
+            "the Owner will pay the Default Employment in the End Use Contribution within 28 days",
+            E::OnDemand,
+        ),
+        (
+            "shall be payable within 20 Working Days of such agreement or determination.",
+            E::OnDemand,
+        ),
+        (
+            "To pay the Site and Development Contributions on or before Implementation.",
+            E::PreImplementation,
+        ),
+        (
+            "not to Implement the Development until the Green Run-off Rate Off-Set",
+            E::PreImplementation,
+        ),
+        (
+            "to pay the Bus Contribution on or before first Occupation of any part of the Development",
+            E::PreOccupation,
+        ),
+        (
+            "The Owner shall not Occupy or permit Occupation of more than 50 per cent of the Market",
+            E::PreOccupation,
+        ),
+        (
+            "To pay the Carbon Green Fund Contribution in accordance with the procedure outlined in paragraph 3",
+            E::Other,
+        ),
+        (
+            "prior to Commencement of the Development",
+            E::PreCommencement,
+        ),
         ("on completion of this Agreement", E::OnCompletion),
         ("on the date hereof", E::OnCompletion),
     ];
@@ -38,16 +62,23 @@ fn classify_cited_phrases() {
 #[test]
 fn classify_ocr_spacing_does_not_change_the_label() {
     assert_eq!(
-        classify(Some("TopaytheCycleHireDockingStationContributiononorbeforeOccupation.")),
+        classify(Some(
+            "TopaytheCycleHireDockingStationContributiononorbeforeOccupation."
+        )),
         Some(E::PreOccupation)
     );
-    assert_eq!(classify(Some("within twenty eight days of demand")), Some(E::OnDemand));
+    assert_eq!(
+        classify(Some("within twenty eight days of demand")),
+        Some(E::OnDemand)
+    );
 }
 
 #[test]
 fn classify_earliest_phrase_wins() {
     assert_eq!(
-        classify(Some("Not to Occupy until paid, and to pay within 28 days of demand")),
+        classify(Some(
+            "Not to Occupy until paid, and to pay within 28 days of demand"
+        )),
         Some(E::PreOccupation)
     );
 }

@@ -27,13 +27,19 @@ const MIN_TOKENS: usize = 4;
 /// Share of plain words OCR may have garbled ("fifty" -> "fty").
 const MAX_SKIP_SHARE: f64 = 0.1;
 
-static TOKEN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[a-z]+|[0-9]+(?:[.,][0-9]+)*").unwrap());
+static TOKEN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[a-z]+|[0-9]+(?:[.,][0-9]+)*").unwrap());
 
 /// Words and numbers; '£12,650.00' -> '1265000', the same digits squash() keeps.
 fn tokens(s: &str) -> Vec<String> {
     TOKEN
         .find_iter(&s.to_lowercase())
-        .map(|m| m.as_str().chars().filter(|c| !matches!(c, '.' | ',')).collect())
+        .map(|m| {
+            m.as_str()
+                .chars()
+                .filter(|c| !matches!(c, '.' | ','))
+                .collect()
+        })
         .collect()
 }
 
@@ -51,7 +57,11 @@ fn is_number(tok: &str) -> bool {
 // pounds") ends its gap word; this rejects some terms ending in them ("Zone").
 const SHORT_NUMS: [&str; 3] = ["one", "two", "ten"];
 static NUM_WORD: LazyLock<Regex> = LazyLock::new(|| {
-    let words: Vec<&str> = NUMBER_WORDS.iter().copied().filter(|w| !SHORT_NUMS.contains(w)).collect();
+    let words: Vec<&str> = NUMBER_WORDS
+        .iter()
+        .copied()
+        .filter(|w| !SHORT_NUMS.contains(w))
+        .collect();
     Regex::new(&words.join("|")).unwrap()
 });
 static SHORT_NUM_EDGE: LazyLock<Regex> = LazyLock::new(|| {
@@ -81,13 +91,17 @@ struct Layout<'a> {
 
 impl Layout<'_> {
     fn gap_ok(&self, end: usize, start: usize, extra: usize) -> bool {
-        let gap: String = self.raw[self.idx[end - 1] + 1..self.idx[start]].iter().collect();
+        let gap: String = self.raw[self.idx[end - 1] + 1..self.idx[start]]
+            .iter()
+            .collect();
         let lines: Vec<&str> = gap.split('\n').collect();
         if numeric_gap(&gap) || squash(lines[0]).len() > 1 + extra {
             return false;
         }
         lines.len() == 1
-            || (!lines[1..lines.len() - 1].iter().any(|l| !squash(l).is_empty())
+            || (!lines[1..lines.len() - 1]
+                .iter()
+                .any(|l| !squash(l).is_empty())
                 && squash(lines[lines.len() - 1]).len() <= MAX_GAP + extra)
     }
 
@@ -120,12 +134,19 @@ impl Layout<'_> {
         if i == tokens.len() {
             return pos.is_some();
         }
-        if !self.seen.insert((i, pos.unwrap_or(usize::MAX), extra, skips)) {
+        if !self
+            .seen
+            .insert((i, pos.unwrap_or(usize::MAX), extra, skips))
+        {
             return false;
         }
         let tok = &tokens[i];
         let ends: Vec<usize> = match pos {
-            None => self.occurrences(tok, 0, self.hay.len()).into_iter().map(|(_, e)| e).collect(),
+            None => self
+                .occurrences(tok, 0, self.hay.len())
+                .into_iter()
+                .map(|(_, e)| e)
+                .collect(),
             Some(p) => {
                 let hi = p + MAX_GAP + 2 * extra + 2 + tok.len();
                 self.occurrences(tok, p, hi)
@@ -135,16 +156,23 @@ impl Layout<'_> {
                     .collect()
             }
         };
-        if ends.into_iter().any(|e| self.search(i + 1, Some(e), 0, skips)) {
+        if ends
+            .into_iter()
+            .any(|e| self.search(i + 1, Some(e), 0, skips))
+        {
             return true;
         }
-        !is_number(tok) && skips < self.max_skips && self.search(i + 1, pos, extra + tok.len() + 1, skips + 1)
+        !is_number(tok)
+            && skips < self.max_skips
+            && self.search(i + 1, pos, extra + tok.len() + 1, skips + 1)
     }
 }
 
 fn layout_match(tokens: &[String], page: &str) -> bool {
     let raw: Vec<char> = page.to_lowercase().chars().collect();
-    let idx: Vec<usize> = (0..raw.len()).filter(|&i| raw[i].is_ascii_alphanumeric()).collect();
+    let idx: Vec<usize> = (0..raw.len())
+        .filter(|&i| raw[i].is_ascii_alphanumeric())
+        .collect();
     let hay: Vec<u8> = idx.iter().map(|&i| raw[i] as u8).collect();
     let plain = tokens.iter().filter(|t| !is_number(t)).count();
     let mut layout = Layout {
@@ -161,7 +189,9 @@ fn layout_match(tokens: &[String], page: &str) -> bool {
 /// Is `ev`'s snippet present on its cited page?
 pub fn evidence_found(ev: Option<&Evidence>, pages: &Pages) -> bool {
     let Some(ev) = ev else { return false };
-    let Some(page) = pages.get(&ev.page) else { return false };
+    let Some(page) = pages.get(&ev.page) else {
+        return false;
+    };
     let needle = squash(&ev.snippet);
     if needle.is_empty() {
         return false;

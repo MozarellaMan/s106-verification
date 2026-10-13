@@ -1,7 +1,9 @@
 //! Pure scoring logic of the register eval: no network, no PDFs.
 
 use rust_decimal::Decimal;
-use s106::eval::{agreement_across, gate_summary, register_reference, score_against_register, Reference, Register};
+use s106::eval::{
+    Reference, Register, agreement_across, gate_summary, register_reference, score_against_register,
+};
 use s106::schema::*;
 use s106::verify::{CheckResult, ErrorClass, Status};
 
@@ -12,9 +14,22 @@ fn d(s: &str) -> Decimal {
 fn contribution(name: &str, value: Option<&str>, trigger: Option<TriggerEvent>) -> Contribution {
     Contribution {
         name: name.into(),
-        amount: Amount { structure: AmountStructure::Fixed, value_gbp: value.map(d), words: None, index_linked: false, evidence: None },
-        conditionality: Conditionality { kind: ConditionalityKind::Unconditional, condition: None, evidence: None },
-        payment: Payment { trigger_event: trigger, ..Default::default() },
+        amount: Amount {
+            structure: AmountStructure::Fixed,
+            value_gbp: value.map(d),
+            words: None,
+            index_linked: false,
+            evidence: None,
+        },
+        conditionality: Conditionality {
+            kind: ConditionalityKind::Unconditional,
+            condition: None,
+            evidence: None,
+        },
+        payment: Payment {
+            trigger_event: trigger,
+            ..Default::default()
+        },
     }
 }
 
@@ -24,7 +39,10 @@ fn agreement(contributions: Vec<Contribution>, affordable_units: Option<u32>) ->
         provenance: Provenance::default(),
         instrument: Instrument::default(),
         metadata: Metadata::default(),
-        housing: Housing { affordable_units, ..Default::default() },
+        housing: Housing {
+            affordable_units,
+            ..Default::default()
+        },
         contributions,
         variations: vec![],
         warnings: vec![],
@@ -32,12 +50,18 @@ fn agreement(contributions: Vec<Contribution>, affordable_units: Option<u32>) ->
 }
 
 fn reference(amounts: &[(&str, &str)], units: &[u32]) -> Reference {
-    let amounts: Vec<(String, Decimal)> = amounts.iter().map(|(p, a)| (p.to_string(), d(a))).collect();
+    let amounts: Vec<(String, Decimal)> =
+        amounts.iter().map(|(p, a)| (p.to_string(), d(a))).collect();
     let mut purpose_totals = std::collections::BTreeMap::new();
     for (p, a) in &amounts {
         *purpose_totals.entry(p.clone()).or_insert(Decimal::ZERO) += *a;
     }
-    Reference { amounts, purpose_totals, affordable_units: units.to_vec(), agreement_types: vec![] }
+    Reference {
+        amounts,
+        purpose_totals,
+        affordable_units: units.to_vec(),
+        agreement_types: vec![],
+    }
 }
 
 // ---- ScoreAgainstRegister
@@ -45,8 +69,14 @@ fn reference(amounts: &[(&str, &str)], units: &[u32]) -> Reference {
 #[test]
 fn exact_match_within_a_pound() {
     let r = reference(&[("education", "10000.00"), ("highways", "2500.00")], &[]);
-    let a = agreement(vec![contribution("Education", Some("10000.50"), None), contribution("Highways", Some("2499.00"), None),
-                           contribution("Other", Some("77"), None)], None);
+    let a = agreement(
+        vec![
+            contribution("Education", Some("10000.50"), None),
+            contribution("Highways", Some("2499.00"), None),
+            contribution("Other", Some("77"), None),
+        ],
+        None,
+    );
     let s = score_against_register(&a, &r);
     assert_eq!((s.extracted_sums, s.extracted_sums_matched), (3, 2));
     assert_eq!((s.register_amounts, s.register_amounts_found), (2, 2));
@@ -58,7 +88,10 @@ fn exact_match_within_a_pound() {
 #[test]
 fn just_outside_the_tolerance_misses() {
     let r = reference(&[("education", "10000.00")], &[]);
-    let a = agreement(vec![contribution("Education", Some("10001.01"), None)], None);
+    let a = agreement(
+        vec![contribution("Education", Some("10001.01"), None)],
+        None,
+    );
     let s = score_against_register(&a, &r);
     assert_eq!(s.extracted_sums_matched, 0);
     assert_eq!(s.missed_register, vec!["education=10000.00"]);
@@ -71,7 +104,10 @@ fn purpose_total_matches_an_instalment_split() {
     let a = agreement(vec![contribution("Education", Some("30000"), None)], None);
     let s = score_against_register(&a, &r);
     assert_eq!(s.extracted_sums_matched, 1);
-    assert_eq!(s.register_amounts_found, 2, "both instalments are accounted for by the purpose total");
+    assert_eq!(
+        s.register_amounts_found, 2,
+        "both instalments are accounted for by the purpose total"
+    );
     assert!(s.missed_register.is_empty());
 }
 
@@ -80,14 +116,25 @@ fn contributions_without_a_sum_are_not_scored() {
     let r = reference(&[("education", "10000")], &[]);
     let a = agreement(vec![contribution("Travel plan", None, None)], None);
     let s = score_against_register(&a, &r);
-    assert_eq!((s.extracted_sums, s.extracted_sums_matched, s.register_amounts_found), (0, 0, 0));
+    assert_eq!(
+        (
+            s.extracted_sums,
+            s.extracted_sums_matched,
+            s.register_amounts_found
+        ),
+        (0, 0, 0)
+    );
     assert_eq!(s.missed_register, vec!["education=10000"]);
 }
 
 #[test]
 fn cil_agreements_are_excluded_from_the_reference() {
     let reg = Register::from_rows(
-        &[("20/1/FUL", "A-1", "section-106"), ("20/1/FUL", "A-2", "community-infrastructure-levy"), ("other", "B-1", "section-106")],
+        &[
+            ("20/1/FUL", "A-1", "section-106"),
+            ("20/1/FUL", "A-2", "community-infrastructure-levy"),
+            ("other", "B-1", "section-106"),
+        ],
         &[
             ("A-1", "education", Some(d("5000")), None),
             ("A-1", "affordable-housing", None, Some(d("3"))),
@@ -108,7 +155,11 @@ fn cil_agreements_are_excluded_from_the_reference() {
 fn zero_and_missing_register_amounts_are_ignored() {
     let reg = Register::from_rows(
         &[("p", "A", "section-106")],
-        &[("A", "education", Some(d("0")), None), ("A", "highways", None, None), ("A", "health", Some(d("12.50")), None)],
+        &[
+            ("A", "education", Some(d("0")), None),
+            ("A", "highways", None, None),
+            ("A", "health", Some(d("12.50")), None),
+        ],
     );
     let r = register_reference("p", &reg);
     assert_eq!(r.amounts, vec![("health".to_string(), d("12.50"))]);
@@ -117,38 +168,72 @@ fn zero_and_missing_register_amounts_are_ignored() {
 #[test]
 fn affordable_units_match_a_single_value() {
     let r = reference(&[], &[3, 5]);
-    assert_eq!(score_against_register(&agreement(vec![], Some(5)), &r).affordable_units_match, Some(true));
+    assert_eq!(
+        score_against_register(&agreement(vec![], Some(5)), &r).affordable_units_match,
+        Some(true)
+    );
 }
 
 #[test]
 fn affordable_units_match_the_sum_of_register_values() {
     let r = reference(&[], &[3, 5]);
-    assert_eq!(score_against_register(&agreement(vec![], Some(8)), &r).affordable_units_match, Some(true));
+    assert_eq!(
+        score_against_register(&agreement(vec![], Some(8)), &r).affordable_units_match,
+        Some(true)
+    );
 }
 
 #[test]
 fn affordable_units_mismatch_or_missing() {
     let r = reference(&[], &[3, 5]);
-    assert_eq!(score_against_register(&agreement(vec![], Some(4)), &r).affordable_units_match, Some(false));
-    assert_eq!(score_against_register(&agreement(vec![], None), &r).affordable_units_match, Some(false));
-    assert_eq!(score_against_register(&agreement(vec![], Some(4)), &reference(&[], &[])).affordable_units_match, None);
+    assert_eq!(
+        score_against_register(&agreement(vec![], Some(4)), &r).affordable_units_match,
+        Some(false)
+    );
+    assert_eq!(
+        score_against_register(&agreement(vec![], None), &r).affordable_units_match,
+        Some(false)
+    );
+    assert_eq!(
+        score_against_register(&agreement(vec![], Some(4)), &reference(&[], &[]))
+            .affordable_units_match,
+        None
+    );
 }
 
 // ---- AgreementAcross
 
 fn two_contribution_agreement(trigger: TriggerEvent) -> Agreement {
-    agreement(vec![contribution("Bus Contribution", Some("1000"), Some(trigger)),
-                   contribution("Travel  Plan", Some("250.00"), Some(TriggerEvent::PreCommencement))], Some(4))
+    agreement(
+        vec![
+            contribution("Bus Contribution", Some("1000"), Some(trigger)),
+            contribution(
+                "Travel  Plan",
+                Some("250.00"),
+                Some(TriggerEvent::PreCommencement),
+            ),
+        ],
+        Some(4),
+    )
 }
 
 #[test]
 fn identical_runs_agree() {
-    let (a, b) = (two_contribution_agreement(TriggerEvent::PreOccupation), two_contribution_agreement(TriggerEvent::PreOccupation));
+    let (a, b) = (
+        two_contribution_agreement(TriggerEvent::PreOccupation),
+        two_contribution_agreement(TriggerEvent::PreOccupation),
+    );
     let ag = agreement_across(&[&a, &b]);
     assert_eq!(ag.runs_compared, 2);
     assert!(ag.all_agree());
     assert!(ag.housing_diffs.is_empty() && ag.field_diffs.is_empty());
-    assert_eq!((ag.contribution_names.union, ag.contribution_names.in_every_run), (2, 2));
+    assert_eq!(
+        (
+            ag.contribution_names.union,
+            ag.contribution_names.in_every_run
+        ),
+        (2, 2)
+    );
 }
 
 #[test]
@@ -159,7 +244,11 @@ fn a_changed_trigger_label_is_reported() {
     assert!(!ag.all_agree());
     assert!(ag.sums_identical && ag.housing_identical);
     assert_eq!(ag.field_diffs.len(), 1, "{:?}", ag.field_diffs);
-    assert!(ag.field_diffs[0].starts_with("bus contribution: trigger"), "{:?}", ag.field_diffs);
+    assert!(
+        ag.field_diffs[0].starts_with("bus contribution: trigger"),
+        "{:?}",
+        ag.field_diffs
+    );
 }
 
 #[test]
@@ -174,18 +263,29 @@ fn changed_amount_housing_and_missing_contribution_are_reported() {
     assert_eq!(ag.housing_diffs, vec!["affordable_units"]);
     assert!(!ag.sums_identical);
     assert_eq!(ag.contribution_names.only_some_runs, vec!["travel plan"]);
-    assert!(ag.field_diffs.iter().any(|f| f.contains("amount")) && ag.field_diffs.iter().any(|f| f.contains("index_linked")));
+    assert!(
+        ag.field_diffs.iter().any(|f| f.contains("amount"))
+            && ag.field_diffs.iter().any(|f| f.contains("index_linked"))
+    );
 }
 
 #[test]
 fn instalment_trigger_labels_are_compared() {
-    let inst = |t| Instalment { share_pct: Some(d("50")), trigger_event: Some(t), trigger_phrase: None };
+    let inst = |t| Instalment {
+        share_pct: Some(d("50")),
+        trigger_event: Some(t),
+        trigger_phrase: None,
+    };
     let with = |second| {
         let mut c = contribution("Education", Some("1000"), None);
         c.payment.instalments = vec![inst(TriggerEvent::PreCommencement), inst(second)];
         agreement(vec![c], None)
     };
-    let (a, b, c) = (with(TriggerEvent::PreOccupation), with(TriggerEvent::PreOccupation), with(TriggerEvent::OnDemand));
+    let (a, b, c) = (
+        with(TriggerEvent::PreOccupation),
+        with(TriggerEvent::PreOccupation),
+        with(TriggerEvent::OnDemand),
+    );
     assert!(agreement_across(&[&a, &b]).all_agree());
     assert!(!agreement_across(&[&a, &c]).all_agree());
 }
@@ -200,8 +300,16 @@ fn fewer_than_two_runs_cannot_be_compared() {
 // ---- GateSummary
 
 fn check(id: &str, status: Status, class: Option<ErrorClass>) -> CheckResult {
-    CheckResult { check_id: id.into(), description: "desc".into(), status, expected: None, actual: None, error_class: class,
-                  detail: "why".into(), pages: vec![] }
+    CheckResult {
+        check_id: id.into(),
+        description: "desc".into(),
+        status,
+        expected: None,
+        actual: None,
+        error_class: class,
+        detail: "why".into(),
+        pages: vec![],
+    }
 }
 
 #[test]

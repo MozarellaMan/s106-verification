@@ -12,7 +12,10 @@ use s106::wire::{self, Cite, PageMap, WireContribution, WireExtraction, WireInst
 use serde_json::{Value, json};
 
 fn cite(page: u32, s: &str) -> Cite {
-    Cite { page, snippet: s.into() }
+    Cite {
+        page,
+        snippet: s.into(),
+    }
 }
 
 fn doc(pages: usize) -> Document {
@@ -21,31 +24,61 @@ fn doc(pages: usize) -> Document {
         sha256: "0baed481b09feeb4".into(),
         ocr_version: "test".into(),
         pages: (1..=pages)
-            .map(|n| PageText { page: n, source: TextSource::Ocr, width: 1.0, height: 1.0, lines: vec![Line { text: String::new(), bbox: [0.0; 4] }] })
+            .map(|n| PageText {
+                page: n,
+                source: TextSource::Ocr,
+                width: 1.0,
+                height: 1.0,
+                lines: vec![Line {
+                    text: String::new(),
+                    bbox: [0.0; 4],
+                }],
+            })
             .collect(),
     }
 }
 
 fn info(source: &str) -> Info {
-    Info { model: "claude-haiku-5-5".into(), served_by: "claude-haiku-5-5".into(), source: source.into(), usage: None, fixture: PathBuf::new() }
+    Info {
+        model: "claude-haiku-5-5".into(),
+        served_by: "claude-haiku-5-5".into(),
+        source: source.into(),
+        usage: None,
+        fixture: PathBuf::new(),
+    }
 }
 
 // ------------------------------------------------------------------------------- schema and request
 
 #[test]
 fn schema_is_strict() {
-    for schema in [llm::schema_for::<s106::wire::WireInstrumentPart>(), llm::schema_for::<s106::wire::WireHousingPart>(),
-                   llm::schema_for::<s106::wire::WireContributionsPart>()] {
+    for schema in [
+        llm::schema_for::<s106::wire::WireInstrumentPart>(),
+        llm::schema_for::<s106::wire::WireHousingPart>(),
+        llm::schema_for::<s106::wire::WireContributionsPart>(),
+    ] {
         check(&schema, "$");
     }
     fn check(v: &Value, path: &str) {
         match v {
             Value::Object(m) => {
                 assert!(!m.contains_key("format"), "{path}: format keyword left in");
-                assert!(!m.contains_key("oneOf"), "{path}: oneOf is rejected by the API");
+                assert!(
+                    !m.contains_key("oneOf"),
+                    "{path}: oneOf is rejected by the API"
+                );
                 if let Some(props) = m.get("properties").and_then(Value::as_object) {
-                    assert_eq!(m.get("additionalProperties"), Some(&json!(false)), "{path}: object not closed");
-                    let req: Vec<&str> = m["required"].as_array().unwrap().iter().map(|r| r.as_str().unwrap()).collect();
+                    assert_eq!(
+                        m.get("additionalProperties"),
+                        Some(&json!(false)),
+                        "{path}: object not closed"
+                    );
+                    let req: Vec<&str> = m["required"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|r| r.as_str().unwrap())
+                        .collect();
                     for k in props.keys() {
                         assert!(req.contains(&k.as_str()), "{path}.{k} not required");
                     }
@@ -63,7 +96,13 @@ fn schema_is_strict() {
 #[test]
 fn request_shape() {
     let schema = llm::schema_for::<WireExtraction>();
-    let req = llm::request("claude-haiku-5-5", b"%PDF-1.4 test", "prompt", &schema, ExtractEffort::Medium);
+    let req = llm::request(
+        "claude-haiku-5-5",
+        b"%PDF-1.4 test",
+        "prompt",
+        &schema,
+        ExtractEffort::Medium,
+    );
     let body = serde_json::to_value(&req).unwrap();
     assert_eq!(body["model"], "claude-haiku-5-5");
     let content = &body["messages"][0]["content"];
@@ -72,8 +111,18 @@ fn request_shape() {
     assert_eq!(content[1]["text"], "prompt");
     assert_eq!(body["output_config"]["format"]["type"], "json_schema");
     assert_eq!(body["output_config"]["effort"], "medium");
-    assert!(body.get("fallbacks").is_none(), "Haiku 5.5 takes no server-side fallbacks");
-    let opus = serde_json::to_value(llm::request("claude-opus-5-5", b"x", "p", &schema, ExtractEffort::Medium)).unwrap();
+    assert!(
+        body.get("fallbacks").is_none(),
+        "Haiku 5.5 takes no server-side fallbacks"
+    );
+    let opus = serde_json::to_value(llm::request(
+        "claude-opus-5-5",
+        b"x",
+        "p",
+        &schema,
+        ExtractEffort::Medium,
+    ))
+    .unwrap();
     assert_eq!(opus["fallbacks"], "default");
 }
 
@@ -99,25 +148,51 @@ fn contribution(phrase: &str, covenant: &str) -> WireContribution {
 #[test]
 fn trigger_label_comes_only_from_the_cited_phrase() {
     let pm = PageMap::identity(109);
-    let c = wire::contribution(&contribution("within 28 days", "the Owner will pay the Contribution within 28 days"), &pm);
+    let c = wire::contribution(
+        &contribution(
+            "within 28 days",
+            "the Owner will pay the Contribution within 28 days",
+        ),
+        &pm,
+    );
     assert_eq!(c.payment.trigger_event, Some(TriggerEvent::OnDemand));
     // a phrase outside the vocabulary leaves the label unset (the verifier then SKIPs the label check)
-    let c = wire::contribution(&contribution("as the Council may direct", "to pay as the Council may direct"), &pm);
+    let c = wire::contribution(
+        &contribution(
+            "as the Council may direct",
+            "to pay as the Council may direct",
+        ),
+        &pm,
+    );
     assert_eq!(c.payment.trigger_event, None);
 }
 
 #[test]
 fn instalments_are_classified_and_replace_the_single_trigger() {
     let pm = PageMap::identity(45);
-    let mut w = contribution("", "To pay to the Council the Allotments Contribution in the following instalments");
+    let mut w = contribution(
+        "",
+        "To pay to the Council the Allotments Contribution in the following instalments",
+    );
     w.trigger_phrase = cite(0, "");
     w.instalments = vec![
-        WireInstalment { share_pct: "50".into(), trigger_phrase: cite(14, "50% prior to Occupation of the 1st (first) Dwelling") },
-        WireInstalment { share_pct: "50".into(), trigger_phrase: cite(14, "50% prior to Occupation of the 50th Dwelling") },
+        WireInstalment {
+            share_pct: "50".into(),
+            trigger_phrase: cite(14, "50% prior to Occupation of the 1st (first) Dwelling"),
+        },
+        WireInstalment {
+            share_pct: "50".into(),
+            trigger_phrase: cite(14, "50% prior to Occupation of the 50th Dwelling"),
+        },
     ];
     let c = wire::contribution(&w, &pm);
     assert_eq!(c.payment.instalments.len(), 2);
-    assert!(c.payment.instalments.iter().all(|i| i.trigger_event == Some(TriggerEvent::PreOccupation)));
+    assert!(
+        c.payment
+            .instalments
+            .iter()
+            .all(|i| i.trigger_event == Some(TriggerEvent::PreOccupation))
+    );
     assert_eq!(c.payment.instalments[0].share_pct, Some(Decimal::from(50)));
     assert_eq!(c.payment.trigger_event, None);
     assert!(c.payment.trigger_phrase.is_none());
@@ -126,14 +201,28 @@ fn instalments_are_classified_and_replace_the_single_trigger() {
 #[test]
 fn a_figure_overrides_structure_none_and_empty_snippets_mean_not_stated() {
     let pm = PageMap(vec![3, 4, 5]);
-    let mut w = contribution("on or before Implementation", "To pay on or before Implementation");
+    let mut w = contribution(
+        "on or before Implementation",
+        "To pay on or before Implementation",
+    );
     w.amount_structure = AmountStructure::None;
     w.amount_evidence = cite(2, "the sum of £683,100.00");
     let c = wire::contribution(&w, &pm);
     assert_eq!(c.amount.structure, AmountStructure::Fixed);
-    assert_eq!(c.amount.evidence.unwrap().page, 4, "attachment position 2 is PDF page 4");
-    assert!(c.conditionality.evidence.is_none(), "empty snippet = not stated");
-    assert_eq!(pm.ev(&cite(9, "beyond the attachment")).unwrap().page, 0, "out-of-range pages can never re-locate");
+    assert_eq!(
+        c.amount.evidence.unwrap().page,
+        4,
+        "attachment position 2 is PDF page 4"
+    );
+    assert!(
+        c.conditionality.evidence.is_none(),
+        "empty snippet = not stated"
+    );
+    assert_eq!(
+        pm.ev(&cite(9, "beyond the attachment")).unwrap().page,
+        0,
+        "out-of-range pages can never re-locate"
+    );
 }
 
 #[test]
@@ -160,10 +249,14 @@ fn group_terms_are_dropped_with_a_warning() {
                            "trigger_phrase": {"page": 0, "snippet": ""}, "instalments": []}],
         "variations": []
     });
-    let a = extract::to_agreement(&doc(109), &output, &PageMap::identity(109), &info("replay")).unwrap();
+    let a = extract::to_agreement(&doc(109), &output, &PageMap::identity(109), &info("replay"))
+        .unwrap();
     assert_eq!(a.contributions.len(), 1);
     assert!(a.warnings.iter().any(|w| w.contains("TfL Contributions")));
-    assert_eq!(a.metadata.planning_references, vec!["19/AP/1773".to_string()]);
+    assert_eq!(
+        a.metadata.planning_references,
+        vec!["19/AP/1773".to_string()]
+    );
     assert_eq!(a.schema_version, "2");
 }
 
@@ -171,20 +264,39 @@ fn group_terms_are_dropped_with_a_warning() {
 
 #[test]
 fn v1_fixture_replays_through_the_adapter() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/llm-v1/southwark_s106_sample/claude-haiku-5-5.extract.json");
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures/llm-v1/southwark_s106_sample/claude-haiku-5-5.extract.json");
     let raw: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     let pages: Vec<usize> = serde_json::from_value(raw["pages"].clone()).unwrap();
-    let a = extract::to_agreement(&doc(109), &raw["output"], &PageMap(pages), &info("replay-v1")).unwrap();
+    let a = extract::to_agreement(
+        &doc(109),
+        &raw["output"],
+        &PageMap(pages),
+        &info("replay-v1"),
+    )
+    .unwrap();
     assert_eq!(a.housing.total_units, Some(253));
     assert_eq!(a.housing.affordable_units, Some(76));
     assert_eq!(a.instrument.kind, InstrumentKind::Unknown);
     // v1 "contingent" meant "no fixed figure": structure none, conditionality unknown (not "conditional")
-    let ahc = a.contributions.iter().find(|c| c.name == "Affordable Housing Contribution").unwrap();
+    let ahc = a
+        .contributions
+        .iter()
+        .find(|c| c.name == "Affordable Housing Contribution")
+        .unwrap();
     assert_eq!(ahc.amount.structure, AmountStructure::None);
     assert_eq!(ahc.conditionality.kind, ConditionalityKind::Unknown);
-    let carbon = a.contributions.iter().find(|c| c.name.starts_with("Carbon")).unwrap();
+    let carbon = a
+        .contributions
+        .iter()
+        .find(|c| c.name.starts_with("Carbon"))
+        .unwrap();
     assert_eq!(carbon.amount.structure, AmountStructure::Cap);
-    assert_eq!(carbon.payment.trigger_event, Some(TriggerEvent::OnDemand), "label from the cited 'within 20 Working Days' phrase");
+    assert_eq!(
+        carbon.payment.trigger_event,
+        Some(TriggerEvent::OnDemand),
+        "label from the cited 'within 20 Working Days' phrase"
+    );
     assert!(a.warnings.iter().any(|w| w.starts_with("v1 fixture")));
 }
 
@@ -195,9 +307,21 @@ fn replay_refuses_a_fixture_from_a_different_pdf() {
     unsafe { std::env::set_var("S106_FIXTURES", dir.path()) };
     let d = doc(3);
     let fx = extract::Fixture {
-        format: extract::FIXTURE_FORMAT.into(), model: "claude-haiku-5-5".into(), served_by: "claude-haiku-5-5".into(),
-        prompt_sha256: extract::prompt_sha256(), pdf_sha256: "a different deed".into(), pages: vec![1, 2, 3],
-        usage: llm::Usage { input_tokens: 1, output_tokens: 1, attempts: 1, cache_write_tokens: 0, cache_read_tokens: 0 }, recorded_at: "2026-10-13T00:00:00Z".into(), output: json!({}),
+        format: extract::FIXTURE_FORMAT.into(),
+        model: "claude-haiku-5-5".into(),
+        served_by: "claude-haiku-5-5".into(),
+        prompt_sha256: extract::prompt_sha256(),
+        pdf_sha256: "a different deed".into(),
+        pages: vec![1, 2, 3],
+        usage: llm::Usage {
+            input_tokens: 1,
+            output_tokens: 1,
+            attempts: 1,
+            cache_write_tokens: 0,
+            cache_read_tokens: 0,
+        },
+        recorded_at: "2026-10-13T00:00:00Z".into(),
+        output: json!({}),
     };
     let path = extract::fixture_path(&d, "claude-haiku-5-5");
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -205,7 +329,11 @@ fn replay_refuses_a_fixture_from_a_different_pdf() {
     let err = extract::extract(&d, "claude-haiku-5-5", extract::Mode::Replay, None).unwrap_err();
     assert!(err.to_string().contains("different PDF"), "{err}");
 
-    let fx = extract::Fixture { pdf_sha256: d.sha256.clone(), prompt_sha256: "an older prompt".into(), ..fx };
+    let fx = extract::Fixture {
+        pdf_sha256: d.sha256.clone(),
+        prompt_sha256: "an older prompt".into(),
+        ..fx
+    };
     std::fs::write(&path, serde_json::to_string(&fx).unwrap()).unwrap();
     let err = extract::extract(&d, "claude-haiku-5-5", extract::Mode::Replay, None).unwrap_err();
     assert!(err.to_string().contains("different prompt"), "{err}");

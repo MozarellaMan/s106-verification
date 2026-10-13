@@ -104,26 +104,43 @@ fn parse_decimal(s: &str) -> Option<Decimal> {
     if s.is_empty() {
         return None;
     }
-    Decimal::from_str(s).or_else(|_| Decimal::from_scientific(s)).ok()
+    Decimal::from_str(s)
+        .or_else(|_| Decimal::from_scientific(s))
+        .ok()
 }
 
 pub fn load_register(reference_dir: &Path) -> Result<Register> {
     let mut reg = Register::default();
     let path = reference_dir.join("developer-agreement.csv");
-    let mut rdr = csv::ReaderBuilder::new().flexible(true).from_path(&path).with_context(|| format!("open {}", path.display()))?;
+    let mut rdr = csv::ReaderBuilder::new()
+        .flexible(true)
+        .from_path(&path)
+        .with_context(|| format!("open {}", path.display()))?;
     for row in rdr.deserialize::<RawAgreement>() {
         let a = row.with_context(|| format!("read {}", path.display()))?;
-        reg.agreements.entry(a.planning_application.trim().to_string()).or_default().push(AgreementRow { reference: a.reference, kind: a.kind });
+        reg.agreements
+            .entry(a.planning_application.trim().to_string())
+            .or_default()
+            .push(AgreementRow {
+                reference: a.reference,
+                kind: a.kind,
+            });
     }
     let path = reference_dir.join("developer-agreement-contribution.csv");
-    let mut rdr = csv::ReaderBuilder::new().flexible(true).from_path(&path).with_context(|| format!("open {}", path.display()))?;
+    let mut rdr = csv::ReaderBuilder::new()
+        .flexible(true)
+        .from_path(&path)
+        .with_context(|| format!("open {}", path.display()))?;
     for row in rdr.deserialize::<RawContribution>() {
         let c = row.with_context(|| format!("read {}", path.display()))?;
-        reg.contributions.entry(c.agreement).or_default().push(ContributionRow {
-            purpose: c.purpose,
-            amount: parse_decimal(&c.amount),
-            units: parse_decimal(&c.units),
-        });
+        reg.contributions
+            .entry(c.agreement)
+            .or_default()
+            .push(ContributionRow {
+                purpose: c.purpose,
+                amount: parse_decimal(&c.amount),
+                units: parse_decimal(&c.units),
+            });
     }
     Ok(reg)
 }
@@ -131,15 +148,29 @@ pub fn load_register(reference_dir: &Path) -> Result<Register> {
 impl Register {
     /// Build a register from in-memory rows: `(planning ref, agreement ref, type)` and
     /// `(agreement ref, purpose, amount, units)`. Used by tests.
-    pub fn from_rows(agreements: &[(&str, &str, &str)], contributions: &[(&str, &str, Option<Decimal>, Option<Decimal>)]) -> Register {
+    pub fn from_rows(
+        agreements: &[(&str, &str, &str)],
+        contributions: &[(&str, &str, Option<Decimal>, Option<Decimal>)],
+    ) -> Register {
         let mut reg = Register::default();
         for (planning, reference, kind) in agreements {
-            reg.agreements.entry(planning.trim().to_string()).or_default()
-                .push(AgreementRow { reference: reference.to_string(), kind: kind.to_string() });
+            reg.agreements
+                .entry(planning.trim().to_string())
+                .or_default()
+                .push(AgreementRow {
+                    reference: reference.to_string(),
+                    kind: kind.to_string(),
+                });
         }
         for (agreement, purpose, amount, units) in contributions {
-            reg.contributions.entry(agreement.to_string()).or_default()
-                .push(ContributionRow { purpose: purpose.to_string(), amount: *amount, units: *units });
+            reg.contributions
+                .entry(agreement.to_string())
+                .or_default()
+                .push(ContributionRow {
+                    purpose: purpose.to_string(),
+                    amount: *amount,
+                    units: *units,
+                });
         }
         reg
     }
@@ -148,16 +179,37 @@ impl Register {
 /// What the register says about one planning reference. CIL is a separate levy, not an obligation
 /// in the deed, so those agreements are excluded.
 pub fn register_reference(planning_ref: &str, register: &Register) -> Reference {
-    let deeds: Vec<&AgreementRow> = register.agreements.get(planning_ref).map_or(vec![], |v| v.iter().collect())
-        .into_iter().filter(|a| a.kind != "community-infrastructure-levy").collect();
-    let rows: Vec<&ContributionRow> = deeds.iter().flat_map(|a| register.contributions.get(&a.reference).into_iter().flatten()).collect();
-    let amounts: Vec<(String, Decimal)> = rows.iter()
-        .filter_map(|c| c.amount.filter(|a| *a > Decimal::ZERO).map(|a| (c.purpose.clone(), a))).collect();
+    let deeds: Vec<&AgreementRow> = register
+        .agreements
+        .get(planning_ref)
+        .map_or(vec![], |v| v.iter().collect())
+        .into_iter()
+        .filter(|a| a.kind != "community-infrastructure-levy")
+        .collect();
+    let rows: Vec<&ContributionRow> = deeds
+        .iter()
+        .flat_map(|a| {
+            register
+                .contributions
+                .get(&a.reference)
+                .into_iter()
+                .flatten()
+        })
+        .collect();
+    let amounts: Vec<(String, Decimal)> = rows
+        .iter()
+        .filter_map(|c| {
+            c.amount
+                .filter(|a| *a > Decimal::ZERO)
+                .map(|a| (c.purpose.clone(), a))
+        })
+        .collect();
     let mut purpose_totals: BTreeMap<String, Decimal> = BTreeMap::new();
     for (purpose, amount) in &amounts {
         *purpose_totals.entry(purpose.clone()).or_default() += *amount;
     }
-    let affordable_units: BTreeSet<u32> = rows.iter()
+    let affordable_units: BTreeSet<u32> = rows
+        .iter()
         .filter(|c| c.purpose == "affordable-housing")
         .filter_map(|c| c.units.filter(|u| *u > Decimal::ZERO))
         .filter_map(|u| u.trunc().to_string().parse::<u32>().ok())
@@ -166,7 +218,12 @@ pub fn register_reference(planning_ref: &str, register: &Register) -> Reference 
         amounts,
         purpose_totals,
         affordable_units: affordable_units.into_iter().collect(),
-        agreement_types: deeds.iter().map(|a| a.kind.clone()).collect::<BTreeSet<_>>().into_iter().collect(),
+        agreement_types: deeds
+            .iter()
+            .map(|a| a.kind.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect(),
     }
 }
 
@@ -184,24 +241,53 @@ pub struct RegisterScore {
 }
 
 pub fn score_against_register(agreement: &Agreement, reference: &Reference) -> RegisterScore {
-    let sums: Vec<Decimal> = agreement.contributions.iter().filter_map(|c| c.amount.value_gbp).collect();
+    let sums: Vec<Decimal> = agreement
+        .contributions
+        .iter()
+        .filter_map(|c| c.amount.value_gbp)
+        .collect();
     let reg_amounts: Vec<Decimal> = reference.amounts.iter().map(|(_, a)| *a).collect();
     let reg_totals: Vec<Decimal> = reference.purpose_totals.values().copied().collect();
     let tol = tolerance();
     let close = |x: Decimal, ys: &[Decimal]| ys.iter().any(|y| (x - *y).abs() <= tol);
 
-    let matched: Vec<bool> = sums.iter().map(|s| close(*s, &reg_amounts) || close(*s, &reg_totals)).collect();
-    // a register amount is "found" if some extracted sum equals it, or equals its purpose total
-    let found: Vec<bool> = reference.amounts.iter()
-        .map(|(p, a)| close(*a, &sums) || reference.purpose_totals.get(p).is_some_and(|t| close(*t, &sums)))
+    let matched: Vec<bool> = sums
+        .iter()
+        .map(|s| close(*s, &reg_amounts) || close(*s, &reg_totals))
         .collect();
-    let unmatched_extracted = sums.iter().zip(&matched).filter(|(_, m)| !**m).map(|(s, _)| s.to_string()).collect();
-    let missed_register = reference.amounts.iter().zip(&found).filter(|(_, f)| !**f).map(|((p, a), _)| format!("{p}={a}")).collect();
+    // a register amount is "found" if some extracted sum equals it, or equals its purpose total
+    let found: Vec<bool> = reference
+        .amounts
+        .iter()
+        .map(|(p, a)| {
+            close(*a, &sums)
+                || reference
+                    .purpose_totals
+                    .get(p)
+                    .is_some_and(|t| close(*t, &sums))
+        })
+        .collect();
+    let unmatched_extracted = sums
+        .iter()
+        .zip(&matched)
+        .filter(|(_, m)| !**m)
+        .map(|(s, _)| s.to_string())
+        .collect();
+    let missed_register = reference
+        .amounts
+        .iter()
+        .zip(&found)
+        .filter(|(_, f)| !**f)
+        .map(|((p, a), _)| format!("{p}={a}"))
+        .collect();
     let ah = agreement.housing.affordable_units;
     let units_ok = if reference.affordable_units.is_empty() {
         None
     } else {
-        Some(ah.is_some_and(|n| reference.affordable_units.contains(&n) || n == reference.affordable_units.iter().sum::<u32>()))
+        Some(ah.is_some_and(|n| {
+            reference.affordable_units.contains(&n)
+                || n == reference.affordable_units.iter().sum::<u32>()
+        }))
     };
     RegisterScore {
         extracted_sums: sums.len(),
@@ -233,8 +319,13 @@ pub struct GateSummary {
 pub fn gate_summary(results: &[CheckResult]) -> GateSummary {
     let n = |s: Status| results.iter().filter(|r| r.status == s).count();
     let e = |c: ErrorClass| results.iter().filter(|r| r.error_class == Some(c)).count();
-    let lines = |s: Status| results.iter().filter(|r| r.status == s)
-        .map(|r| format!("{} {}: {}", r.check_id, r.description, r.detail)).collect::<Vec<_>>();
+    let lines = |s: Status| {
+        results
+            .iter()
+            .filter(|r| r.status == s)
+            .map(|r| format!("{} {}: {}", r.check_id, r.description, r.detail))
+            .collect::<Vec<_>>()
+    };
     GateSummary {
         pass: n(Status::Pass),
         review: n(Status::Review),
@@ -251,7 +342,13 @@ pub fn gate_summary(results: &[CheckResult]) -> GateSummary {
 
 /// One contribution's reported values, in the order of `CONTRIBUTION_FIELDS`.
 type ContributionPrint = [String; 5];
-const CONTRIBUTION_FIELDS: [&str; 5] = ["amount", "index_linked", "structure", "conditionality", "trigger"];
+const CONTRIBUTION_FIELDS: [&str; 5] = [
+    "amount",
+    "index_linked",
+    "structure",
+    "conditionality",
+    "trigger",
+];
 
 #[derive(Debug, Clone, PartialEq)]
 struct Fingerprint {
@@ -261,15 +358,28 @@ struct Fingerprint {
 }
 
 fn housing_print(h: &Housing) -> Vec<(&'static str, String)> {
-    let mut tenures: Vec<(&str, Option<u32>, Option<u32>)> = h.tenures.iter().map(|t| (t.tenure.label(), t.units, t.habitable_rooms)).collect();
+    let mut tenures: Vec<(&str, Option<u32>, Option<u32>)> = h
+        .tenures
+        .iter()
+        .map(|t| (t.tenure.label(), t.units, t.habitable_rooms))
+        .collect();
     tenures.sort();
     vec![
         ("total_units", format!("{:?}", h.total_units)),
         ("market_units", format!("{:?}", h.market_units)),
         ("affordable_units", format!("{:?}", h.affordable_units)),
-        ("affordable_habitable_rooms", format!("{:?}", h.affordable_habitable_rooms)),
+        (
+            "affordable_habitable_rooms",
+            format!("{:?}", h.affordable_habitable_rooms),
+        ),
         ("tenures", format!("{tenures:?}")),
-        ("claimed_affordable_pct", format!("{:?}", h.claimed_affordable_pct.map(|d| d.normalize().to_string()))),
+        (
+            "claimed_affordable_pct",
+            format!(
+                "{:?}",
+                h.claimed_affordable_pct.map(|d| d.normalize().to_string())
+            ),
+        ),
     ]
 }
 
@@ -280,24 +390,50 @@ fn amount_text(d: Option<Decimal>) -> String {
 /// The run's reported values, minus evidence snippets and free text that may legitimately vary.
 fn fingerprint(a: &Agreement) -> Fingerprint {
     let name_re = Regex::new(r"\W+").expect("static regex");
-    let mut sums: Vec<String> = a.contributions.iter().filter_map(|c| c.amount.value_gbp).map(|d| d.normalize().to_string()).collect();
+    let mut sums: Vec<String> = a
+        .contributions
+        .iter()
+        .filter_map(|c| c.amount.value_gbp)
+        .map(|d| d.normalize().to_string())
+        .collect();
     sums.sort();
-    let contributions = a.contributions.iter().map(|c| {
-        let name = name_re.replace_all(&c.name.to_lowercase(), " ").trim().to_string();
-        let trigger = if c.payment.instalments.is_empty() {
-            c.payment.trigger_event.map_or("None".to_string(), |t| t.label().to_string())
-        } else {
-            c.payment.instalments.iter().map(|i| i.trigger_event.map_or("?", |t| t.label())).collect::<Vec<_>>().join(" | ")
-        };
-        (name, [
-            amount_text(c.amount.value_gbp),
-            c.amount.index_linked.to_string(),
-            format!("{:?}", c.amount.structure),
-            format!("{:?}", c.conditionality.kind),
-            trigger,
-        ])
-    }).collect();
-    Fingerprint { housing: housing_print(&a.housing), sums, contributions }
+    let contributions = a
+        .contributions
+        .iter()
+        .map(|c| {
+            let name = name_re
+                .replace_all(&c.name.to_lowercase(), " ")
+                .trim()
+                .to_string();
+            let trigger = if c.payment.instalments.is_empty() {
+                c.payment
+                    .trigger_event
+                    .map_or("None".to_string(), |t| t.label().to_string())
+            } else {
+                c.payment
+                    .instalments
+                    .iter()
+                    .map(|i| i.trigger_event.map_or("?", |t| t.label()))
+                    .collect::<Vec<_>>()
+                    .join(" | ")
+            };
+            (
+                name,
+                [
+                    amount_text(c.amount.value_gbp),
+                    c.amount.index_linked.to_string(),
+                    format!("{:?}", c.amount.structure),
+                    format!("{:?}", c.conditionality.kind),
+                    trigger,
+                ],
+            )
+        })
+        .collect();
+    Fingerprint {
+        housing: housing_print(&a.housing),
+        sums,
+        contributions,
+    }
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -325,7 +461,10 @@ impl AcrossRuns {
 
     /// Every compared value matched in every run.
     pub fn all_agree(&self) -> bool {
-        self.housing_identical && self.sums_identical && self.field_diffs.is_empty() && self.contribution_names.only_some_runs.is_empty()
+        self.housing_identical
+            && self.sums_identical
+            && self.field_diffs.is_empty()
+            && self.contribution_names.only_some_runs.is_empty()
     }
 }
 
@@ -337,31 +476,50 @@ pub fn agreement_across(agreements: &[&Agreement]) -> AcrossRuns {
         housing_identical: true,
         housing_diffs: vec![],
         sums_identical: true,
-        contribution_names: ContributionNames { union: 0, in_every_run: 0, only_some_runs: vec![] },
+        contribution_names: ContributionNames {
+            union: 0,
+            in_every_run: 0,
+            only_some_runs: vec![],
+        },
         field_diffs: vec![],
     };
     if fps.len() < 2 {
         return out;
     }
     let names: BTreeSet<&String> = fps.iter().flat_map(|f| f.contributions.keys()).collect();
-    let common: Vec<&String> = names.iter().copied().filter(|n| fps.iter().all(|f| f.contributions.contains_key(*n))).collect();
+    let common: Vec<&String> = names
+        .iter()
+        .copied()
+        .filter(|n| fps.iter().all(|f| f.contributions.contains_key(*n)))
+        .collect();
     for n in &common {
         let vals: Vec<&ContributionPrint> = fps.iter().map(|f| &f.contributions[*n]).collect();
         for (i, field) in CONTRIBUTION_FIELDS.iter().enumerate() {
             if vals.iter().any(|v| v[i] != vals[0][i]) {
-                out.field_diffs.push(format!("{n}: {field} {:?}", vals.iter().map(|v| &v[i]).collect::<Vec<_>>()));
+                out.field_diffs.push(format!(
+                    "{n}: {field} {:?}",
+                    vals.iter().map(|v| &v[i]).collect::<Vec<_>>()
+                ));
             }
         }
     }
-    out.housing_diffs = fps[0].housing.iter().enumerate()
+    out.housing_diffs = fps[0]
+        .housing
+        .iter()
+        .enumerate()
         .filter(|(i, _)| fps.iter().any(|f| f.housing[*i].1 != fps[0].housing[*i].1))
-        .map(|(_, (k, _))| k.to_string()).collect();
+        .map(|(_, (k, _))| k.to_string())
+        .collect();
     out.housing_identical = out.housing_diffs.is_empty();
     out.sums_identical = fps.iter().all(|f| f.sums == fps[0].sums);
     out.contribution_names = ContributionNames {
         union: names.len(),
         in_every_run: common.len(),
-        only_some_runs: names.iter().filter(|n| !common.contains(n)).map(|n| n.to_string()).collect(),
+        only_some_runs: names
+            .iter()
+            .filter(|n| !common.contains(n))
+            .map(|n| n.to_string())
+            .collect(),
     };
     out
 }
@@ -411,7 +569,17 @@ struct Candidate {
 }
 
 fn error_row(run: usize, error: String, seconds: f64) -> RunRow {
-    RunRow { run, error: Some(error), gate: None, register: None, contributions: None, seconds, tokens_in: 0, tokens_out: 0, cost_usd: 0.0 }
+    RunRow {
+        run,
+        error: Some(error),
+        gate: None,
+        register: None,
+        contributions: None,
+        seconds,
+        tokens_in: 0,
+        tokens_out: 0,
+        cost_usd: 0.0,
+    }
 }
 
 fn round(x: f64, dp: i32) -> f64 {
@@ -421,23 +589,49 @@ fn round(x: f64, dp: i32) -> f64 {
 
 /// One extraction + verification; writes the run's audit JSON. Failure becomes an error row,
 /// so one failed run does not sink the deed's other runs.
-fn run_once(doc: &document::Document, run: usize, model: &str, mode: Mode, out: &Path, client: Option<&rust_claude_sdk::Client>,
-            reference: &Reference) -> (RunRow, Option<Agreement>) {
+fn run_once(
+    doc: &document::Document,
+    run: usize,
+    model: &str,
+    mode: Mode,
+    out: &Path,
+    client: Option<&rust_claude_sdk::Client>,
+    reference: &Reference,
+) -> (RunRow, Option<Agreement>) {
     let t0 = Instant::now();
     let attempt = || -> Result<(RunRow, Agreement)> {
         let (mut agreement, info) = extract::extract(doc, model, mode, client)?;
         let results = verify::verify(&agreement, &doc.pages());
-        let (tin, tout) = info.usage.as_ref().map_or((0, 0), |u| (u.input_tokens, u.output_tokens));
+        let (tin, tout) = info
+            .usage
+            .as_ref()
+            .map_or((0, 0), |u| (u.input_tokens, u.output_tokens));
         let cost = match (&info.usage, mode) {
             (Some(u), Mode::Live | Mode::Record) => llm::cost_usd(&info.model, u),
             _ => 0.0,
         };
         if let Some(u) = &info.usage {
-            agreement.warnings.push(format!("{}: {} in / {} out tokens, ~${:.3}{}", info.source, u.input_tokens, u.output_tokens,
-                llm::cost_usd(&info.model, u), if info.source == "live" { "" } else { " when recorded" }));
+            agreement.warnings.push(format!(
+                "{}: {} in / {} out tokens, ~${:.3}{}",
+                info.source,
+                u.input_tokens,
+                u.output_tokens,
+                llm::cost_usd(&info.model, u),
+                if info.source == "live" {
+                    ""
+                } else {
+                    " when recorded"
+                }
+            ));
         }
-        std::fs::write(out, serde_json::to_string_pretty(&AuditJson { agreement: &agreement, verification: &results })?)
-            .with_context(|| format!("write {}", out.display()))?;
+        std::fs::write(
+            out,
+            serde_json::to_string_pretty(&AuditJson {
+                agreement: &agreement,
+                verification: &results,
+            })?,
+        )
+        .with_context(|| format!("write {}", out.display()))?;
         let row = RunRow {
             run,
             error: None,
@@ -456,13 +650,24 @@ fn run_once(doc: &document::Document, run: usize, model: &str, mode: Mode, out: 
         Err(e) => {
             let mut msg = format!("{e:#}");
             msg.truncate(msg.char_indices().nth(400).map_or(msg.len(), |(i, _)| i));
-            (error_row(run, msg, round(t0.elapsed().as_secs_f64(), 1)), None)
+            (
+                error_row(run, msg, round(t0.elapsed().as_secs_f64(), 1)),
+                None,
+            )
         }
     }
 }
 
-fn evaluate(row: &Candidate, runs: usize, model: &str, register: &Register, client: Option<&rust_claude_sdk::Client>, replay: bool,
-            root: &Path, cfg: &Config) -> Result<DeedSummary> {
+fn evaluate(
+    row: &Candidate,
+    runs: usize,
+    model: &str,
+    register: &Register,
+    client: Option<&rust_claude_sdk::Client>,
+    replay: bool,
+    root: &Path,
+    cfg: &Config,
+) -> Result<DeedSummary> {
     let pdf = root.join("data/raw/eval").join(format!("{}.pdf", row.id));
     let out = root.join("data/processed/eval").join(&row.id);
     std::fs::create_dir_all(&out)?;
@@ -473,15 +678,36 @@ fn evaluate(row: &Candidate, runs: usize, model: &str, register: &Register, clie
     let mut rows: Vec<RunRow> = vec![];
     let mut ok: Vec<Agreement> = vec![];
     if !pdf.exists() {
-        rows.push(error_row(1, format!("corpus missing: fetch with data/reference/candidates.tsv (no {})", pdf.strip_prefix(root).unwrap_or(&pdf).display()), 0.0));
+        rows.push(error_row(
+            1,
+            format!(
+                "corpus missing: fetch with data/reference/candidates.tsv (no {})",
+                pdf.strip_prefix(root).unwrap_or(&pdf).display()
+            ),
+            0.0,
+        ));
     } else {
         match document::load(&pdf, cfg, false) {
             Err(e) => rows.push(error_row(1, format!("load {}: {e:#}", pdf.display()), 0.0)),
             Ok(doc) => {
                 for k in 1..=runs {
                     // run 1 records the fixture (and warms the OCR cache); the rest are live
-                    let mode = if replay { Mode::Replay } else if k == 1 { Mode::Record } else { Mode::Live };
-                    let (r, a) = run_once(&doc, k, model, mode, &out.join(format!("run{k}.audit.json")), client, &reference);
+                    let mode = if replay {
+                        Mode::Replay
+                    } else if k == 1 {
+                        Mode::Record
+                    } else {
+                        Mode::Live
+                    };
+                    let (r, a) = run_once(
+                        &doc,
+                        k,
+                        model,
+                        mode,
+                        &out.join(format!("run{k}.audit.json")),
+                        client,
+                        &reference,
+                    );
                     rows.push(r);
                     ok.extend(a);
                 }
@@ -489,7 +715,10 @@ fn evaluate(row: &Candidate, runs: usize, model: &str, register: &Register, clie
         }
     }
     let (pages, text_source) = match ok.first() {
-        Some(a) => (Some(a.provenance.page_count), Some(a.provenance.text_source.clone())),
+        Some(a) => (
+            Some(a.provenance.page_count),
+            Some(a.provenance.text_source.clone()),
+        ),
         None => (None, None),
     };
     let refs: Vec<&Agreement> = ok.iter().collect();
@@ -532,7 +761,13 @@ pub fn markdown(summary: &[DeedSummary], model: &str) -> String {
         "|---|---|---|---|---|---|---|---|---|---|".into(),
     ];
     let mut total = 0.0;
-    if summary.iter().any(|d| d.runs.iter().any(|r| r.error.as_deref().is_some_and(|e| e.starts_with("corpus missing")))) {
+    if summary.iter().any(|d| {
+        d.runs.iter().any(|r| {
+            r.error
+                .as_deref()
+                .is_some_and(|e| e.starts_with("corpus missing"))
+        })
+    }) {
         lines.insert(2, "Some deeds are missing from data/raw/eval: corpus missing: fetch with data/reference/candidates.tsv".into());
         lines.insert(3, String::new());
     }
@@ -541,14 +776,42 @@ pub fn markdown(summary: &[DeedSummary], model: &str) -> String {
         let c: f64 = ok.iter().map(|r| r.cost_usd).sum();
         total += c;
         let Some(first) = ok.first() else {
-            lines.push(format!("| {} | | | 0/{} | {} | | | | | |", d.id, d.runs.len(), cell(d.runs.first().and_then(|r| r.error.as_deref()).unwrap_or(""), 60)));
+            lines.push(format!(
+                "| {} | | | 0/{} | {} | | | | | |",
+                d.id,
+                d.runs.len(),
+                cell(
+                    d.runs
+                        .first()
+                        .and_then(|r| r.error.as_deref())
+                        .unwrap_or(""),
+                    60
+                )
+            ));
             continue;
         };
-        let (g, reg) = (first.gate.as_ref().unwrap(), first.register.as_ref().unwrap());
+        let (g, reg) = (
+            first.gate.as_ref().unwrap(),
+            first.register.as_ref().unwrap(),
+        );
         let ag = &d.agreement;
-        let agree = if !ag.compared() { "n/a" } else if ag.all_agree() { "yes" } else { "no" };
-        let units = format!("{} / {}", reg.affordable_units.map_or("None".into(), |u| u.to_string()),
-            if reg.register_affordable_units.is_empty() { "-".into() } else { format!("{:?}", reg.register_affordable_units) });
+        let agree = if !ag.compared() {
+            "n/a"
+        } else if ag.all_agree() {
+            "yes"
+        } else {
+            "no"
+        };
+        let units = format!(
+            "{} / {}",
+            reg.affordable_units
+                .map_or("None".into(), |u| u.to_string()),
+            if reg.register_affordable_units.is_empty() {
+                "-".into()
+            } else {
+                format!("{:?}", reg.register_affordable_units)
+            }
+        );
         lines.push(format!("| {} | {} | {} | {}/{} | {}/{}/{}/{}, {} | {}/{} | {}/{} | {units} | {agree} | ${c:.3} |",
             d.id, d.pages.map_or(String::new(), |p| p.to_string()), d.text_source.as_deref().unwrap_or(""), ok.len(), d.runs.len(),
             g.pass, g.review, g.fail, g.skip, g.parser_errors,
@@ -560,35 +823,68 @@ pub fn markdown(summary: &[DeedSummary], model: &str) -> String {
     lines.push("Gate and register columns are for run 1; *runs agree* compares all runs (housing, sums, contribution set, flags, trigger labels).".into());
     lines.push(String::new());
     for d in summary {
-        lines.push(format!("## {} ({} {}, {})", d.id, d.council, d.planning_ref, d.kind));
+        lines.push(format!(
+            "## {} ({} {}, {})",
+            d.id, d.council, d.planning_ref, d.kind
+        ));
         for r in &d.runs {
             let (Some(g), Some(reg)) = (&r.gate, &r.register) else {
-                lines.push(format!("- run {}: **error** {}", r.run, r.error.as_deref().unwrap_or("")));
+                lines.push(format!(
+                    "- run {}: **error** {}",
+                    r.run,
+                    r.error.as_deref().unwrap_or("")
+                ));
                 continue;
             };
-            lines.push(format!("- run {}: gate {}/{}/{}/{}; {} contributions; {} in / {} out; {}s", r.run, g.pass, g.review, g.fail, g.skip,
-                r.contributions.unwrap_or(0), thousands(r.tokens_in), thousands(r.tokens_out), r.seconds));
+            lines.push(format!(
+                "- run {}: gate {}/{}/{}/{}; {} contributions; {} in / {} out; {}s",
+                r.run,
+                g.pass,
+                g.review,
+                g.fail,
+                g.skip,
+                r.contributions.unwrap_or(0),
+                thousands(r.tokens_in),
+                thousands(r.tokens_out),
+                r.seconds
+            ));
             lines.extend(g.failures.iter().map(|f| format!("  - FAIL {f}")));
             lines.extend(g.reviews.iter().map(|f| format!("  - REVIEW {f}")));
             if !reg.unmatched_extracted.is_empty() {
-                lines.push(format!("  - sums not in register: {}", reg.unmatched_extracted.join(", ")));
+                lines.push(format!(
+                    "  - sums not in register: {}",
+                    reg.unmatched_extracted.join(", ")
+                ));
             }
             if !reg.missed_register.is_empty() {
-                lines.push(format!("  - register amounts not extracted: {}", reg.missed_register.join(", ")));
+                lines.push(format!(
+                    "  - register amounts not extracted: {}",
+                    reg.missed_register.join(", ")
+                ));
             }
         }
         let ag = &d.agreement;
         if ag.compared() {
             if !ag.housing_diffs.is_empty() {
-                lines.push(format!("- housing differs across runs: {}", ag.housing_diffs.join(", ")));
+                lines.push(format!(
+                    "- housing differs across runs: {}",
+                    ag.housing_diffs.join(", ")
+                ));
             }
             if !ag.sums_identical {
                 lines.push("- extracted sums differ across runs".into());
             }
             if !ag.contribution_names.only_some_runs.is_empty() {
-                lines.push(format!("- contributions in only some runs: {}", ag.contribution_names.only_some_runs.join(", ")));
+                lines.push(format!(
+                    "- contributions in only some runs: {}",
+                    ag.contribution_names.only_some_runs.join(", ")
+                ));
             }
-            lines.extend(ag.field_diffs.iter().map(|f| format!("- field differs: {f}")));
+            lines.extend(
+                ag.field_diffs
+                    .iter()
+                    .map(|f| format!("- field differs: {f}")),
+            );
         }
         lines.push(String::new());
     }
@@ -598,8 +894,14 @@ pub fn markdown(summary: &[DeedSummary], model: &str) -> String {
 // --------------------------------------------------------------------------- main
 
 fn read_candidates(path: &Path) -> Result<Vec<Candidate>> {
-    let mut rdr = csv::ReaderBuilder::new().delimiter(b'\t').flexible(true).from_path(path).with_context(|| format!("open {}", path.display()))?;
-    rdr.deserialize::<Candidate>().collect::<Result<_, _>>().with_context(|| format!("read {}", path.display()))
+    let mut rdr = csv::ReaderBuilder::new()
+        .delimiter(b'\t')
+        .flexible(true)
+        .from_path(path)
+        .with_context(|| format!("open {}", path.display()))?;
+    rdr.deserialize::<Candidate>()
+        .collect::<Result<_, _>>()
+        .with_context(|| format!("read {}", path.display()))
 }
 
 pub fn run(args: &EvalArgs, repo_root: &Path) -> Result<()> {
@@ -610,14 +912,30 @@ pub fn run(args: &EvalArgs, repo_root: &Path) -> Result<()> {
         rows.retain(|r| args.only.contains(&r.id));
     }
     let register = load_register(&reference_dir)?;
-    let client = if args.replay { None } else { Some(llm::client()?) };
+    let client = if args.replay {
+        None
+    } else {
+        Some(llm::client()?)
+    };
     let cfg = Config::from_env(repo_root);
     std::fs::create_dir_all(&out)?;
     let mut summary: Vec<DeedSummary> = vec![];
     for row in &rows {
         eprintln!("== {} ({} {})", row.id, row.council, row.planning_ref);
-        summary.push(evaluate(row, args.runs, &args.model, &register, client.as_ref(), args.replay, repo_root, &cfg)?);
-        std::fs::write(out.join("summary.json"), serde_json::to_string_pretty(&summary)?)?;
+        summary.push(evaluate(
+            row,
+            args.runs,
+            &args.model,
+            &register,
+            client.as_ref(),
+            args.replay,
+            repo_root,
+            &cfg,
+        )?);
+        std::fs::write(
+            out.join("summary.json"),
+            serde_json::to_string_pretty(&summary)?,
+        )?;
     }
     let md = markdown(&summary, &args.model);
     std::fs::write(out.join("summary.md"), &md)?;

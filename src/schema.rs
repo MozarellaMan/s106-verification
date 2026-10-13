@@ -58,7 +58,10 @@ pub enum InstrumentKind {
 impl InstrumentKind {
     /// Variations and supplemental deeds restate only what changes, so whole-scheme checks don't apply.
     pub fn is_variation(self) -> bool {
-        matches!(self, InstrumentKind::DeedOfVariation | InstrumentKind::Supplemental)
+        matches!(
+            self,
+            InstrumentKind::DeedOfVariation | InstrumentKind::Supplemental
+        )
     }
 }
 
@@ -74,7 +77,12 @@ pub struct Instrument {
 
 impl Default for Instrument {
     fn default() -> Self {
-        Instrument { kind: InstrumentKind::Unknown, evidence: None, parent: None, scope: None }
+        Instrument {
+            kind: InstrumentKind::Unknown,
+            evidence: None,
+            parent: None,
+            scope: None,
+        }
     }
 }
 
@@ -105,7 +113,19 @@ pub struct Metadata {
 
 // ------------------------------------------------------------------------------- housing
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+)]
 pub enum Tenure {
     #[serde(rename = "Social Rent")]
     SocialRent,
@@ -328,6 +348,9 @@ pub struct Variation {
 impl Agreement {
     /// Sum of fixed or capped amounts, unindexed (a cap counts at its maximum).
     pub fn total_stated_gbp(&self) -> Decimal {
-        self.contributions.iter().filter_map(|c| c.amount.value_gbp).sum()
+        self.contributions
+            .iter()
+            .filter_map(|c| c.amount.value_gbp)
+            .sum()
     }
 }
