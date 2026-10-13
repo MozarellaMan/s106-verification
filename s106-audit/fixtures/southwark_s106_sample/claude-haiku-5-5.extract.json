@@ -1,7 +1,8 @@
 {
   "model": "claude-haiku-5-5",
+  "served_by": "claude-haiku-5-5",
   "kind": "extract",
-  "provenance": "synthetic: hand-built from the page images to stand in for a live claude-haiku-5-5 response; replace with `--llm-mode record`",
+  "provenance": "live",
   "pages": [
     3,
     4,
@@ -46,13 +47,16 @@
     90,
     91
   ],
-  "usage": null,
+  "usage": {
+    "input_tokens": 70216,
+    "output_tokens": 14553
+  },
   "output": {
     "housing": {
       "total_units": 253,
       "total_units_evidence": {
         "page": 12,
-        "snippet": "253 residential apartments (C3)"
+        "snippet": "253 residential apartments (C3), 35.75% affordable by habitable room"
       },
       "market_units": 177,
       "market_units_evidence": {
@@ -73,7 +77,7 @@
           "habitable_rooms": 212,
           "evidence": {
             "page": 28,
-            "snippet": "the 58 Residential Units (made up of 10 one bedroom units, 24 two bedroom units and 24 three bedroom units (212) Habitable Rooms"
+            "snippet": "means the 58 Residential Units (made up of 10 one bedroom units"
           }
         },
         {
@@ -82,7 +86,7 @@
           "habitable_rooms": 59,
           "evidence": {
             "page": 19,
-            "snippet": "the 18 Residential Units (provided as 7 one bedroom units, 5 two bedroom units and 6 three bedroom units (59 Habitable Rooms"
+            "snippet": "means the 18 Residential Units (provided as 7 one bedroom units"
           }
         }
       ],
@@ -142,7 +146,7 @@
         "total_habitable_rooms": 271,
         "evidence": {
           "page": 42,
-          "snippet": "Sub-Total 58 18 Total 76 (271 habitable rooms)"
+          "snippet": "76 (271 habitable rooms)"
         }
       },
       "claimed_affordable_pct": "35.75",
@@ -161,14 +165,14 @@
         "is_cap": false,
         "contingent": false,
         "trigger_event": "on demand / review",
-        "trigger_clause": "The Owner covenants to pay the Administration Cost to the Council within 28 days of receiving written request",
+        "trigger_clause": "The Owner covenants to pay the Administration Cost to the Council within 28 days of receiving written request and separately not to Implement the Development until the Administration Cost has been paid to the Council.",
         "trigger_evidence": {
           "page": 33,
-          "snippet": "pay the Administration Cost to the Council within 28 days of"
+          "snippet": "within 28 days of receiving written request"
         },
         "evidence": {
           "page": 2,
-          "snippet": "£16,913.26 (sixteen thousand nine hundred and thirteen pounds and twenty six pence)"
+          "snippet": "means the sum of \u00a316,913.26 (sixteen thousand nine hundred and"
         }
       },
       {
@@ -178,15 +182,15 @@
         "index_linked": false,
         "is_cap": false,
         "contingent": true,
-        "trigger_event": null,
-        "trigger_clause": null,
+        "trigger_event": "prior to Occupation",
+        "trigger_clause": "The Owner shall not Occupy or permit Occupation of more than 50 per cent of the Market Housing Units comprised within the Development unless and until any Affordable Housing Contribution that may be required to be paid pursuant to paragraph 5.8 of this Schedule has been paid to the Council in full.",
         "trigger_evidence": {
-          "page": 0,
-          "snippet": ""
+          "page": 35,
+          "snippet": "The Owner shall not Occupy or permit Occupation of more than 50 per cent of the Market"
         },
         "evidence": {
           "page": 2,
-          "snippet": "a financial contribution that may arise pursuant to a Viability Review as referred to in paragraph 5.8 of Schedule 4"
+          "snippet": "means a financial contribution that may arise pursuant to a Viability"
         }
       },
       {
@@ -197,14 +201,14 @@
         "is_cap": false,
         "contingent": false,
         "trigger_event": "prior to Implementation",
-        "trigger_clause": "Not to Implement the Development until the Site and Development Contributions have been paid to the Council in full.",
+        "trigger_clause": "To pay the Site and Development Contributions on or before Implementation.",
         "trigger_evidence": {
           "page": 36,
-          "snippet": "Not to Implement the Development until the Site and Development Contributions have been"
+          "snippet": "To pay the Site and Development Contributions on or before Implementation."
         },
         "evidence": {
           "page": 2,
-          "snippet": "£10,058.60 (ten thousand and fifty eight pounds and sixty pence)"
+          "snippet": "means the sum of \u00a310,058.60 (ten thousand and fifty eight pounds"
         }
       },
       {
@@ -215,14 +219,14 @@
         "is_cap": true,
         "contingent": false,
         "trigger_event": "prior to Occupation",
-        "trigger_clause": "to pay the Bus Contribution on or before first Occupation of any part of the Development",
+        "trigger_clause": "Unless a lesser amount is specified by the Director of Planning in writing following a Bus Contribution Methodology Review, to pay the Bus Contribution on or before first Occupation of any part of the Development or such later date as may be advised to the Owner by the Council and by TfL.",
         "trigger_evidence": {
           "page": 36,
-          "snippet": "to pay the Bus Contribution on or before first Occupation"
+          "snippet": "to pay the Bus Contribution on or before first Occupation of any part of the Development"
         },
         "evidence": {
           "page": 5,
-          "snippet": "£683,100.00 (six hundred and eighty three thousand and one hundred pounds)"
+          "snippet": "means the sum of \u00a3683,100.00 (six hundred and eighty three thousand and one hundred pounds)"
         }
       },
       {
@@ -231,16 +235,16 @@
         "amount_in_words": "four hundred and seventy five thousand nine hundred and ninety one pounds",
         "index_linked": true,
         "is_cap": true,
-        "contingent": false,
-        "trigger_event": "other",
-        "trigger_clause": "To pay the Carbon Green Fund Contribution in accordance with the procedure outlined in paragraph 3 of Schedule 11.",
+        "contingent": true,
+        "trigger_event": "on demand / review",
+        "trigger_clause": "The Carbon Green Fund Contribution (as agreed between the Council and the Owner or determined in accordance with clause 19 of this Agreement) shall be payable within 20 Working Days of such agreement or determination.",
         "trigger_evidence": {
-          "page": 36,
-          "snippet": "To pay the Carbon Green Fund Contribution in accordance with the procedure"
+          "page": 40,
+          "snippet": "shall be payable within 20 Working Days of such agreement or determination."
         },
         "evidence": {
           "page": 6,
-          "snippet": "£475,991.00 (four hundred and seventy five thousand nine hundred and ninety one pounds)"
+          "snippet": "a sum of up to a maximum \u00a3475,991.00 (four hundred and seventy five thousand nine hundred and ninety one pounds)"
         }
       },
       {
@@ -250,15 +254,15 @@
         "index_linked": false,
         "is_cap": false,
         "contingent": true,
-        "trigger_event": null,
-        "trigger_clause": null,
+        "trigger_event": "on demand / review",
+        "trigger_clause": "The Owner will pay the Construction Industry Employment and Training Contribution(s) to the Council within 28 Working Days of the notice referred to in paragraph 1.6 above.",
         "trigger_evidence": {
-          "page": 0,
-          "snippet": ""
+          "page": 38,
+          "snippet": "within 28 Working Days of the notice referred to in paragraph 1.6 above"
         },
         "evidence": {
           "page": 9,
-          "snippet": "the sums as calculated by the Council in accordance with the formula in paragraph 1.6 of Part 1 of Schedule 9"
+          "snippet": "means the sums as calculated by the Council in accordance with the"
         }
       },
       {
@@ -272,11 +276,11 @@
         "trigger_clause": "To pay the Cycle Hire Docking Station Contribution on or before Occupation.",
         "trigger_evidence": {
           "page": 36,
-          "snippet": "To pay the Cycle Hire Docking Station Contribution on or before Occupation"
+          "snippet": "To pay the Cycle Hire Docking Station Contribution on or before Occupation."
         },
         "evidence": {
           "page": 10,
-          "snippet": "£12,650 (twelve thousand and six hundred and fifty pounds)"
+          "snippet": "means the sum of \u00a312,650 (twelve thousand and six hundred and"
         }
       },
       {
@@ -285,16 +289,16 @@
         "amount_in_words": "seventy three thousand one hundred pounds",
         "index_linked": true,
         "is_cap": false,
-        "contingent": false,
-        "trigger_event": "on demand / review",
-        "trigger_clause": "the Owner will pay the Default Employment in the End Use Contribution within 28 days of receiving written notice from the Council.",
+        "contingent": true,
+        "trigger_event": "other",
+        "trigger_clause": "In the event that the Owner does not produce an Employment and Skills Plan or such plan is not approved by the Council (such approval not to be unreasonably withheld or delayed), the Owner will pay the Default Employment in the End Use Contribution within 28 days of receiving written notice from the Council.",
         "trigger_evidence": {
           "page": 39,
-          "snippet": "pay the Default Employment in the End Use Contribution within 28 days of"
+          "snippet": "the Owner will pay the Default Employment in the End Use Contribution within 28 days"
         },
         "evidence": {
           "page": 10,
-          "snippet": "£73,100 (seventy three thousand one hundred pounds)"
+          "snippet": "means a financial contribution of \u00a373,100 (seventy three thousand one hundred pounds)"
         }
       },
       {
@@ -308,11 +312,11 @@
         "trigger_clause": "The Developer will pay the Employment in the End Use Contribution to the Council within 28 days of receipt of the notice referred to in paragraph 3.6.",
         "trigger_evidence": {
           "page": 39,
-          "snippet": "will pay the Employment in the End Use Contribution to the Council within 28"
+          "snippet": "The Developer will pay the Employment in the End Use Contribution to the Council within 28 days"
         },
         "evidence": {
           "page": 14,
-          "snippet": "the sum as calculated in accordance with the formula in paragraph 3.6 of Part 1 of Schedule 9"
+          "snippet": "means the sum as calculated in accordance with the formula in"
         }
       },
       {
@@ -323,14 +327,14 @@
         "is_cap": false,
         "contingent": false,
         "trigger_event": "prior to Implementation",
-        "trigger_clause": "Not to Implement the Development until the Site and Development Contributions have been paid to the Council in full.",
+        "trigger_clause": "To pay the Site and Development Contributions on or before Implementation.",
         "trigger_evidence": {
           "page": 36,
-          "snippet": "Not to Implement the Development until the Site and Development Contributions have been"
+          "snippet": "To pay the Site and Development Contributions on or before Implementation."
         },
         "evidence": {
           "page": 15,
-          "snippet": "£10,120 (ten thousand and one hundred and twenty pounds)"
+          "snippet": "means the sum of \u00a310,120 (ten thousand and one hundred and"
         }
       },
       {
@@ -341,14 +345,14 @@
         "is_cap": false,
         "contingent": true,
         "trigger_event": "prior to Implementation",
-        "trigger_clause": "to pay the Greenfield Run-off Rate Off-Set Contribution and not to Implement the Development until the Green Run-off Rate Off-Set Contribution has been paid to the Council in full.",
+        "trigger_clause": "If the results of the Greenfield Run-off Rate Strategy approved pursuant to paragraph 6.1 above show that the Development does not include provisions for attenuation storage to limit survey water run-off rate to 8.5 litres per second for storms up to and including the 1 in 100 year event plus climate change allowance, to pay the Greenfield Run-off Rate Off-Set Contribution and not to Implement the Development until the Green Run-off Rate Off-Set Contribution has been paid to the Council in full.",
         "trigger_evidence": {
           "page": 37,
-          "snippet": "to pay the Greenfield Run-off Rate Off-Set"
+          "snippet": "not to Implement the Development until the Green Run-off Rate Off-Set"
         },
         "evidence": {
           "page": 16,
-          "snippet": "a financial contribution calculated at a rate of"
+          "snippet": "means a financial contribution calculated at a rate of \u00a3366 per cubic"
         }
       },
       {
@@ -359,14 +363,14 @@
         "is_cap": false,
         "contingent": false,
         "trigger_event": "prior to Implementation",
-        "trigger_clause": "Not to Implement the Development until the Site and Development Contributions have been paid to the Council in full.",
+        "trigger_clause": "To pay the Site and Development Contributions on or before Implementation.",
         "trigger_evidence": {
           "page": 36,
-          "snippet": "Not to Implement the Development until the Site and Development Contributions have been"
+          "snippet": "To pay the Site and Development Contributions on or before Implementation."
         },
         "evidence": {
           "page": 23,
-          "snippet": "£259,552.00 (Two hundred and fifty nine thousand and five hundred and fifty two pounds)"
+          "snippet": "means the sum of \u00a3259,552.00 (Two hundred and fifty nine"
         }
       }
     ]

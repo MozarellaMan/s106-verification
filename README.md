@@ -79,8 +79,8 @@ Parser Errors for that field, so the cascade can't make a field worse.
 | `record` | call the API and save the response to `s106-audit/fixtures/<stem>/<model>.<kind>.json` |
 | `replay` | load the saved response; errors if the page selection changed since it was recorded |
 
-**The committed Haiku fixture is synthetic.** It was hand-built from the page images to stand in for a
-Haiku response, because no live call had been recorded yet. Replace it with a real one:
+The committed Haiku fixture is a live `claude-haiku-5-5` recording of the sample deed. Re-record it
+after changing the prompt, the schema or the page selection:
 
 ```bash
 ANTHROPIC_API_KEY=... .venv/bin/python s106-audit/run_audit.py --backend llm-pdf --llm-mode record
@@ -88,19 +88,20 @@ ANTHROPIC_API_KEY=... .venv/bin/python s106-audit/run_audit.py --backend llm-pdf
 
 The report's warning line shows which source was used and, for live calls, the token usage.
 
-**Cost** (estimates; confirm against the usage line after a live run). A scanned page costs
-roughly 1.6k–3k input tokens (it's billed as an image, since there's no text layer), so 42 pages come to
-about 65k–125k input tokens.
+**Cost.** The recorded sample run used 70,216 input tokens (42 scanned pages, about 1.7k each) and
+14,553 output tokens (thinking included). That run took about 6 s.
 
 | call | rate (per MTok in / out) | per deed |
 |------|-------------------|----------|
-| Haiku 5.5 extraction | $0.10 / $0.50 under 100k prompt tokens, $0.50 / $2.50 above | ≈ $0.01–0.07 |
-| Opus 5.5 cascade (only when Parser Errors remain) | $4 / $20 | ≈ $0.40–0.80 per cascade call |
+| Haiku 5.5 extraction | $0.10 / $0.50 under 100k prompt tokens, $0.50 / $2.50 above | **$0.014** measured |
+| Opus 5.5 cascade (only when Parser Errors remain) | $4 / $20 | ≈ $0.30–0.60 per call (estimate; same pages, more thinking) |
+
+A deed of over ~58 targeted pages crosses Haiku's 100k-token price step.
 
 **Known limitation.** On two-column definition pages, OCR splices the left-column term into the
 right-column sentence wherever a line wraps. A clean snippet that the model read off the image then
-won't re-locate in the OCR text. For the sample, 10 of 29 cited snippets fail to re-locate. Every check
-still passes, but if one of those fields failed it would be classed as a Parser Error, never a Document
+won't re-locate in the OCR text. In the live sample run, 7 of 31 cited snippets fail to re-locate, all of
+them figures-and-words snippets that wrap a line. Every check still passes, but if one of those fields failed it would be classed as a Parser Error, never a Document
 Discrepancy. That errs on the safe side, but it weakens the classification for the LLM backends.
 
 ## Checks
