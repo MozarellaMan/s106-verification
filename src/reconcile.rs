@@ -458,6 +458,132 @@ impl Delivery {
     }
 }
 
+// --------------------------------------------------------------------------- PLD mapping
+
+/// PLD's proposed-unit counts by tenure (`total_no_proposed_residential_units_<suffix>`) that a
+/// deed tenure can be set against. Shared equity, starter homes and self-build have no deed tenure
+/// here and are left out.
+const PLD_PROPOSED_TENURES: [(&str, Tenure); 8] = [
+    ("social_rent", Tenure::SocialRent),
+    ("london_affordable_rent", Tenure::LondonAffordableRent),
+    ("affordable_rent", Tenure::AffordableRent),
+    ("london_living_rent", Tenure::LondonLivingRent),
+    ("london_shared_ownership", Tenure::LondonSharedOwnership),
+    ("intermediate", Tenure::Intermediate),
+    ("discount_market_rent", Tenure::DiscountMarketRent),
+    ("discount_market_sale", Tenure::DiscountMarketSale),
+];
+
+/// A PLD unit record's `tenure` string. Market tenures are market; an affordable tenure is
+/// recognised only when it is spelled exactly as a deed tenure; anything else is kept verbatim.
+pub fn pld_unit_tenure(raw: &str) -> UnitTenure {
+    use Tenure::*;
+    if matches!(raw, "Market for sale" | "Market for rent") {
+        return UnitTenure::Market;
+    }
+    [
+        SocialRent,
+        LondonAffordableRent,
+        AffordableRent,
+        LondonLivingRent,
+        SharedOwnership,
+        LondonSharedOwnership,
+        Intermediate,
+        DiscountMarketRent,
+        DiscountMarketSale,
+        FirstHomes,
+    ]
+    .into_iter()
+    .find(|t| t.label() == raw)
+    .map_or_else(
+        || UnitTenure::Unrecognised(raw.into()),
+        UnitTenure::Affordable,
+    )
+}
+
+/// PLD dates are dd/mm/yyyy.
+fn pld_date(v: &serde_json::Value) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(v.as_str()?, "%d/%m/%Y").ok()
+}
+
+fn pld_count(v: &serde_json::Value) -> Option<u32> {
+    v.as_f64()
+        .filter(|n| *n >= 0.0 && n.fract() == 0.0)
+        .map(|n| n as u32)
+}
+
+/// Build `Delivery` from one saved `applications/_source/<id>` snapshot.
+///
+/// * Scheme complete only when `status` is "Completed"; "Started" / "Not started" mean not yet;
+///   any other status leaves it unknown.
+/// * Permission figures are the `total_no_proposed_*` fields. Market = for sale + for rent.
+/// * Units are `residential_units` with `change_type` "Gain" (losses of existing homes are not
+///   delivery). PLD unit records carry bedrooms, not habitable rooms, so `habitable_rooms` is
+///   left empty and room-based rows stay indeterminate. Records carry no id; `unit_no` is used
+///   when set, else the record's position.
+pub fn delivery_from_pld(snap: &crate::pld::Snapshot, at: SnapshotRef) -> anyhow::Result<Delivery> {
+    let doc = snap.response.get("_source").unwrap_or(&snap.response);
+    let Some(record_id) = doc["id"].as_str() else {
+        anyhow::bail!("{} is not a PLD application record (no id)", at.path);
+    };
+    let status = doc["status"].as_str().map(String::from);
+    let scheme_complete = match status.as_deref() {
+        Some("Completed") => Some(true),
+        Some(s) if s.eq_ignore_ascii_case("started") || s.eq_ignore_ascii_case("not started") => {
+            Some(false)
+        }
+        _ => None,
+    };
+    let rd = &doc["application_details"]["residential_details"];
+    let proposed =
+        |suffix: &str| pld_count(&rd[format!("total_no_proposed_residential_units_{suffix}")]);
+    let market_units = match (proposed("market_for_sale"), proposed("market_for_rent")) {
+        (None, None) => None,
+        (a, b) => Some(a.unwrap_or(0) + b.unwrap_or(0)),
+    };
+    let permitted = Permitted {
+        total_units: pld_count(&rd["total_no_proposed_residential_units"]),
+        market_units,
+        affordable_units: pld_count(&rd["total_no_proposed_residential_affordable_units"]),
+        tenure_units: PLD_PROPOSED_TENURES
+            .iter()
+            .filter_map(|(suffix, t)| proposed(suffix).map(|n| (*t, n)))
+            .collect(),
+        snapshot: Some(0),
+    };
+    let units = rd["residential_units"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+        .iter()
+        .enumerate()
+        .filter(|(_, u)| u["change_type"].as_str() == Some("Gain"))
+        .map(|(i, u)| DeliveredUnit {
+            id: match &u["unit_no"] {
+                serde_json::Value::Null => format!("residential_units[{i}]"),
+                serde_json::Value::String(s) => s.clone(),
+                v => v.to_string(),
+            },
+            tenure: u["tenure"]
+                .as_str()
+                .map_or_else(|| UnitTenure::Unrecognised(String::new()), pld_unit_tenure),
+            habitable_rooms: None,
+            completed_on: pld_date(&u["actual_completion_date"]),
+            snapshot: 0,
+        })
+        .collect();
+    Ok(Delivery {
+        record_id: record_id.into(),
+        snapshots: vec![at],
+        status,
+        started_on: pld_date(&doc["actual_commencement_date"]),
+        completed_on: pld_date(&doc["actual_completion_date"]),
+        scheme_complete,
+        permitted,
+        units,
+    })
+}
+
 // --------------------------------------------------------------------------- reconciliation
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

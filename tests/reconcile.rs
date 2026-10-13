@@ -392,3 +392,75 @@ fn snapshots_are_saved_verbatim_and_never_overwritten() {
     assert_eq!(back.response, snap.response);
     assert!(pld::save(dir.path(), "applications", "Southwark-19_AP_1773", &snap).is_err());
 }
+
+/// The saved PLD application snapshot for 19/AP/1773 (real data, retrieved 13 Oct 2026).
+fn pld_southwark() -> Delivery {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let (snap, at) = pld::load(
+        root,
+        Path::new("snapshots/pld/applications/Southwark-19_AP_1773/2026-10-13T20_51_14Z.json"),
+    )
+    .unwrap();
+    delivery_from_pld(&snap, at).unwrap()
+}
+
+#[test]
+fn pld_snapshot_maps_to_delivery() {
+    let d = pld_southwark();
+    assert_eq!(d.record_id, "Southwark-19_AP_1773");
+    assert_eq!(d.status.as_deref(), Some("Completed"));
+    assert_eq!(d.scheme_complete, Some(true));
+    assert_eq!(d.started_on, NaiveDate::from_ymd_opt(2022, 5, 23));
+    assert_eq!(d.completed_on, NaiveDate::from_ymd_opt(2025, 7, 19));
+    assert_eq!(d.permitted.total_units, Some(253));
+    assert_eq!(d.permitted.market_units, Some(177));
+    assert_eq!(d.permitted.affordable_units, Some(76));
+    assert!(d.permitted.tenure_units.contains(&(SR, 58)));
+    assert!(
+        d.permitted
+            .tenure_units
+            .contains(&(Tenure::LondonSharedOwnership, 18))
+    );
+    assert_eq!(d.units.len(), 253);
+    let n = |t: &UnitTenure| d.units.iter().filter(|u| &u.tenure == t).count();
+    assert_eq!(n(&UnitTenure::Market), 177);
+    assert_eq!(n(&UnitTenure::Affordable(SR)), 58);
+    assert_eq!(
+        n(&UnitTenure::Affordable(Tenure::LondonSharedOwnership)),
+        18
+    );
+    assert!(
+        d.units
+            .iter()
+            .all(|u| u.completed_on.is_some() && u.habitable_rooms.is_none())
+    );
+    assert_eq!(
+        pld_unit_tenure("Shared Equity"),
+        UnitTenure::Unrecognised("Shared Equity".into())
+    );
+}
+
+#[test]
+fn southwark_against_pld_snapshot() {
+    let r = reconcile(
+        "Southwark-19_AP_1773",
+        obligation_events(&southwark(), None),
+        Some(pld_southwark()),
+    );
+    // Not checked against pages here, so every deed value is indeterminate; the delivered
+    // counts are what this test pins.
+    let delivered = |m: Measure| row(&r, &m).delivered.value;
+    assert_eq!(delivered(Measure::TotalUnits), Some(dec("253")));
+    assert_eq!(delivered(Measure::MarketUnits), Some(dec("177")));
+    assert_eq!(delivered(Measure::AffordableUnits), Some(dec("76")));
+    assert_eq!(
+        delivered(Measure::TenureUnits { tenure: SR }),
+        Some(dec("58"))
+    );
+    assert_eq!(
+        delivered(Measure::TenureUnits { tenure: INT }),
+        Some(dec("18"))
+    );
+    assert_eq!(delivered(Measure::AffordableHabitableRooms), None);
+    assert!(!r.rows.iter().any(|x| x.label.ends_with("(not in deed)")));
+}

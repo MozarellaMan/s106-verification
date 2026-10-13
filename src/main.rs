@@ -82,8 +82,11 @@ enum Cmd {
         #[arg(long)]
         development: String,
         /// delivery evidence built from PLD snapshots (reconcile::Delivery as JSON)
-        #[arg(long)]
+        #[arg(long, conflicts_with = "pld")]
         delivery: Option<PathBuf>,
+        /// a saved PLD application snapshot (snapshots/pld/applications/<id>/<time>.json)
+        #[arg(long)]
+        pld: Option<PathBuf>,
         #[arg(long, default_value = llm::DEFAULT_MODEL)]
         model: String,
     },
@@ -242,6 +245,7 @@ fn main() -> Result<()> {
             pdfs,
             development,
             delivery,
+            pld: pld_snapshot,
             model,
         } => {
             let cfg = document::Config::from_env(&repo_root());
@@ -251,9 +255,13 @@ fn main() -> Result<()> {
                 let (agreement, _) = extract::extract(&doc, &model, Mode::Replay, None)?;
                 events.extend(reconcile::obligation_events(&agreement, Some(&doc.pages())));
             }
-            let delivery = match delivery {
-                Some(p) => Some(serde_json::from_slice(&std::fs::read(&p)?)?),
-                None => None,
+            let delivery = match (delivery, pld_snapshot) {
+                (Some(p), _) => Some(serde_json::from_slice(&std::fs::read(&p)?)?),
+                (None, Some(p)) => {
+                    let (snap, at) = pld::load(&repo_root(), &p)?;
+                    Some(reconcile::delivery_from_pld(&snap, at)?)
+                }
+                (None, None) => None,
             };
             let r = reconcile::reconcile(&development, events, delivery);
             let md = reconcile::markdown(&r);

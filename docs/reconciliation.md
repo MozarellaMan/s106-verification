@@ -85,15 +85,34 @@ response verbatim, with its request and retrieval time, to
 `snapshots/pld/<index>/<subject>/<retrieved_at>.json`. Snapshots are never overwritten. They are
 committed: PLD is OGL v3. Analyses read snapshots, never the live API.
 
+## PLD → `Delivery` mapping
+
+`reconcile::delivery_from_pld` reads one saved `applications/_source/<id>` snapshot
+(`s106 reconcile … --pld <snapshot>`). The field names come from the 19/AP/1773 snapshot of
+13 Oct 2026. Unit records are embedded in the application record
+(`application_details.residential_details.residential_units`), so no separate units index is read.
+
+| `Delivery` field | PLD field |
+|---|---|
+| `status`, `scheme_complete` | `status`; complete only when "Completed", not yet for "Started"/"Not started", otherwise unknown |
+| `started_on`, `completed_on` | `actual_commencement_date`, `actual_completion_date` (dd/mm/yyyy) |
+| `permitted.total_units` | `residential_details.total_no_proposed_residential_units` |
+| `permitted.market_units` | `…_units_market_for_sale` + `…_units_market_for_rent` |
+| `permitted.affordable_units` | `residential_details.total_no_proposed_residential_affordable_units` |
+| `permitted.tenure_units` | `…_units_<tenure>` for social rent, London affordable rent, affordable rent, London living rent, London shared ownership, intermediate, discount market rent and discount market sale |
+| `units[]` | `residential_units[]` with `change_type` "Gain" (a "Loss" is an existing home, not delivery) |
+| unit tenure | `tenure`: "Market for sale"/"Market for rent" are market; an affordable tenure only when spelled as a deed tenure; anything else is unrecognised and kept verbatim |
+| unit completion | `actual_completion_date` |
+| unit id | `unit_no` when set, else `residential_units[<index>]` (19/AP/1773's records have no `unit_no`) |
+| habitable rooms | none: PLD unit records give `no_bedrooms`, not habitable rooms, so room-based rows stay indeterminate |
+
+## 19/AP/1773 result
+
+`data/processed/Southwark-19_AP_1773.reconcile.md` is the output (not committed: `data/` is local).
+The table as run on 13 Oct 2026 is in [`reconciliation-19-AP-1773.md`](reconciliation-19-AP-1773.md).
+
 ## Not done yet
 
-- **PLD → `Delivery` mapping.** It needs the real field names for status, dates, tenure and unit
-  records. The GLA API document names only `id`, `lpa_name`, `lpa_app_no`, `application_type`,
-  `valid_date`, `decision_date` and `last_updated`. It also says unit details sit in a separate
-  `residential_units` index. The mapping will be written against saved snapshots, not guessed.
-- **The 19/AP/1773 reconciliation itself.** It follows once the snapshots are saved
-  (`s106 reconcile data/raw/southwark_s106_sample.pdf --development Southwark-19_AP_1773
-  --delivery <delivery.json>`).
 - **Amendments.** Non-material amendments (NMAs) and S106 discharge notices are linked to the
   parent only in PLD free text, and deeds of variation come from Idox. Each becomes a `varied`
   event when it is extracted.
