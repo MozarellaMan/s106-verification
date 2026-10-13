@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 
 use s106::document::{self, OcrModels};
 use s106::extract::{self, Mode};
-use s106::{eval, llm, ocrbench, report, verify};
+use s106::{eval, llm, ocrbench, pld, reconcile, report, verify};
 
 #[derive(Parser)]
 #[command(
@@ -66,6 +66,40 @@ enum Cmd {
         /// print every gold line with its best match
         #[arg(long)]
         detail: bool,
+    },
+    /// Fetch Planning London Datahub records and save them verbatim under snapshots/pld/.
+    Pld {
+        #[command(subcommand)]
+        cmd: PldCmd,
+    },
+    /// Set a development's deeds (oldest first, replayed from fixtures) against PLD delivery.
+    /// Writes data/processed/<development>.reconcile.{json,md}.
+    Reconcile {
+        /// the executed deeds, original first, then any variations in date order
+        #[arg(required = true)]
+        pdfs: Vec<PathBuf>,
+        /// PLD record id, e.g. Southwark-19_AP_1773
+        #[arg(long)]
+        development: String,
+        /// delivery evidence built from PLD snapshots (reconcile::Delivery as JSON)
+        #[arg(long)]
+        delivery: Option<PathBuf>,
+        #[arg(long, default_value = llm::DEFAULT_MODEL)]
+        model: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum PldCmd {
+    /// GET <index>/_source/<id>, e.g. `applications Southwark-19_AP_1773`
+    Get { index: String, id: String },
+    /// POST <index>/_search with an Elasticsearch query from a JSON file
+    Search {
+        index: String,
+        query: PathBuf,
+        /// names the snapshot directory, e.g. `19_AP_1773-units`
+        #[arg(long)]
+        subject: String,
     },
 }
 
@@ -181,6 +215,56 @@ fn main() -> Result<()> {
                     }
                 }
             }
+            Ok(())
+        }
+        Cmd::Pld { cmd } => {
+            let root = repo_root();
+            let (index, subject, snap) = match cmd {
+                PldCmd::Get { index, id } => {
+                    let snap = pld::get_source(&index, &id)?;
+                    (index, id, snap)
+                }
+                PldCmd::Search {
+                    index,
+                    query,
+                    subject,
+                } => {
+                    let body = serde_json::from_slice(&std::fs::read(&query)?)?;
+                    let snap = pld::search(&index, body)?;
+                    (index, subject, snap)
+                }
+            };
+            let r = pld::save(&root, &index, &subject, &snap)?;
+            println!("{} (sha256 {})", r.path, r.sha256);
+            Ok(())
+        }
+        Cmd::Reconcile {
+            pdfs,
+            development,
+            delivery,
+            model,
+        } => {
+            let cfg = document::Config::from_env(&repo_root());
+            let mut events = vec![];
+            for pdf in &pdfs {
+                let doc = document::load(pdf, &cfg, true)?;
+                let (agreement, _) = extract::extract(&doc, &model, Mode::Replay, None)?;
+                events.extend(reconcile::obligation_events(&agreement, Some(&doc.pages())));
+            }
+            let delivery = match delivery {
+                Some(p) => Some(serde_json::from_slice(&std::fs::read(&p)?)?),
+                None => None,
+            };
+            let r = reconcile::reconcile(&development, events, delivery);
+            let md = reconcile::markdown(&r);
+            println!("{md}");
+            let dir = repo_root().join("data/processed");
+            std::fs::create_dir_all(&dir)?;
+            std::fs::write(
+                dir.join(format!("{development}.reconcile.json")),
+                serde_json::to_string_pretty(&r)?,
+            )?;
+            std::fs::write(dir.join(format!("{development}.reconcile.md")), md)?;
             Ok(())
         }
     }

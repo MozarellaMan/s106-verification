@@ -3,6 +3,7 @@
 //! Pipeline: `document` (PDF text layer or OCR, with boxes, cached by content hash)
 //! → `extract` (Claude reads the PDF into `wire` types, converted to `schema` v2)
 //! → `verify` (deterministic, evidence-grounded checks) → `report` / JSON.
+//! Layer B: `pld` (Planning London Datahub snapshots) and `reconcile` (obligations vs delivery).
 
 pub mod document;
 pub mod eval;
@@ -10,6 +11,8 @@ pub mod evidence;
 pub mod extract;
 pub mod llm;
 pub mod ocrbench;
+pub mod pld;
+pub mod reconcile;
 pub mod report;
 pub mod schema;
 pub mod text;

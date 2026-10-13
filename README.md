@@ -11,6 +11,7 @@ Architecture and contributor reading path: [docs/architecture.md](docs/architect
 
 Scope, roadmap and open research questions: [docs/research-plan.md](docs/research-plan.md).
 Schema v2 and the real deeds behind it: [docs/schema-v2.md](docs/schema-v2.md).
+Obligations against delivery (M5): [docs/reconciliation.md](docs/reconciliation.md).
 How the Rust harness was accepted against the former Python one: [docs/migration.md](docs/migration.md).
 
 ```
@@ -26,6 +27,8 @@ src/
   text.rs       number and words-to-amount reading
   report.rs     terminal report and JSON
   eval.rs       evaluation against the national S106 register (planning.data.gov.uk)
+  pld.rs        read-only Planning London Datahub client; saves raw snapshots under snapshots/pld/
+  reconcile.rs  obligation events vs PLD delivery, one row per measure, with a status per row
   ocrbench.rs   OCR scored against hand-transcribed gold (gold/*.json)
 ```
 

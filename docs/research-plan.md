@@ -228,7 +228,7 @@ The research objectives and acceptance criteria are independent of implementatio
 - **Acceptance:** the eval report is reproducible from a clean checkout plus the fetch script.
   Missing-corpus tests report "corpus missing", not a silent skip.
 
-**M5: Obligation history, one development**
+**M5: Obligation history, one development** **Started:** data model, status rules and PLD snapshot client in [docs/reconciliation.md](reconciliation.md); the PLD mapping and the 19/AP/1773 table wait for saved snapshots.
 - **Changes:** for 19/AP/1773 only, gather the amendments (NMAs and discharge notices found via
   PLD free text, and any deeds of variation from Idox) and PLD delivery data, then build the
   reconciliation table.
