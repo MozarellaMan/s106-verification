@@ -823,7 +823,7 @@ pub fn check_mix_table(a: &Agreement, pages: &Pages) -> Vec<CheckResult> {
             &sub_problem,
         ));
     }
-    for alloc in &h.tenures {
+    for (i, alloc) in h.tenures.iter().enumerate() {
         let Some((_, sub)) = t.subtotals.iter().find(|(ten, _)| *ten == alloc.tenure) else {
             continue;
         };
@@ -835,17 +835,19 @@ pub fn check_mix_table(a: &Agreement, pages: &Pages) -> Vec<CheckResult> {
                 format!("{} units", alloc.tenure.label()),
                 unum(alloc.units),
                 alloc.evidence.as_ref(),
-            )],
+            )
+            .at(format!("agreement/housing/tenures/{i}/units"))],
             pages,
             Some(format!("{sub} (schedule)")),
             Some(format!("{} (definition)", opt_str(alloc.units))),
             &sub_problem,
         ));
     }
-    for (label, defn, tbl) in [
-        ("units", h.affordable_units, t.total_units),
+    for (label, leaf, defn, tbl) in [
+        ("units", "units", h.affordable_units, t.total_units),
         (
             "habitable rooms",
+            "habitable_rooms",
             h.affordable_habitable_rooms,
             t.total_habitable_rooms,
         ),
@@ -862,12 +864,14 @@ pub fn check_mix_table(a: &Agreement, pages: &Pages) -> Vec<CheckResult> {
                     format!("affordable {label} (definition)"),
                     Some(Value::from(defn)),
                     h.affordable_units_evidence.as_ref(),
-                ),
+                )
+                .at(format!("agreement/housing/affordable_{leaf}")),
                 input(
                     format!("affordable {label} (table)"),
                     Some(Value::from(tbl)),
                     t.evidence.as_ref(),
-                ),
+                )
+                .at(format!("agreement/housing/mix_table/total_{leaf}")),
             ],
             pages,
             Some(format!("{tbl} (schedule)")),
