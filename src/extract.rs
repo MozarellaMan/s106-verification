@@ -92,7 +92,8 @@ pub struct Info {
     /// "live", "replay" or "replay-v1"
     pub source: String,
     pub usage: Option<Usage>,
-    pub fixture: PathBuf,
+    /// The fixture the output came from or was saved to; none for an unrecorded live response.
+    pub fixture: Option<PathBuf>,
 }
 
 impl Info {
@@ -203,6 +204,7 @@ fn answer(
             served_by: i.served_by,
             usage,
         };
+        let mut fixture = None;
         if mode == Mode::Record {
             let fx = Fixture {
                 format: FIXTURE_FORMAT.into(),
@@ -217,13 +219,14 @@ fn answer(
             };
             std::fs::create_dir_all(path.parent().unwrap())?;
             std::fs::write(&path, serde_json::to_string_pretty(&fx)? + "\n")?;
+            fixture = Some(path);
         }
         let info = Info {
             model: model.into(),
             served_by: r.served_by,
             source: "live".into(),
             usage: Some(r.usage),
-            fixture: path,
+            fixture,
         };
         return Ok((r.output, PageMap(pages), info));
     }
@@ -247,7 +250,7 @@ fn answer(
             served_by: fx.served_by,
             source: "replay".into(),
             usage: Some(fx.usage),
-            fixture: path,
+            fixture: Some(path),
         };
         return Ok((fx.output, PageMap(fx.pages), info));
     }
@@ -273,7 +276,7 @@ fn answer(
             served_by: raw["served_by"].as_str().unwrap_or(model).into(),
             source: "replay-v1".into(),
             usage,
-            fixture: v1,
+            fixture: Some(v1),
         };
         return Ok((raw["output"].clone(), PageMap(pages), info));
     }
@@ -362,7 +365,9 @@ pub fn to_agreement(
                 "{} ({}, {})",
                 info.served_by,
                 info.source,
-                info.fixture.display()
+                info.fixture
+                    .as_ref()
+                    .map_or("not recorded".to_string(), |p| p.display().to_string())
             ),
         },
         instrument,
@@ -371,7 +376,11 @@ pub fn to_agreement(
         contributions,
         variations,
         warnings,
-        run: Some(RunIdentity::new(output, &doc.pages(), &info.fixture)),
+        run: Some(RunIdentity::new(
+            output,
+            &doc.pages(),
+            info.fixture.as_deref(),
+        )),
     })
 }
 

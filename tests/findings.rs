@@ -55,7 +55,7 @@ fn audit_with(
         served_by: "constructed".into(),
         source: "replay".into(),
         usage: None,
-        fixture: PathBuf::from("constructed-fixture.json"),
+        fixture: Some(PathBuf::from("constructed-fixture.json")),
     };
     let agreement = extract::to_agreement(&doc, &output, &PageMap::identity(1), &info).unwrap();
     let checks = verify::verify(&agreement, &doc.pages());

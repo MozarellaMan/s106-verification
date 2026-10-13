@@ -226,7 +226,8 @@ pub struct RunIdentity {
     pub cargo_lock_sha256: String,
     /// Set by whoever builds (`S106_SOFTWARE_REVISION`); unknown otherwise, never inferred.
     pub software_revision: Option<String>,
-    pub fixture_reference: String,
+    /// The fixture that supplied (or recorded) the extraction; none for an unrecorded live response.
+    pub fixture_reference: Option<String>,
     pub fixture_sha256: Option<String>,
     pub extraction_sha256: String,
     pub page_text_sha256: String,
@@ -240,7 +241,7 @@ pub struct ReplacementIdentity {
     /// "housing", "instrument" or a contribution name.
     pub field_group: String,
     pub extraction_sha256: String,
-    pub fixture_reference: String,
+    pub fixture_reference: Option<String>,
     pub fixture_sha256: Option<String>,
 }
 
@@ -248,7 +249,7 @@ impl RunIdentity {
     pub fn new(
         output: &serde_json::Value,
         pages: &Pages,
-        fixture: &std::path::Path,
+        fixture: Option<&std::path::Path>,
     ) -> RunIdentity {
         RunIdentity {
             parser_policy: PARSER_POLICY.into(),
@@ -256,9 +257,9 @@ impl RunIdentity {
             crate_version: env!("CARGO_PKG_VERSION").into(),
             cargo_lock_sha256: sha256_hex(include_str!("../Cargo.lock")),
             software_revision: option_env!("S106_SOFTWARE_REVISION").map(str::to_string),
-            fixture_reference: fixture.display().to_string(),
-            fixture_sha256: std::fs::read_to_string(fixture)
-                .ok()
+            fixture_reference: fixture.map(|p| p.display().to_string()),
+            fixture_sha256: fixture
+                .and_then(|p| std::fs::read_to_string(p).ok())
                 .map(|s| sha256_hex(&s)),
             extraction_sha256: sha256_hex(&serde_json::to_string(output).expect("serializable")),
             page_text_sha256: sha256_hex(&serde_json::to_string(pages).expect("serializable")),

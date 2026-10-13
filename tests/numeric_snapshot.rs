@@ -73,8 +73,9 @@ fn probes_cover_fixtures() {
     assert!(
         missing.is_empty(),
         "fixtures/numeric-probes.txt is missing {} fixture string(s), e.g. {:?}; \
-         regenerate with `S106_REGENERATE_PROBES=1 cargo test --test numeric_snapshot` \
-         and review the snapshot diff",
+         regenerate with `S106_REGENERATE_PROBES=1 cargo test --test numeric_snapshot \
+         probes_cover_fixtures`, rerun the snapshot test, then `cargo insta review` \
+         (see docs/numeric-parsing.md)",
         missing.len(),
         missing.first()
     );
