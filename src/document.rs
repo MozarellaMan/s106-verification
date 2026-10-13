@@ -3,7 +3,8 @@
 //! Every line keeps its bounding box, so evidence can later be tied to a position on the page.
 //! Results are cached under `<cache root>/<sha256[:16]>-<OCR_VERSION>/` as one JSON file per page
 //! plus a `manifest.json`. The key is the PDF's content hash and the OCR settings, so a different
-//! document saved under the same name, or a change of model or resolution, never reuses old text.
+//! document saved under the same name gets a different cache. Changing local model files under
+//! the same model name requires explicit invalidation; artifact bytes are not part of the key.
 
 use std::path::{Path, PathBuf};
 

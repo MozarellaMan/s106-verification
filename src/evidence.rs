@@ -1,6 +1,5 @@
 //! Re-locating a cited snippet in the page text, robust to OCR (dropped spaces, two-column
 //! interleaving at line wraps, a few garbled plain words) without accepting changed numbers.
-//! Port of `evidence_found` / `_layout_match` from the former `s106-audit/verifier.py`.
 
 use std::collections::{BTreeMap, HashSet};
 use std::sync::LazyLock;
@@ -38,7 +37,7 @@ fn tokens(s: &str) -> Vec<String> {
         .collect()
 }
 
-fn is_digits(tok: &str) -> bool {
+fn is_numeric_token(tok: &str) -> bool {
     tok.bytes().any(|b| b.is_ascii_digit()) && tok.bytes().all(|b| b.is_ascii_digit() || b == b'.')
 }
 
@@ -65,7 +64,7 @@ fn numeric_char(b: u8) -> bool {
 }
 
 fn is_number(tok: &str) -> bool {
-    is_digits(tok) || NUMBER_WORDS.contains(&tok)
+    is_numeric_token(tok) || NUMBER_WORDS.contains(&tok)
 }
 
 // "one", "two", "ten" also sit inside common words (network, maintenance), so they
@@ -126,7 +125,7 @@ impl Layout<'_> {
     fn occurrences(&self, tok: &str, lo: usize, hi: usize) -> Vec<(usize, usize)> {
         let t = tok.as_bytes();
         let hi = hi.min(self.hay.len());
-        let digits = is_digits(tok);
+        let digits = is_numeric_token(tok);
         let mut out = Vec::new();
         let mut i = lo;
         while i + t.len() <= hi {

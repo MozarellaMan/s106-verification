@@ -113,20 +113,7 @@ fn main() -> Result<()> {
                 agreement = merged;
                 results = verify::verify(&agreement, &pages);
             }
-            if let Some(u) = &info.usage {
-                agreement.warnings.push(format!(
-                    "{}: {} in / {} out tokens, ~${:.3}{}",
-                    info.source,
-                    u.input_tokens,
-                    u.output_tokens,
-                    llm::cost_usd(&info.model, u),
-                    if info.source == "live" {
-                        ""
-                    } else {
-                        " when recorded"
-                    }
-                ));
-            }
+            agreement.warnings.extend(info.usage_note());
             println!("{}", report::render(&agreement, &results));
             let out = out.unwrap_or_else(|| {
                 repo_root().join("data/processed").join(format!(

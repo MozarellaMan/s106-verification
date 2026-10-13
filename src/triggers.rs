@@ -1,5 +1,4 @@
 //! Deterministic payment-trigger vocabulary and payment-obligation wording.
-//! Port of the former `s106-audit/triggers.py`.
 //!
 //! The label for a payment trigger is a function of the cited trigger phrase, not of
 //! whichever backend (or model run) read the deed, so the same phrase always gets the same label.
@@ -114,7 +113,7 @@ static QUESTION: LazyLock<Regex> = LazyLock::new(|| {
 static CONDITIONAL_IF: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^\s*(?:\d[\d.]*\s*)?(?:\([a-z0-9]+\)\s*)?if").unwrap());
 
-/// Python's `(?!\s*any)` after the "if": "if any ..." is not a condition.
+/// "If any ..." does not introduce the conditional assessment handled here.
 fn conditional(seg: &str) -> bool {
     CONDITIONAL_IF.find(seg).is_some_and(|m| {
         let rest: String = seg[m.end()..].trim_start().chars().take(3).collect();

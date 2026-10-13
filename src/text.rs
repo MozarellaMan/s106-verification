@@ -1,5 +1,4 @@
 //! Text normalisation and number reading shared by evidence matching, triggers and the verifier.
-//! Port of the helpers in the former `s106-audit/verifier.py` (see git history).
 
 use std::collections::BTreeSet;
 use std::str::FromStr;

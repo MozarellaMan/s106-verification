@@ -1,6 +1,6 @@
 //! Programmatic gatekeeper for extracted S106 data.
 //!
-//! Every check is a hard, exact assertion over numbers. Nothing here is a model judgement.
+//! Checks combine deterministic arithmetic and evidence rules. Nothing here is a model judgement.
 //! Each check's inputs are also *grounded*: a value counts as supported only when it appears in
 //! its cited evidence snippet (digits, or number words) and that snippet re-locates on the cited
 //! page of the page text. Outcomes:
@@ -11,8 +11,6 @@
 //! * FAIL + DocumentDiscrepancy: the assertion fails although every input is grounded. This is
 //!   what the deed *appears* to say through OCR; confirm against the original before relying on it.
 //! * SKIP: the deed doesn't state what the check needs
-//!
-//! Port of the former `s106-audit/verifier.py` (M1), extended for schema v2 (docs/schema-v2.md).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::LazyLock;
@@ -134,7 +132,7 @@ fn parser_fail(id: &str, desc: &str, detail: &str, pages: Vec<usize>) -> CheckRe
     )
 }
 
-/// Python's `f"{x:,.2f}"` for pounds: 10058.6 -> "£10,058.60".
+/// Pounds with thousands separators and two decimal places: 10058.6 -> "£10,058.60".
 fn gbp(d: Decimal) -> String {
     let mut r = d.round_dp(2);
     r.rescale(2);
@@ -229,51 +227,33 @@ pub fn resolve(
         .filter_map(|i| grounding_problem(i, pages))
         .collect();
     problems.extend(extra_problems.iter().cloned());
-    if holds {
-        if problems.is_empty() {
-            return result(
-                check_id,
-                description,
-                Status::Pass,
-                expected,
-                actual,
-                None,
-                "",
-                pg,
-            );
-        }
-        return result(
-            check_id,
-            description,
+    let (status, error_class, detail) = match (holds, problems.is_empty()) {
+        (true, true) => (Status::Pass, None, String::new()),
+        (true, false) => (
             Status::Review,
-            expected,
-            actual,
             None,
             format!("holds, but not grounded: {}", problems.join("; ")),
-            pg,
-        );
-    }
-    if !problems.is_empty() {
-        return result(
-            check_id,
-            description,
+        ),
+        (false, false) => (
             Status::Fail,
-            expected,
-            actual,
             Some(ErrorClass::ParserError),
             format!("ungrounded: {}", problems.join("; ")),
-            pg,
-        );
-    }
+        ),
+        (false, true) => (
+            Status::Fail,
+            Some(ErrorClass::DocumentDiscrepancy),
+            "every input is stated in its cited snippet and the snippet re-locates in the OCR text; \
+             confirm against the original deed before relying on this".to_string(),
+        ),
+    };
     result(
         check_id,
         description,
-        Status::Fail,
+        status,
         expected,
         actual,
-        Some(ErrorClass::DocumentDiscrepancy),
-        "every input is stated in its cited snippet and the snippet re-locates in the OCR text; \
-         confirm against the original deed before relying on this",
+        error_class,
+        detail,
         pg,
     )
 }
@@ -1115,7 +1095,7 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
     let mut out = Vec::new();
     let all_pg = page_list(insts.iter().map(|i| i.trigger_phrase.as_ref()));
 
-    // (a) shares sum to 100
+    // Each share must be stated in its citation, not merely consistent with the total.
     let (id, desc) = (
         format!("{cid}.inst"),
         format!("{}: instalment shares sum to 100%", c.name),
@@ -1160,7 +1140,7 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
         ));
     }
 
-    // (c) the lead-in imposes the payment and is in the deed
+    // The lead-in must itself impose payment and occur in the deed.
     let (id, desc) = (
         format!("{cid}.instcov"),
         format!("{}: instalment lead-in imposes a payment", c.name),
@@ -1201,7 +1181,7 @@ pub fn check_instalments(c: &Contribution, pages: &Pages, cid: &str) -> Vec<Chec
         }
     }
 
-    // (b) + (d) each instalment's trigger phrase is in the deed and decides its label
+    // Each trigger phrase must occur in the deed and determine its label.
     for (n, inst) in insts.iter().enumerate() {
         let n = n + 1;
         let (id, desc) = (

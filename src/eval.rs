@@ -1,7 +1,7 @@
 //! Evaluate the extractor on a set of deeds against the national S106 register.
 //!
-//! Port of the former Python `run_eval.py` (see git history). Per deed: k extractions (the first is recorded as a replay
-//! fixture, the rest are live), each verified, then
+//! Per deed: k extractions (the first is recorded as a replay fixture, the rest are live),
+//! each verified, then
 //!   * register scoring: extracted fixed sums vs register amounts, affordable units vs register units
 //!   * run agreement: do the k runs report the same housing values, sums, flags and trigger labels?
 //!   * gate outcome: pass / review / fail / skip counts and error classes per run
@@ -610,20 +610,7 @@ fn run_once(
             (Some(u), Mode::Live | Mode::Record) => llm::cost_usd(&info.model, u),
             _ => 0.0,
         };
-        if let Some(u) = &info.usage {
-            agreement.warnings.push(format!(
-                "{}: {} in / {} out tokens, ~${:.3}{}",
-                info.source,
-                u.input_tokens,
-                u.output_tokens,
-                llm::cost_usd(&info.model, u),
-                if info.source == "live" {
-                    ""
-                } else {
-                    " when recorded"
-                }
-            ));
-        }
+        agreement.warnings.extend(info.usage_note());
         std::fs::write(
             out,
             serde_json::to_string_pretty(&AuditJson {
@@ -694,7 +681,7 @@ fn evaluate(
             Err(e) => rows.push(error_row(1, format!("load {}: {e:#}", pdf.display()), 0.0)),
             Ok(doc) => {
                 for k in 1..=runs {
-                    // run 1 records the fixture (and warms the OCR cache); the rest are live
+                    // Page text was loaded once above; only the first model response is recorded.
                     let mode = if replay {
                         Mode::Replay
                     } else if k == 1 {
