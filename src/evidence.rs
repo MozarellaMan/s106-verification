@@ -23,7 +23,7 @@ pub type Pages = BTreeMap<usize, String>;
 const MAX_GAP: usize = 40;
 /// Shorter snippets must match contiguously.
 const MIN_TOKENS: usize = 4;
-/// Share of plain words OCR may have garbled ("fifty" -> "fty").
+/// Share of non-number words OCR may have garbled ("the" -> "thie").
 const MAX_SKIP_SHARE: f64 = 0.1;
 
 static TOKEN: LazyLock<Regex> =
@@ -49,13 +49,28 @@ fn matching_char(chars: &[char], i: usize) -> bool {
             && i > 0
             && chars[i - 1].is_ascii_digit()
             && chars.get(i + 1).is_some_and(char::is_ascii_digit))
+        // Keep one separator between numeric runs. Otherwise "1.1.1. 50%" becomes
+        // one number and the digit-boundary check rejects the valid 50% citation.
+        || (chars[i].is_ascii_whitespace()
+            && chars.get(i + 1).is_some_and(char::is_ascii_digit)
+            && chars[..i]
+                .iter()
+                .rev()
+                .find(|c| !c.is_ascii_whitespace())
+                .is_some_and(|c| c.is_ascii_digit() || *c == '.'))
 }
 
 fn matching_text(text: &str) -> String {
     let chars: Vec<char> = text.to_lowercase().chars().collect();
     (0..chars.len())
         .filter(|&i| matching_char(&chars, i))
-        .map(|i| chars[i])
+        .map(|i| {
+            if chars[i].is_ascii_whitespace() {
+                ' '
+            } else {
+                chars[i]
+            }
+        })
         .collect()
 }
 
@@ -187,7 +202,16 @@ impl Layout<'_> {
 fn layout_match(tokens: &[String], page: &str) -> bool {
     let raw: Vec<char> = page.to_lowercase().chars().collect();
     let idx: Vec<usize> = (0..raw.len()).filter(|&i| matching_char(&raw, i)).collect();
-    let hay: Vec<u8> = idx.iter().map(|&i| raw[i] as u8).collect();
+    let hay: Vec<u8> = idx
+        .iter()
+        .map(|&i| {
+            if raw[i].is_ascii_whitespace() {
+                b' '
+            } else {
+                raw[i] as u8
+            }
+        })
+        .collect();
     let plain = tokens.iter().filter(|t| !is_number(t)).count();
     let mut layout = Layout {
         raw,

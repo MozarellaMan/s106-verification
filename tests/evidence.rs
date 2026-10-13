@@ -247,3 +247,28 @@ fn layout_matches_preserve_decimal_positions() {
         "means the sum of £100 pounds payable to the Council"
     ));
 }
+
+#[test]
+fn numbered_clauses_do_not_absorb_a_following_percentage() {
+    for page in [
+        "1.1.1. 50% prior to Occupation",
+        "1.1.1  50% prior to Occupation",
+        "5 3 1 50% prior to Occupation",
+        "1.1.1\n50% prior to Occupation",
+    ] {
+        assert!(found_in(page, "50% prior to Occupation"), "{page}");
+    }
+    assert!(!found_in(
+        "150% prior to Occupation",
+        "50% prior to Occupation"
+    ));
+    assert!(!found_in(
+        "£1.50 prior to Occupation",
+        "50 prior to Occupation"
+    ));
+    // With no separator, a clause suffix is ambiguous with a decimal amount.
+    assert!(!found_in(
+        "9.1.1.50% prior to Occupation",
+        "50% prior to Occupation"
+    ));
+}
