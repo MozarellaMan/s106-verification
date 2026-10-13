@@ -82,6 +82,23 @@ class StrictnessTest(unittest.TestCase):
         self.assertFalse(found(12, "£12,650 (twelve thousand and six hundred pounds)"))
         self.assertFalse(found(17, "£10,120 (ten thousand and one hundred pounds) Index Linked"))
 
+    def test_joined_number_words_at_line_wrap_are_not_absorbed(self):
+        # review repro: the snippet leaves out "and twenty", which OCR joined at the line start
+        page = {1: "means the sumoff10,120(ten thousand and one hundred\nandtwenty pounds)Index Linked\n"}
+        ev = Evidence(page=1, snippet="£10,120 (ten thousand and one hundred pounds) Index Linked")
+        self.assertFalse(evidence_found(ev, page))
+        page = {1: "means the sumoff10,010(ten thousand and\nandten pounds)Index Linked\n"}
+        ev = Evidence(page=1, snippet="£10,010 (ten thousand and pounds) Index Linked")
+        self.assertFalse(evidence_found(ev, page))
+
+    def test_digits_at_line_wrap_are_not_absorbed(self):
+        page = {1: "means the sum of f12,650\nClause 4.2 Index Linked to be paid by the Owner\n"}
+        ev = Evidence(page=1, snippet="means the sum of £12,650 Index Linked to be paid")
+        self.assertFalse(evidence_found(ev, page))
+        # the same layout without the figure re-locates
+        page = {1: "means the sum of f12,650\nContribution\" Index Linked to be paid by the Owner\n"}
+        self.assertTrue(evidence_found(ev, page))
+
     def test_snippet_from_another_page_fails(self):
         self.assertTrue(found(4, "£10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked"))
         self.assertFalse(found(12, "£10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked"))
