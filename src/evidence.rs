@@ -44,6 +44,8 @@ fn is_numeric_token(tok: &str) -> bool {
     tok.bytes().any(|b| b.is_ascii_digit()) && tok.bytes().all(|b| b.is_ascii_digit() || b == b'.')
 }
 
+const CLOSERS: [char; 6] = ['"', '\'', ')', ']', '\u{201d}', '\u{2019}'];
+
 // Whitespace and currency punctuation may vary in OCR; decimal position may not.
 // Used by both matching paths so the contiguous shortcut cannot weaken the fallback.
 fn matching_char(chars: &[char], i: usize) -> bool {
@@ -54,12 +56,14 @@ fn matching_char(chars: &[char], i: usize) -> bool {
             && chars.get(i + 1).is_some_and(char::is_ascii_digit))
         // Keep one separator between numeric runs. Otherwise "1.1.1. 50%" becomes
         // one number and the digit-boundary check rejects the valid 50% citation.
+        // Closing quotes and brackets are looked past, so a quoted "18" at a line end
+        // stays apart from the next clause number; a comma is not ("£10,\n058").
         || (chars[i].is_ascii_whitespace()
             && chars.get(i + 1).is_some_and(char::is_ascii_digit)
             && chars[..i]
                 .iter()
                 .rev()
-                .find(|c| !c.is_ascii_whitespace())
+                .find(|c| !c.is_ascii_whitespace() && !CLOSERS.contains(c))
                 .is_some_and(|c| c.is_ascii_digit() || *c == '.'))
 }
 

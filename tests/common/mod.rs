@@ -1,6 +1,8 @@
 //! Shared by the tiered tests: the corpus list, committed page-text snapshots and thresholds.
 #![allow(dead_code)]
 
+pub mod synthetic;
+
 use std::path::{Path, PathBuf};
 
 use s106::document::Snapshot;

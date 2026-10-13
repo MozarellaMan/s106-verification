@@ -1,0 +1,154 @@
+{
+ "format_note": "An invented deed in the v1 shape recorded by the former Python harness; it describes no real application.",
+ "pages": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "output": {
+  "housing": {
+   "total_units": 120,
+   "total_units_evidence": {
+    "page": 3,
+    "snippet": "the erection of 120 residential dwellings"
+   },
+   "market_units": 84,
+   "market_units_evidence": {
+    "page": 2,
+    "snippet": "means the 84 Residential Units to be sold on the open market"
+   },
+   "affordable_units": 36,
+   "affordable_units_evidence": {
+    "page": 2,
+    "snippet": "means the 36 Residential Units (100 Habitable Rooms) to be provided as Affordable Housing"
+   },
+   "affordable_habitable_rooms": 100,
+   "total_habitable_rooms": null,
+   "tenures": [
+    {
+     "tenure": "Social Rent",
+     "units": 24,
+     "habitable_rooms": 70,
+     "evidence": {
+      "page": 2,
+      "snippet": "means the 24 Residential Units (70 Habitable Rooms) to be let at Social Rent"
+     }
+    },
+    {
+     "tenure": "Shared Ownership",
+     "units": 12,
+     "habitable_rooms": 30,
+     "evidence": {
+      "page": 2,
+      "snippet": "means the 12 Residential Units (30 Habitable Rooms) to be disposed of on a Shared Ownership Lease"
+     }
+    }
+   ],
+   "mix_table": {
+    "rows": [
+     {
+      "unit_type": "1 bed",
+      "counts": [
+       {
+        "tenure": "Social Rent",
+        "units": 6
+       },
+       {
+        "tenure": "Shared Ownership",
+        "units": 4
+       }
+      ]
+     },
+     {
+      "unit_type": "2 bed",
+      "counts": [
+       {
+        "tenure": "Social Rent",
+        "units": 10
+       },
+       {
+        "tenure": "Shared Ownership",
+        "units": 6
+       }
+      ]
+     },
+     {
+      "unit_type": "3 bed",
+      "counts": [
+       {
+        "tenure": "Social Rent",
+        "units": 8
+       },
+       {
+        "tenure": "Shared Ownership",
+        "units": 2
+       }
+      ]
+     }
+    ],
+    "subtotals": [
+     {
+      "tenure": "Social Rent",
+      "units": 24
+     },
+     {
+      "tenure": "Shared Ownership",
+      "units": 12
+     }
+    ],
+    "total_units": 36,
+    "total_habitable_rooms": 100,
+    "evidence": {
+     "page": 5,
+     "snippet": "Total 36 (100 habitable rooms)"
+    }
+   },
+   "claimed_affordable_pct": "30",
+   "claimed_affordable_basis": "units",
+   "claimed_affordable_evidence": {
+    "page": 3,
+    "snippet": "120 residential dwellings (C3), 30% affordable by unit"
+   }
+  },
+  "contributions": [
+   {
+    "name": "Viability Contribution",
+    "amount_gbp": null,
+    "amount_in_words": null,
+    "index_linked": false,
+    "is_cap": false,
+    "contingent": true,
+    "trigger_event": "prior to Occupation",
+    "trigger_clause": "The Owner shall not Occupy more than 50 per cent of the Market Housing Units until any Viability Contribution has been paid to the Council.",
+    "trigger_evidence": {
+     "page": 4,
+     "snippet": "shall not Occupy more than 50 per cent of the Market Housing Units"
+    },
+    "evidence": {
+     "page": 3,
+     "snippet": "means a financial contribution that may arise pursuant to a Viability Review"
+    }
+   },
+   {
+    "name": "Energy Contribution",
+    "amount_gbp": "90000.00",
+    "amount_in_words": "ninety thousand pounds",
+    "index_linked": true,
+    "is_cap": true,
+    "contingent": true,
+    "trigger_event": "on demand / review",
+    "trigger_clause": "The Energy Contribution shall be payable within 20 Working Days of such agreement or determination.",
+    "trigger_evidence": {
+     "page": 4,
+     "snippet": "shall be payable within 20 Working Days of such agreement or determination"
+    },
+    "evidence": {
+     "page": 3,
+     "snippet": "means a sum of up to a maximum £90,000.00 (ninety thousand pounds) Index Linked"
+    }
+   }
+  ]
+ }
+}

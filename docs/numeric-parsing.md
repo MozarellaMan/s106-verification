@@ -119,8 +119,9 @@ base provenance untouched.
 The parser fingerprint is a hash of the parser's results on a selected corpus, diagnostics
 included. `fixtures/numeric-probes.txt` holds one probe per line, with newline, carriage return
 and backslash escaped. It contains every citation snippet and every `amount_in_words`,
-`amount_gbp`, `share_pct` and `claimed_affordable_pct` string in the recorded fixtures, plus
-the constructed controls.
+`amount_gbp`, `share_pct` and `claimed_affordable_pct` string in the invented deeds'
+extractions (`tests/synthetic/*/extraction.json`), plus the constructed controls. Strings from
+real deeds are not in it: the code repository describes no real planning application.
 
 `audit::parser_fingerprint()` runs `scan`, `decimal` and `amount` over every probe and hashes
 the rendering: quantities with unit and span, errors with cause, spans and expected wording.
@@ -134,7 +135,8 @@ snapshot diff, to be justified with a source example and a corrupted counterpart
 still fail. The same file has a property test: `scan` never panics on arbitrary text, every
 span is on char boundaries and inside the text, and quantity spans do not overlap.
 
-`probes_cover_fixtures` fails when a fixture string is missing from the probe file. The probe
+`probes_cover_fixtures` fails when a string from an invented deed's extraction is missing from
+the probe file. The probe
 file is compiled into the tests, so updating it takes separate runs:
 
 1. Add the missing strings:
