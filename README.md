@@ -10,7 +10,8 @@ classified as either a **Parser Error** (our extraction is wrong) or a **Documen
 s106-audit/
   schema.py     Pydantic v2 model: Section106Agreement (metadata, housing/tenure, contributions + triggers)
   ocr.py        pdfplumber text layer -> parallel RapidOCR fallback for scanned deeds, cached per page
-  extractor.py  definitions-clause + schedule parser (rules) or Claude structured outputs (--backend llm)
+  extractor.py  definitions-clause + schedule parser (rules), Claude over OCR text (llm), or Claude over the page images (llm-pdf)
+  fixtures/     recorded Claude responses so --backend llm-pdf runs offline
   verifier.py   hard assertions + Parser Error / Document Discrepancy classification
   run_audit.py  CLI: terminal report + JSON
 ```
@@ -40,11 +41,67 @@ with `--cacert`.
 
 ```bash
 .venv/bin/python s106-audit/run_audit.py                      # rules backend
+.venv/bin/python s106-audit/run_audit.py --backend llm-pdf            # Claude reads the scans (offline: replays fixture)
+.venv/bin/python s106-audit/run_audit.py --backend llm-pdf --cascade  # + re-read Parser Error fields on Opus
 ANTHROPIC_API_KEY=... .venv/bin/python s106-audit/run_audit.py --backend llm --model claude-haiku-5-5
+.venv/bin/python -m unittest discover -s tests                        # offline tests, mocked client
 ```
 
 The JSON output goes to `data/processed/<stem>.audit.json`. Exit codes are `0` clean,
 `1` parser errors, and `2` document discrepancies.
+
+## LLM-PDF backend
+
+`--backend llm-pdf` replaces the OCR + regex reading layer with Claude reading the page images.
+
+1. RapidOCR still runs (it's cached) and does three jobs. It locates the definitions clause and the
+   later pages that impose payments or hold the mix table, which is 42 of the 109 pages for the sample.
+   It feeds the rules pass for metadata. And it is the **independent corpus the verifier checks
+   against**.
+2. Those pages are split out with pypdfium2 and sent as one base64 PDF `document` block to
+   `client.messages.parse` with a Pydantic output schema (`WireExtraction`). The default model is
+   `claude-haiku-5-5`; pick another with `--model`.
+3. The model cites evidence by its page position in the attachment. That position is mapped back to
+   the deed page, and the verifier re-locates each snippet in the OCR text. It never checks against
+   anything the model wrote.
+
+`--cascade` takes every field with a Parser Error (the housing block, or a named contribution) and
+re-reads only those fields on `claude-opus-5-5` (`--cascade-model`). The Opus call enables server-side refusal
+fallbacks (`fallbacks="default"`). A replacement is kept only if the verifier then reports fewer
+Parser Errors for that field, so the cascade can't make a field worse.
+
+`--llm-mode` controls where responses come from:
+
+| mode | behaviour |
+|------|-----------|
+| `auto` (default) | live if Anthropic credentials resolve (env key, auth token or `ant auth login` profile), otherwise replay |
+| `live` | always call the API; fails without credentials |
+| `record` | call the API and save the response to `s106-audit/fixtures/<stem>/<model>.<kind>.json` |
+| `replay` | load the saved response; errors if the page selection changed since it was recorded |
+
+**The committed Haiku fixture is synthetic.** It was hand-built from the page images to stand in for a
+Haiku response, because no live call had been recorded yet. Replace it with a real one:
+
+```bash
+ANTHROPIC_API_KEY=... .venv/bin/python s106-audit/run_audit.py --backend llm-pdf --llm-mode record
+```
+
+The report's warning line shows which source was used and, for live calls, the token usage.
+
+**Cost** (estimates; confirm against the usage line after a live run). A scanned page costs
+roughly 1.6k–3k input tokens (it's billed as an image, since there's no text layer), so 42 pages come to
+about 65k–125k input tokens.
+
+| call | rate (per MTok in / out) | per deed |
+|------|-------------------|----------|
+| Haiku 5.5 extraction | $0.10 / $0.50 under 100k prompt tokens, $0.50 / $2.50 above | ≈ $0.01–0.07 |
+| Opus 5.5 cascade (only when Parser Errors remain) | $4 / $20 | ≈ $0.40–0.80 per cascade call |
+
+**Known limitation.** On two-column definition pages, OCR splices the left-column term into the
+right-column sentence wherever a line wraps. A clean snippet that the model read off the image then
+won't re-locate in the OCR text. For the sample, 10 of 29 cited snippets fail to re-locate. Every check
+still passes, but if one of those fields failed it would be classed as a Parser Error, never a Document
+Discrepancy. That errs on the safe side, but it weakens the classification for the LLM backends.
 
 ## Checks
 

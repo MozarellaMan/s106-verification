@@ -1,0 +1,374 @@
+{
+  "model": "claude-haiku-5-5",
+  "kind": "extract",
+  "provenance": "synthetic: hand-built from the page images to stand in for a live claude-haiku-5-5 response; replace with `--llm-mode record`",
+  "pages": [
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    34,
+    35,
+    39,
+    66,
+    67,
+    70,
+    76,
+    78,
+    80,
+    89,
+    90,
+    91
+  ],
+  "usage": null,
+  "output": {
+    "housing": {
+      "total_units": 253,
+      "total_units_evidence": {
+        "page": 12,
+        "snippet": "253 residential apartments (C3)"
+      },
+      "market_units": 177,
+      "market_units_evidence": {
+        "page": 20,
+        "snippet": "the 177 Residential Units of Market Housing"
+      },
+      "affordable_units": 76,
+      "affordable_units_evidence": {
+        "page": 3,
+        "snippet": "the 76 Residential Units (271 Habitable Rooms)"
+      },
+      "affordable_habitable_rooms": 271,
+      "total_habitable_rooms": null,
+      "tenures": [
+        {
+          "tenure": "Social Rent",
+          "units": 58,
+          "habitable_rooms": 212,
+          "evidence": {
+            "page": 28,
+            "snippet": "the 58 Residential Units (made up of 10 one bedroom units, 24 two bedroom units and 24 three bedroom units (212) Habitable Rooms"
+          }
+        },
+        {
+          "tenure": "Intermediate",
+          "units": 18,
+          "habitable_rooms": 59,
+          "evidence": {
+            "page": 19,
+            "snippet": "the 18 Residential Units (provided as 7 one bedroom units, 5 two bedroom units and 6 three bedroom units (59 Habitable Rooms"
+          }
+        }
+      ],
+      "mix_table": {
+        "rows": [
+          {
+            "unit_type": "1 bed",
+            "counts": [
+              {
+                "tenure": "Social Rent",
+                "units": 10
+              },
+              {
+                "tenure": "Intermediate",
+                "units": 7
+              }
+            ]
+          },
+          {
+            "unit_type": "2 bed",
+            "counts": [
+              {
+                "tenure": "Social Rent",
+                "units": 24
+              },
+              {
+                "tenure": "Intermediate",
+                "units": 5
+              }
+            ]
+          },
+          {
+            "unit_type": "3 bed",
+            "counts": [
+              {
+                "tenure": "Social Rent",
+                "units": 24
+              },
+              {
+                "tenure": "Intermediate",
+                "units": 6
+              }
+            ]
+          }
+        ],
+        "subtotals": [
+          {
+            "tenure": "Social Rent",
+            "units": 58
+          },
+          {
+            "tenure": "Intermediate",
+            "units": 18
+          }
+        ],
+        "total_units": 76,
+        "total_habitable_rooms": 271,
+        "evidence": {
+          "page": 42,
+          "snippet": "Sub-Total 58 18 Total 76 (271 habitable rooms)"
+        }
+      },
+      "claimed_affordable_pct": "35.75",
+      "claimed_affordable_basis": "habitable_rooms",
+      "claimed_affordable_evidence": {
+        "page": 12,
+        "snippet": "35.75% affordable by habitable room"
+      }
+    },
+    "contributions": [
+      {
+        "name": "Administration Cost",
+        "amount_gbp": "16913.26",
+        "amount_in_words": "sixteen thousand nine hundred and thirteen pounds and twenty six pence",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "on demand / review",
+        "trigger_clause": "The Owner covenants to pay the Administration Cost to the Council within 28 days of receiving written request",
+        "trigger_evidence": {
+          "page": 33,
+          "snippet": "pay the Administration Cost to the Council within 28 days of"
+        },
+        "evidence": {
+          "page": 2,
+          "snippet": "£16,913.26 (sixteen thousand nine hundred and thirteen pounds and twenty six pence)"
+        }
+      },
+      {
+        "name": "Affordable Housing Contribution",
+        "amount_gbp": null,
+        "amount_in_words": null,
+        "index_linked": false,
+        "is_cap": false,
+        "contingent": true,
+        "trigger_event": null,
+        "trigger_clause": null,
+        "trigger_evidence": {
+          "page": 0,
+          "snippet": ""
+        },
+        "evidence": {
+          "page": 2,
+          "snippet": "a financial contribution that may arise pursuant to a Viability Review as referred to in paragraph 5.8 of Schedule 4"
+        }
+      },
+      {
+        "name": "Affordable Housing Monitoring Contribution",
+        "amount_gbp": "10058.60",
+        "amount_in_words": "ten thousand and fifty eight pounds and sixty pence",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Implementation",
+        "trigger_clause": "Not to Implement the Development until the Site and Development Contributions have been paid to the Council in full.",
+        "trigger_evidence": {
+          "page": 36,
+          "snippet": "Not to Implement the Development until the Site and Development Contributions have been"
+        },
+        "evidence": {
+          "page": 2,
+          "snippet": "£10,058.60 (ten thousand and fifty eight pounds and sixty pence)"
+        }
+      },
+      {
+        "name": "Bus Contribution",
+        "amount_gbp": "683100.00",
+        "amount_in_words": "six hundred and eighty three thousand and one hundred pounds",
+        "index_linked": true,
+        "is_cap": true,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_clause": "to pay the Bus Contribution on or before first Occupation of any part of the Development",
+        "trigger_evidence": {
+          "page": 36,
+          "snippet": "to pay the Bus Contribution on or before first Occupation"
+        },
+        "evidence": {
+          "page": 5,
+          "snippet": "£683,100.00 (six hundred and eighty three thousand and one hundred pounds)"
+        }
+      },
+      {
+        "name": "Carbon Green Fund Contribution",
+        "amount_gbp": "475991.00",
+        "amount_in_words": "four hundred and seventy five thousand nine hundred and ninety one pounds",
+        "index_linked": true,
+        "is_cap": true,
+        "contingent": false,
+        "trigger_event": "other",
+        "trigger_clause": "To pay the Carbon Green Fund Contribution in accordance with the procedure outlined in paragraph 3 of Schedule 11.",
+        "trigger_evidence": {
+          "page": 36,
+          "snippet": "To pay the Carbon Green Fund Contribution in accordance with the procedure"
+        },
+        "evidence": {
+          "page": 6,
+          "snippet": "£475,991.00 (four hundred and seventy five thousand nine hundred and ninety one pounds)"
+        }
+      },
+      {
+        "name": "Construction Industry Employment and Training Contribution",
+        "amount_gbp": null,
+        "amount_in_words": null,
+        "index_linked": false,
+        "is_cap": false,
+        "contingent": true,
+        "trigger_event": null,
+        "trigger_clause": null,
+        "trigger_evidence": {
+          "page": 0,
+          "snippet": ""
+        },
+        "evidence": {
+          "page": 9,
+          "snippet": "the sums as calculated by the Council in accordance with the formula in paragraph 1.6 of Part 1 of Schedule 9"
+        }
+      },
+      {
+        "name": "Cycle Hire Docking Station Contribution",
+        "amount_gbp": "12650",
+        "amount_in_words": "twelve thousand and six hundred and fifty pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Occupation",
+        "trigger_clause": "To pay the Cycle Hire Docking Station Contribution on or before Occupation.",
+        "trigger_evidence": {
+          "page": 36,
+          "snippet": "To pay the Cycle Hire Docking Station Contribution on or before Occupation"
+        },
+        "evidence": {
+          "page": 10,
+          "snippet": "£12,650 (twelve thousand and six hundred and fifty pounds)"
+        }
+      },
+      {
+        "name": "Default Employment in the End Use Contribution",
+        "amount_gbp": "73100",
+        "amount_in_words": "seventy three thousand one hundred pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "on demand / review",
+        "trigger_clause": "the Owner will pay the Default Employment in the End Use Contribution within 28 days of receiving written notice from the Council.",
+        "trigger_evidence": {
+          "page": 39,
+          "snippet": "pay the Default Employment in the End Use Contribution within 28 days of"
+        },
+        "evidence": {
+          "page": 10,
+          "snippet": "£73,100 (seventy three thousand one hundred pounds)"
+        }
+      },
+      {
+        "name": "Employment in the End Use Contribution",
+        "amount_gbp": null,
+        "amount_in_words": null,
+        "index_linked": false,
+        "is_cap": false,
+        "contingent": true,
+        "trigger_event": "on demand / review",
+        "trigger_clause": "The Developer will pay the Employment in the End Use Contribution to the Council within 28 days of receipt of the notice referred to in paragraph 3.6.",
+        "trigger_evidence": {
+          "page": 39,
+          "snippet": "will pay the Employment in the End Use Contribution to the Council within 28"
+        },
+        "evidence": {
+          "page": 14,
+          "snippet": "the sum as calculated in accordance with the formula in paragraph 3.6 of Part 1 of Schedule 9"
+        }
+      },
+      {
+        "name": "Environmental Health Officer Contribution",
+        "amount_gbp": "10120",
+        "amount_in_words": "ten thousand and one hundred and twenty pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Implementation",
+        "trigger_clause": "Not to Implement the Development until the Site and Development Contributions have been paid to the Council in full.",
+        "trigger_evidence": {
+          "page": 36,
+          "snippet": "Not to Implement the Development until the Site and Development Contributions have been"
+        },
+        "evidence": {
+          "page": 15,
+          "snippet": "£10,120 (ten thousand and one hundred and twenty pounds)"
+        }
+      },
+      {
+        "name": "Greenfield Run-off Rate Off-Set Contribution",
+        "amount_gbp": null,
+        "amount_in_words": null,
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": true,
+        "trigger_event": "prior to Implementation",
+        "trigger_clause": "to pay the Greenfield Run-off Rate Off-Set Contribution and not to Implement the Development until the Green Run-off Rate Off-Set Contribution has been paid to the Council in full.",
+        "trigger_evidence": {
+          "page": 37,
+          "snippet": "to pay the Greenfield Run-off Rate Off-Set"
+        },
+        "evidence": {
+          "page": 16,
+          "snippet": "a financial contribution calculated at a rate of"
+        }
+      },
+      {
+        "name": "Public Open Space, Children's Play Equipment and Sports Development Contribution",
+        "amount_gbp": "259552.00",
+        "amount_in_words": "Two hundred and fifty nine thousand and five hundred and fifty two pounds",
+        "index_linked": true,
+        "is_cap": false,
+        "contingent": false,
+        "trigger_event": "prior to Implementation",
+        "trigger_clause": "Not to Implement the Development until the Site and Development Contributions have been paid to the Council in full.",
+        "trigger_evidence": {
+          "page": 36,
+          "snippet": "Not to Implement the Development until the Site and Development Contributions have been"
+        },
+        "evidence": {
+          "page": 23,
+          "snippet": "£259,552.00 (Two hundred and fifty nine thousand and five hundred and fifty two pounds)"
+        }
+      }
+    ]
+  }
+}
