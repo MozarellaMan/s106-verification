@@ -26,8 +26,13 @@ jobs:
           path: data/raw
           key: corpus-${{ hashFiles('fixtures/corpus.tsv') }}
       - run: scripts/fetch-models.sh
-      # this run is started by hand and is never a pull-request check, so it needs the whole corpus
-      - run: scripts/fetch-corpus.sh
+      # only the deeds this run evaluates: the selected ids, or every evaluation candidate
+      - run: |
+          ids="${ONLY//,/ }"
+          [ -n "$ids" ] || ids=$(tail -n +2 fixtures/eval/candidates.tsv | cut -f1)
+          scripts/fetch-corpus.sh $ids
+        env:
+          ONLY: ${{ inputs.only }}
       - run: cargo run --release -- eval --runs "$RUNS" ${ONLY:+--only "$ONLY"}
         env:
           RUNS: ${{ inputs.runs }}

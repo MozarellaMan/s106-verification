@@ -192,4 +192,14 @@ fn eval_fails_unless_every_selected_deed_completes() {
         ..args
     };
     assert!(eval::evaluate_all(&unknown, empty.path()).is_err());
+
+    let header_only = empty.path().join("candidates.tsv");
+    std::fs::write(&header_only, "id\tcouncil\tplanning_ref\ttype\n").unwrap();
+    let none = EvalArgs {
+        only: vec![],
+        candidates: header_only,
+        ..unknown
+    };
+    let err = eval::evaluate_all(&none, empty.path()).unwrap_err();
+    assert!(err.to_string().contains("lists no candidates"), "{err}");
 }

@@ -936,6 +936,9 @@ pub fn evaluate_all(args: &EvalArgs, repo_root: &Path) -> Result<Vec<DeedSummary
         }
         rows.retain(|r| args.only.contains(&r.id));
     }
+    if rows.is_empty() {
+        anyhow::bail!("{} lists no candidates", args.candidates.display());
+    }
     let register = load_register(&args.register)?;
     let client = if args.replay {
         None
