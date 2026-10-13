@@ -52,19 +52,111 @@ def squash(s: str) -> str:
     return re.sub(r"[^0-9a-z]", "", s.lower())
 
 
-def evidence_found(ev: Evidence | None, pages: dict[int, str]) -> bool:
-    if ev is None or ev.page not in pages:
-        return False
-    needle = squash(ev.snippet)
-    return bool(needle) and needle in squash(pages[ev.page])
-
-
 _UNITS = {w: i for i, w in enumerate(
     "zero one two three four five six seven eight nine ten eleven twelve thirteen "
     "fourteen fifteen sixteen seventeen eighteen nineteen".split())}
 _TENS = {w: 10 * i for i, w in enumerate(
     "_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()) if w != "_"}
 _SCALES = {"thousand": 1_000, "million": 1_000_000}
+
+
+# Fallback when the squashed snippet is not contiguous in the OCR text (two-column
+# definition pages splice the left-column term into the sentence at line wraps).
+# Tokens must appear in order; intervening text is allowed only as
+#   * at most 1 non-digit char within a line (OCR reads "£" as "f"), or
+#   * a line wrap followed by up to MAX_GAP chars of left-column fragment,
+# and no gap may hold digits or number words, even joined ("andtwenty"). Numbers
+# are digit-bounded and never skipped; up to MAX_SKIP_SHARE of plain words may be.
+MAX_GAP = 40          # chars of left-column fragment allowed at a line start
+MIN_TOKENS = 4        # shorter snippets must match contiguously
+MAX_SKIP_SHARE = 0.1  # share of plain words OCR may have garbled ("fifty" -> "fty")
+
+
+def _tokens(s: str) -> list[str]:
+    """Words and numbers; '£12,650.00' -> '1265000', the same digits squash() keeps."""
+    return [re.sub(r"[.,]", "", t) for t in re.findall(r"[a-z]+|\d+(?:[.,]\d+)*", s.lower())]
+
+
+def _is_number(tok: str) -> bool:
+    return tok.isdigit() or tok in _UNITS or tok in _TENS or tok in _SCALES or tok == "hundred"
+
+
+# "one", "two", "ten" also sit inside common words (network, maintenance), so they
+# count at a word's start or end or after "and". A skipped gap stops where matching
+# resumes, so an amount word OCR joined to a column fragment ("Contributionandten
+# pounds") ends its gap word; this rejects some terms ending in them ("Zone").
+_SHORT_NUMS = ("one", "two", "ten")
+_NUM_WORD = re.compile("|".join(sorted(
+    (w for w in [*_UNITS, *_TENS, *_SCALES, "hundred"] if w not in _SHORT_NUMS), key=len, reverse=True)))
+_SHORT_NUM_EDGE = re.compile(r"(?:^|and)(?:{0})|(?:{0})$".format("|".join(_SHORT_NUMS)))
+
+
+def _numeric_gap(text: str) -> bool:
+    """Could this skipped OCR text carry part of an amount the snippet left out?"""
+    return (any(c.isdigit() for c in text)
+            or any(_NUM_WORD.search(w) or _SHORT_NUM_EDGE.search(w) for w in re.findall(r"[a-z]+", text)))
+
+
+def _layout_match(tokens: list[str], page: str) -> bool:
+    raw = page.lower()
+    idx = [i for i, c in enumerate(raw) if c.isascii() and c.isalnum()]
+    hay = "".join(raw[i] for i in idx)  # == squash(page)
+    max_skips = int(sum(not _is_number(t) for t in tokens) * MAX_SKIP_SHARE)
+    n = len(tokens)
+
+    def gap_ok(end: int, start: int, extra: int) -> bool:
+        gap = raw[idx[end - 1] + 1:idx[start]]
+        lines = gap.split("\n")
+        if _numeric_gap(gap) or len(squash(lines[0])) > 1 + extra:
+            return False
+        return len(lines) == 1 or (not any(squash(l) for l in lines[1:-1])
+                                   and len(squash(lines[-1])) <= MAX_GAP + extra)
+
+    def occurrences(tok: str, lo: int, hi: int):
+        i = hay.find(tok, lo, hi)
+        while i != -1:
+            end = i + len(tok)
+            if not tok.isdigit() or ((i == 0 or not hay[i - 1].isdigit())
+                                     and (end == len(hay) or not hay[end].isdigit())):
+                yield i, end
+            i = hay.find(tok, i + 1, hi)
+
+    seen: set[tuple[int, int, int, int]] = set()
+
+    def search(i: int, pos: int | None, extra: int, skips: int) -> bool:
+        # pos: end of the last matched token (None before the first match);
+        # extra: chars of slack owed to skipped (OCR-garbled) words since then
+        if i == n:
+            return pos is not None
+        key = (i, -1 if pos is None else pos, extra, skips)
+        if key in seen:
+            return False
+        seen.add(key)
+        tok = tokens[i]
+        if pos is None:
+            cands = occurrences(tok, 0, len(hay))
+        else:
+            hi = pos + MAX_GAP + 2 * extra + 2 + len(tok)
+            cands = ((s, e) for s, e in occurrences(tok, pos, hi) if gap_ok(pos, s, extra))
+        if any(search(i + 1, e, 0, skips) for _, e in cands):
+            return True
+        return (not _is_number(tok) and skips < max_skips
+                and search(i + 1, pos, extra + len(tok) + 1, skips + 1))
+
+    return search(0, None, 0, 0)
+
+
+def evidence_found(ev: Evidence | None, pages: dict[int, str]) -> bool:
+    if ev is None or ev.page not in pages:
+        return False
+    needle = squash(ev.snippet)
+    if not needle:
+        return False
+    if needle in squash(pages[ev.page]):
+        return True
+    tokens = _tokens(ev.snippet)
+    return len(tokens) >= MIN_TOKENS and _layout_match(tokens, pages[ev.page])
+
 
 
 def _words_to_int(text: str) -> int | None:
