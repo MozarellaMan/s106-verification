@@ -1,12 +1,12 @@
 //! Extraction: Claude reads the whole deed (as a PDF) into the wire schema, which is converted to
 //! schema v2. Responses are recorded as fixtures so every audit can be replayed offline.
 //!
-//! Fixtures live in `fixtures/llm/<pdf-stem>/<model>.extract.v2.json` and are tied to the PDF's
-//! SHA-256 and to a hash of the prompt and schema: a different deed or a changed prompt refuses to
-//! replay instead of silently reusing stale answers. v1 fixtures recorded by the former Python
-//! harness (`fixtures/llm-v1/`) still replay through an adapter.
+//! Fixtures live in the data repository (`crate::data`), `extractions/<pdf-stem>/<model>.extract.v2.json`,
+//! and are tied to the PDF's SHA-256 and to a hash of the prompt and schema: a different deed or a
+//! changed prompt refuses to replay instead of silently reusing stale answers. v1 fixtures recorded by the former Python
+//! harness (`extractions-v1/`) still replay through an adapter.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,7 @@ use crate::wire::{
     WireInstrumentPart,
 };
 
-/// Whole deeds are attached up to this length (Southwark's 109 pages is ~180k input tokens).
+/// Whole deeds are attached up to this length (a 109-page scan is ~180k input tokens).
 const MAX_PAGES: usize = 300;
 pub const FIXTURE_FORMAT: &str = "s106-llm-fixture/2";
 
@@ -115,12 +115,6 @@ impl Info {
     }
 }
 
-pub fn fixtures_root() -> PathBuf {
-    std::env::var_os("S106_FIXTURES")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures"))
-}
-
 fn stem(doc: &Document) -> String {
     doc.path
         .file_stem()
@@ -145,15 +139,13 @@ pub fn prompt_sha256() -> String {
 }
 
 pub fn fixture_path(doc: &Document, model: &str) -> PathBuf {
-    fixtures_root()
-        .join("llm")
+    crate::data::extractions()
         .join(stem(doc))
         .join(format!("{model}.extract.v2.json"))
 }
 
 fn v1_fixture_path(doc: &Document, model: &str) -> PathBuf {
-    fixtures_root()
-        .join("llm-v1")
+    crate::data::extractions_v1()
         .join(stem(doc))
         .join(format!("{model}.extract.json"))
 }

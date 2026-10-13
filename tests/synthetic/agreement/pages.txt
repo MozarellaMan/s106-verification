@@ -1,0 +1,37 @@
+=== page 1 text-layer ===
+DATED 2024
+EXAMPLE DISTRICT COUNCIL
+and
+EXAMPLE HOMES LIMITED
+AGREEMENT pursuant to Section 106 of the Town and Country Planning Act 1990
+relating to land at the Former Brickworks, Mill Road, Exampleton
+Planning application reference EX/23/0456
+=== page 2 text-layer ===
+"Affordable Housing Units" means the 36 Residential Units (100 Habitable Rooms) to be provided as Affordable Housing in accordance with the Affordable Housing Mix
+"Market Housing Units" means the 84 Residential Units to be sold on the open market
+"Social Rent Units" means the 24 Residential Units (70 Habitable Rooms) to be let at Social Rent
+"Shared Ownership Units" means the 12 Residential Units (30 Habitable Rooms) to be disposed of on a Shared Ownership Lease
+=== page 3 ocr ===
+"Development" means the erection of 120 residential dwellings (C3), 30% affordable by unit, with
+associated access and landscaping
+"Highways Contribution" means the sum of f45,000 (forty five thousand pounds) Index Linked
+"PlaySpaceContribution"meansthesumof£12,500.50(twelvethousandfivehundredpoundsandfiftypence)
+"Monitoring || means the sum of £2,400 (two thousand four
+Contribution" || hundred pounds)
+"Education Contribution" means a sum not exceeding £150,000 (one hundred and fifty thousand pounds) calculated in accordance with Schedule 3
+"Travel Plan Contribution" means the sum of £8,000 (eight thousand pounds) payable only if the Travel Plan targets are not met
+=== page 4 text-layer ===
+The Owner covenants to pay the Highways Contribution to the Council prior to Commencement of Development
+The Owner shall pay the Play Space Contribution in the following instalments:
+50% (fifty per cent) prior to Occupation of the 1st Dwelling
+the remaining 50% (fifty per cent) prior to Occupation of the 60th Dwelling
+The Owner shall pay the Monitoring Contribution within 28 days of the date of this Agreement
+The Owner shall pay the Education Contribution prior to Occupation of the 30th Dwelling
+If the Travel Plan targets are not met the Owner shall pay the Travel Plan Contribution within 20 working days of written demand
+=== page 5 ocr ===
+Unit Type || Social Rent || Shared Ownership
+1 bed || 6 || 4
+2bed || 10 || 6
+3bed || 8 || 2
+Sub-Total || 24 || 12
+Total 36 (100 habitable rooms)

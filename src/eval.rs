@@ -10,10 +10,10 @@
 //! rows, and record indexed or partial figures. So a sum "matches" when it equals one register
 //! amount (±£1) or the total of one purpose's amounts, and misses are listed for a human to check.
 //!
-//! Inputs: `fixtures/eval/candidates.tsv`, the register rows for those deeds
-//! (`fixtures/eval/register/developer-agreement*.csv`, or a full download with `--register`), and
-//! page text from `data/raw/eval/<id>.pdf` or, with `--pages`, from committed snapshots.
-//! Writes `<out>/<id>/run<k>.audit.json` and `<out>/summary.{json,md}` (default `data/processed/eval`).
+//! Inputs, all in the data repository (`crate::data`): `eval/candidates.tsv`, the register rows
+//! for those deeds (`eval/register/developer-agreement*.csv`, or a full download with
+//! `--register`), and page text from `raw/<id>.pdf` or, with `--pages`, from snapshots.
+//! Writes `<out>/<id>/run<k>.audit.json` and `<out>/summary.{json,md}` (default `processed/eval`).
 //! Runs are sequential: PDFium sits behind a process-wide lock and `extract` calls the API synchronously.
 
 use crate::schema::Observed;
@@ -55,20 +55,24 @@ pub struct EvalArgs {
     pub register: PathBuf,
     /// where audits and summary.{json,md} are written
     pub out: PathBuf,
+    /// where the deed PDFs are, `<id>.pdf`
+    pub pdfs: PathBuf,
 }
 
 impl EvalArgs {
-    /// The repository defaults: committed candidates and register rows, PDFs, `data/processed/eval`.
-    pub fn defaults(repo_root: &Path) -> EvalArgs {
+    /// The data repository's candidates, register rows and PDFs; output to `processed/eval`.
+    pub fn defaults() -> EvalArgs {
+        let data = crate::data::root();
         EvalArgs {
             runs: 3,
             model: llm::DEFAULT_MODEL.into(),
             replay: false,
             only: vec![],
             pages: None,
-            candidates: repo_root.join("fixtures/eval/candidates.tsv"),
-            register: repo_root.join("fixtures/eval/register"),
-            out: repo_root.join("data/processed/eval"),
+            candidates: data.join("eval/candidates.tsv"),
+            register: data.join("eval/register"),
+            out: crate::data::processed().join("eval"),
+            pdfs: crate::data::raw(),
         }
     }
 }
@@ -676,15 +680,15 @@ fn run_once(
 }
 
 /// Page text for one deed: its snapshot when `--pages` is given, otherwise its PDF (via the cache).
-fn page_text(args: &EvalArgs, id: &str, root: &Path, cfg: &Config) -> Result<document::Document> {
+fn page_text(args: &EvalArgs, id: &str, cfg: &Config) -> Result<document::Document> {
     if let Some(dir) = &args.pages {
         return Ok(Snapshot::read(&Snapshot::path_for(dir, &format!("{id}.pdf")))?.document());
     }
-    let pdf = root.join("data/raw/eval").join(format!("{id}.pdf"));
+    let pdf = args.pdfs.join(format!("{id}.pdf"));
     if !pdf.exists() {
         anyhow::bail!(
             "corpus missing: fetch with scripts/fetch-corpus.sh (no {})",
-            pdf.strip_prefix(root).unwrap_or(&pdf).display()
+            pdf.display()
         );
     }
     document::load(&pdf, cfg, false).with_context(|| format!("load {}", pdf.display()))
@@ -695,7 +699,6 @@ fn evaluate(
     args: &EvalArgs,
     register: &Register,
     client: Option<&rust_claude_sdk::Client>,
-    root: &Path,
     cfg: &Config,
 ) -> Result<DeedSummary> {
     let (model, replay) = (args.model.as_str(), args.replay);
@@ -707,7 +710,7 @@ fn evaluate(
 
     let mut rows: Vec<RunRow> = vec![];
     let mut ok: Vec<Agreement> = vec![];
-    match page_text(args, &row.id, root, cfg) {
+    match page_text(args, &row.id, cfg) {
         Err(e) => rows.push(error_row(1, format!("{e:#}"), 0.0)),
         Ok(doc) => {
             for k in 1..=runs {
@@ -787,7 +790,11 @@ pub fn markdown(summary: &[DeedSummary], model: &str) -> String {
                 .is_some_and(|e| e.starts_with("corpus missing"))
         })
     }) {
-        lines.insert(2, "Some deeds are missing from data/raw/eval: corpus missing: fetch with scripts/fetch-corpus.sh".into());
+        lines.insert(
+            2,
+            "Some deeds' PDFs are missing: corpus missing: fetch with scripts/fetch-corpus.sh"
+                .into(),
+        );
         lines.insert(3, String::new());
     }
     for d in summary {
@@ -954,14 +961,7 @@ pub fn evaluate_all(args: &EvalArgs, repo_root: &Path) -> Result<Vec<DeedSummary
     let mut summary: Vec<DeedSummary> = vec![];
     for row in &rows {
         eprintln!("== {} ({} {})", row.id, row.council, row.planning_ref);
-        summary.push(evaluate(
-            row,
-            args,
-            &register,
-            client.as_ref(),
-            repo_root,
-            &cfg,
-        )?);
+        summary.push(evaluate(row, args, &register, client.as_ref(), &cfg)?);
         std::fs::write(
             args.out.join("summary.json"),
             serde_json::to_string_pretty(&summary)?,

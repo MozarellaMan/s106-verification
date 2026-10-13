@@ -1,0 +1,287 @@
+{
+ "instrument": {
+  "kind": "agreement",
+  "evidence": {
+   "page": 1,
+   "snippet": "AGREEMENT pursuant to Section 106 of the Town and Country Planning Act 1990"
+  },
+  "parent_description": "",
+  "parent_date": "",
+  "parent_evidence": {
+   "page": 0,
+   "snippet": ""
+  },
+  "scope": "",
+  "scope_evidence": {
+   "page": 0,
+   "snippet": ""
+  }
+ },
+ "metadata": {
+  "council": "Example District Council",
+  "planning_references": [
+   "EX/23/0456"
+  ],
+  "legal_reference": "",
+  "agreement_date": "2024",
+  "site_address": "Former Brickworks, Mill Road, Exampleton",
+  "parties": [
+   "Example District Council",
+   "Example Homes Limited"
+  ]
+ },
+ "variations": [],
+ "housing": {
+  "total_units": 120,
+  "total_units_evidence": {
+   "page": 3,
+   "snippet": "the erection of 120 residential dwellings"
+  },
+  "market_units": 84,
+  "market_units_evidence": {
+   "page": 2,
+   "snippet": "means the 84 Residential Units to be sold on the open market"
+  },
+  "affordable_units": 36,
+  "affordable_units_evidence": {
+   "page": 2,
+   "snippet": "means the 36 Residential Units (100 Habitable Rooms) to be provided as Affordable Housing"
+  },
+  "affordable_habitable_rooms": 100,
+  "total_habitable_rooms": null,
+  "tenures": [
+   {
+    "tenure": "Social Rent",
+    "label": "Social Rent Units",
+    "units": 24,
+    "habitable_rooms": 70,
+    "evidence": {
+     "page": 2,
+     "snippet": "means the 24 Residential Units (70 Habitable Rooms) to be let at Social Rent"
+    }
+   },
+   {
+    "tenure": "Shared Ownership",
+    "label": "Shared Ownership Units",
+    "units": 12,
+    "habitable_rooms": 30,
+    "evidence": {
+     "page": 2,
+     "snippet": "means the 12 Residential Units (30 Habitable Rooms) to be disposed of on a Shared Ownership Lease"
+    }
+   }
+  ],
+  "mix_table": {
+   "rows": [
+    {
+     "unit_type": "1 bed",
+     "counts": [
+      {
+       "tenure": "Social Rent",
+       "units": 6
+      },
+      {
+       "tenure": "Shared Ownership",
+       "units": 4
+      }
+     ]
+    },
+    {
+     "unit_type": "2 bed",
+     "counts": [
+      {
+       "tenure": "Social Rent",
+       "units": 10
+      },
+      {
+       "tenure": "Shared Ownership",
+       "units": 6
+      }
+     ]
+    },
+    {
+     "unit_type": "3 bed",
+     "counts": [
+      {
+       "tenure": "Social Rent",
+       "units": 8
+      },
+      {
+       "tenure": "Shared Ownership",
+       "units": 2
+      }
+     ]
+    }
+   ],
+   "subtotals": [
+    {
+     "tenure": "Social Rent",
+     "units": 24
+    },
+    {
+     "tenure": "Shared Ownership",
+     "units": 12
+    }
+   ],
+   "total_units": 36,
+   "total_habitable_rooms": 100,
+   "evidence": {
+    "page": 5,
+    "snippet": "Total 36 (100 habitable rooms)"
+   }
+  },
+  "claimed_affordable_pct": "30",
+  "claimed_affordable_basis": "units",
+  "claimed_affordable_evidence": {
+   "page": 3,
+   "snippet": "120 residential dwellings (C3), 30% affordable by unit"
+  }
+ },
+ "contributions": [
+  {
+   "name": "Highways Contribution",
+   "amount_structure": "fixed",
+   "amount_gbp": "45000",
+   "amount_in_words": "forty five thousand pounds",
+   "index_linked": true,
+   "amount_evidence": {
+    "page": 3,
+    "snippet": "means the sum of £45,000 (forty five thousand pounds) Index Linked"
+   },
+   "conditionality": "unconditional",
+   "condition_evidence": {
+    "page": 0,
+    "snippet": ""
+   },
+   "covenant": "The Owner covenants to pay the Highways Contribution to the Council prior to Commencement of Development",
+   "covenant_evidence": {
+    "page": 4,
+    "snippet": "The Owner covenants to pay the Highways Contribution to the Council prior to Commencement of Development"
+   },
+   "trigger_phrase": {
+    "page": 4,
+    "snippet": "prior to Commencement of Development"
+   },
+   "instalments": []
+  },
+  {
+   "name": "Play Space Contribution",
+   "amount_structure": "fixed",
+   "amount_gbp": "12500.50",
+   "amount_in_words": "twelve thousand five hundred pounds and fifty pence",
+   "index_linked": false,
+   "amount_evidence": {
+    "page": 3,
+    "snippet": "means the sum of £12,500.50 (twelve thousand five hundred pounds and fifty pence)"
+   },
+   "conditionality": "unconditional",
+   "condition_evidence": {
+    "page": 0,
+    "snippet": ""
+   },
+   "covenant": "The Owner shall pay the Play Space Contribution in the following instalments:",
+   "covenant_evidence": {
+    "page": 4,
+    "snippet": "The Owner shall pay the Play Space Contribution in the following instalments:"
+   },
+   "trigger_phrase": {
+    "page": 0,
+    "snippet": ""
+   },
+   "instalments": [
+    {
+     "share_pct": "50",
+     "trigger_phrase": {
+      "page": 4,
+      "snippet": "50% (fifty per cent) prior to Occupation of the 1st Dwelling"
+     }
+    },
+    {
+     "share_pct": "50",
+     "trigger_phrase": {
+      "page": 4,
+      "snippet": "the remaining 50% (fifty per cent) prior to Occupation of the 60th Dwelling"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Monitoring Contribution",
+   "amount_structure": "fixed",
+   "amount_gbp": "2400",
+   "amount_in_words": "two thousand four hundred pounds",
+   "index_linked": false,
+   "amount_evidence": {
+    "page": 3,
+    "snippet": "means the sum of £2,400 (two thousand four hundred pounds)"
+   },
+   "conditionality": "unconditional",
+   "condition_evidence": {
+    "page": 0,
+    "snippet": ""
+   },
+   "covenant": "The Owner shall pay the Monitoring Contribution within 28 days of the date of this Agreement",
+   "covenant_evidence": {
+    "page": 4,
+    "snippet": "The Owner shall pay the Monitoring Contribution within 28 days of the date of this Agreement"
+   },
+   "trigger_phrase": {
+    "page": 4,
+    "snippet": "within 28 days of the date of this Agreement"
+   },
+   "instalments": []
+  },
+  {
+   "name": "Education Contribution",
+   "amount_structure": "cap",
+   "amount_gbp": "150000",
+   "amount_in_words": "one hundred and fifty thousand pounds",
+   "index_linked": false,
+   "amount_evidence": {
+    "page": 3,
+    "snippet": "means a sum not exceeding £150,000 (one hundred and fifty thousand pounds)"
+   },
+   "conditionality": "unconditional",
+   "condition_evidence": {
+    "page": 0,
+    "snippet": ""
+   },
+   "covenant": "The Owner shall pay the Education Contribution prior to Occupation of the 30th Dwelling",
+   "covenant_evidence": {
+    "page": 4,
+    "snippet": "The Owner shall pay the Education Contribution prior to Occupation of the 30th Dwelling"
+   },
+   "trigger_phrase": {
+    "page": 4,
+    "snippet": "prior to Occupation of the 30th Dwelling"
+   },
+   "instalments": []
+  },
+  {
+   "name": "Travel Plan Contribution",
+   "amount_structure": "fixed",
+   "amount_gbp": "8000",
+   "amount_in_words": "eight thousand pounds",
+   "index_linked": false,
+   "amount_evidence": {
+    "page": 3,
+    "snippet": "means the sum of £8,000 (eight thousand pounds) payable only if the Travel Plan targets are not met"
+   },
+   "conditionality": "conditional",
+   "condition_evidence": {
+    "page": 3,
+    "snippet": "payable only if the Travel Plan targets are not met"
+   },
+   "covenant": "If the Travel Plan targets are not met the Owner shall pay the Travel Plan Contribution within 20 working days of written demand",
+   "covenant_evidence": {
+    "page": 4,
+    "snippet": "If the Travel Plan targets are not met the Owner shall pay the Travel Plan Contribution within 20 working days of written demand"
+   },
+   "trigger_phrase": {
+    "page": 4,
+    "snippet": "within 20 working days of written demand"
+   },
+   "instalments": []
+  }
+ ]
+}

@@ -1,6 +1,7 @@
 //! evidence_found(): two-column OCR interleaving re-locates, changed or misplaced evidence does not.
 //!
-//! The pages are verbatim RapidOCR output from the Southwark sample, so no data download is needed.
+//! The pages are invented, written to reproduce the OCR artefacts seen in real scans (dropped spaces,
+//! `£` read as `f`, spliced columns, garbled words), so no data download is needed.
 
 use std::sync::LazyLock;
 
@@ -9,25 +10,25 @@ use s106::schema::Evidence;
 
 const PAGE_4: &str = r#""Affordable Housing has the meaning given inparagraph 1of Schedule 4;
 Pnm MaximumProvision"
-"Affordable Housing means the sumof f10,058.60(ten thousand and fifty eightpounds
-MonitoringContribution" andsixtypence)Index Linkedtobepaidby theOwner tothe
+"Affordable Housing means the sumof f6,042.30(six thousand and forty twopounds
+MonitoringContribution" andthirtypence)Index Linkedtobepaidby theOwner tothe
 Council in accordance withparagraph1of Schedule 6and applied
 bytheCounciltowardsthecostofmonitoring theprovisionof the
 Affordable Housing Units;
 "#;
 
-const PAGE_12: &str = r#""Cycle Hire Docking Station means the sumof f12,650(twelve thousand and sixhundred and
+const PAGE_12: &str = r#""Bike Share Docking Station means the sumof f18,750(eighteen thousand and sevenhundred and
 Contribution" ftypounds) Index Linked to be paid by the Owner to the Council in
 accordancewithparagraph1ofSchedule6andtobegivenby the
-Council to Transport for London to enableTransport for London to
-provide a Cycle Hire Docking Station within the vicinity of the
+Council to the Highway Authority to enablethe Highway Authority to
+provide a Bike Share Docking Station within the vicinity of the
 Development;
-"Default Employment in the means a financial contribution of f73,100 (seventy three thousand
-EndUseContribution" one hundred pounds) Index Linked which may be payable by the
+"Local Skills in the means a financial contribution of f46,200 (forty six thousand
+InterimUseContribution" two hundred pounds) Index Linked which may be payable by the
 "#;
 
-const PAGE_17: &str = r#""Environmental Health means the sumoff10,120(ten thousandandone hundred and
-Officer Contribution" twentypounds)Index Linked tobepaid by theOwner totheCouncil
+const PAGE_17: &str = r#""Environmental Health means the sumoff9,140(nine thousandandone hundred and
+Officer Contribution" fortypounds)Index Linked tobepaid by theOwner totheCouncil
 inaccordancewithparagraph1ofSchedule6andappliedby thie
 Council towardsthecostofmonitoring theDemolitionEnvironmental
 "#;
@@ -64,15 +65,15 @@ fn found_in(page_text: &str, snippet: &str) -> bool {
 fn left_column_term_spliced_at_line_wrap() {
     assert!(found(
         4,
-        "£10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked"
+        "£6,042.30 (six thousand and forty two pounds and thirty pence) Index Linked"
     ));
     assert!(found(
         12,
-        "£73,100 (seventy three thousand one hundred pounds) Index Linked"
+        "£46,200 (forty six thousand two hundred pounds) Index Linked"
     ));
     assert!(found(
         17,
-        "£10,120 (ten thousand and one hundred and twenty pounds) Index Linked"
+        "£9,140 (nine thousand and one hundred and forty pounds) Index Linked"
     ));
 }
 
@@ -80,11 +81,11 @@ fn left_column_term_spliced_at_line_wrap() {
 fn pound_sign_read_as_f() {
     assert!(found(
         4,
-        "means the sum of £10,058.60 (ten thousand and fifty eight pounds"
+        "means the sum of £6,042.30 (six thousand and forty two pounds"
     ));
     assert!(found(
         12,
-        "means the sum of £12,650 (twelve thousand and six hundred and"
+        "means the sum of £18,750 (eighteen thousand and seven hundred and"
     ));
 }
 
@@ -108,11 +109,11 @@ fn exact_substring_still_matches() {
 fn changed_figure_fails() {
     assert!(!found(
         12,
-        "means the sum of £12,560 (twelve thousand and six hundred and"
+        "means the sum of £18,570 (eighteen thousand and seven hundred and"
     ));
     assert!(!found(
         4,
-        "£10,058.50 (ten thousand and fifty eight pounds and sixty pence) Index Linked"
+        "£6,042.20 (six thousand and forty two pounds and thirty pence) Index Linked"
     ));
 }
 
@@ -120,11 +121,11 @@ fn changed_figure_fails() {
 fn figure_must_be_digit_bounded() {
     assert!(!found(
         12,
-        "means the sum of £2,650 (twelve thousand and six hundred and"
+        "means the sum of £8,750 (eighteen thousand and seven hundred and"
     ));
     assert!(!found(
         12,
-        "means the sum of £12,65 (twelve thousand and six hundred and"
+        "means the sum of £18,75 (eighteen thousand and seven hundred and"
     ));
 }
 
@@ -132,24 +133,24 @@ fn figure_must_be_digit_bounded() {
 fn changed_number_word_fails() {
     assert!(!found(
         4,
-        "£10,058.60 (ten thousand and fifty eight pounds and seventy pence) Index Linked"
+        "£6,042.30 (six thousand and forty two pounds and seventy pence) Index Linked"
     ));
     assert!(!found(
         17,
-        "£10,120 (ten thousand and two hundred and twenty pounds) Index Linked"
+        "£9,140 (nine thousand and two hundred and forty pounds) Index Linked"
     ));
 }
 
 #[test]
 fn dropped_words_are_not_absorbed_by_a_gap() {
-    // the page reads "six hundred and [fifty] pounds"; the snippet leaves out "and fifty"
+    // the page reads "seven hundred and [fifty] pounds"; the snippet leaves out "and fifty"
     assert!(!found(
         12,
-        "£12,650 (twelve thousand and six hundred pounds)"
+        "£18,750 (eighteen thousand and seven hundred pounds)"
     ));
     assert!(!found(
         17,
-        "£10,120 (ten thousand and one hundred pounds) Index Linked"
+        "£9,140 (nine thousand and one hundred pounds) Index Linked"
     ));
 }
 
@@ -157,10 +158,10 @@ fn dropped_words_are_not_absorbed_by_a_gap() {
 fn joined_number_words_at_line_wrap_are_not_absorbed() {
     // review repro: the snippet leaves out "and twenty", which OCR joined at the line start
     let page =
-        "means the sumoff10,120(ten thousand and one hundred\nandtwenty pounds)Index Linked\n";
+        "means the sumoff9,140(nine thousand and one hundred\nandforty pounds)Index Linked\n";
     assert!(!found_in(
         page,
-        "£10,120 (ten thousand and one hundred pounds) Index Linked"
+        "£9,140 (nine thousand and one hundred pounds) Index Linked"
     ));
     let page = "means the sumoff10,010(ten thousand and\nandten pounds)Index Linked\n";
     assert!(!found_in(
@@ -186,11 +187,11 @@ fn short_number_words_joined_to_column_fragment_are_not_absorbed() {
 
 #[test]
 fn digits_at_line_wrap_are_not_absorbed() {
-    let snippet = "means the sum of £12,650 Index Linked to be paid";
-    let page = "means the sum of f12,650\nClause 4.2 Index Linked to be paid by the Owner\n";
+    let snippet = "means the sum of £18,750 Index Linked to be paid";
+    let page = "means the sum of f18,750\nClause 4.2 Index Linked to be paid by the Owner\n";
     assert!(!found_in(page, snippet));
     // the same layout without the figure re-locates
-    let page = "means the sum of f12,650\nContribution\" Index Linked to be paid by the Owner\n";
+    let page = "means the sum of f18,750\nContribution\" Index Linked to be paid by the Owner\n";
     assert!(found_in(page, snippet));
 }
 
@@ -198,21 +199,21 @@ fn digits_at_line_wrap_are_not_absorbed() {
 fn snippet_from_another_page_fails() {
     assert!(found(
         4,
-        "£10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked"
+        "£6,042.30 (six thousand and forty two pounds and thirty pence) Index Linked"
     ));
     assert!(!found(
         12,
-        "£10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked"
+        "£6,042.30 (six thousand and forty two pounds and thirty pence) Index Linked"
     ));
     assert!(!found(
         17,
-        "£73,100 (seventy three thousand one hundred pounds) Index Linked"
+        "£46,200 (forty six thousand two hundred pounds) Index Linked"
     ));
 }
 
 #[test]
 fn missing_page_or_evidence() {
-    assert!(!found(99, "means the sum of £12,650"));
+    assert!(!found(99, "means the sum of £18,750"));
     assert!(!evidence_found(None, &PAGES));
 }
 
@@ -271,4 +272,18 @@ fn numbered_clauses_do_not_absorb_a_following_percentage() {
         "9.1.1.50% prior to Occupation",
         "50% prior to Occupation"
     ));
+}
+
+#[test]
+fn quoted_number_at_line_end_is_set_apart_from_the_next_clause_number() {
+    // Punctuation between the two numbers used to drop the line break, joining "18" and "2." into
+    // one number, so the digit-boundary check rejected a citation the page states verbatim.
+    let page = "replacing it with the number \"18\"\n2. Paragraph 3.2 shall be deleted";
+    assert!(found_in(page, "replacing it with the number \"18\""));
+    assert!(found_in(
+        "as set out in (146)\n3. The Owner",
+        "as set out in (146)"
+    ));
+    // still a different number when the next line's digits are part of it
+    assert!(!found_in("the number 182. Paragraph", "the number 18"));
 }

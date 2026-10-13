@@ -15,6 +15,9 @@ use s106::{eval, llm, ocrbench, pld, reconcile, report, verify};
     about = "Verification harness for UK Section 106 planning agreements"
 )]
 struct Cli {
+    /// the data repository checkout (default: $S106_DATA, else data/ in this repository)
+    #[arg(long, global = true)]
+    data: Option<PathBuf>,
     #[command(subcommand)]
     cmd: Cmd,
 }
@@ -24,7 +27,7 @@ enum Cmd {
     /// Extract and verify one deed: terminal report + JSON. Exit 0 clean, 1 parser errors or
     /// REVIEW flags, 2 document discrepancies.
     Audit {
-        /// the deed's PDF, or its page-text snapshot (`fixtures/pages/<stem>.pages.json`) to
+        /// the deed's PDF, or its page-text snapshot (`<data>/pages/<stem>.pages.json`) to
         /// replay without the PDF
         pdf: PathBuf,
         #[arg(long, default_value = llm::DEFAULT_MODEL)]
@@ -36,7 +39,7 @@ enum Cmd {
         escalate: bool,
         #[arg(long, default_value = llm::ESCALATION_MODEL)]
         escalation_model: String,
-        /// JSON output (default data/processed/<stem>.audit.json)
+        /// JSON output (default <data>/processed/<stem>.audit.json)
         #[arg(long)]
         out: Option<PathBuf>,
         #[arg(short, long)]
@@ -58,13 +61,13 @@ enum Cmd {
         /// with --replay: read page text from snapshots in this directory instead of the PDFs
         #[arg(long)]
         pages: Option<PathBuf>,
-        /// candidates.tsv (default fixtures/eval/candidates.tsv)
+        /// candidates.tsv (default <data>/eval/candidates.tsv)
         #[arg(long)]
         candidates: Option<PathBuf>,
-        /// register directory (default fixtures/eval/register, the rows for the candidates)
+        /// register directory (default <data>/eval/register, the rows for the candidates)
         #[arg(long)]
         register: Option<PathBuf>,
-        /// output directory (default data/processed/eval)
+        /// output directory (default <data>/processed/eval)
         #[arg(long)]
         out: Option<PathBuf>,
     },
@@ -80,7 +83,7 @@ enum Cmd {
     },
     /// Score OCR model sets against a hand-verified gold file (only the gold pages are read).
     BenchOcr {
-        /// gold/*.json
+        /// a gold file (`gold/*.json` in the data repository)
         gold: PathBuf,
         /// the PDF the gold file describes
         pdf: PathBuf,
@@ -140,7 +143,12 @@ fn credentials(mode: Mode) -> Result<Option<rust_claude_sdk::Client>> {
 }
 
 fn main() -> Result<()> {
-    match Cli::parse().cmd {
+    let cli = Cli::parse();
+    if let Some(dir) = cli.data {
+        // SAFETY: set once at startup, before any thread is spawned or the variable is read
+        unsafe { std::env::set_var("S106_DATA", dir) };
+    }
+    match cli.cmd {
         Cmd::Audit {
             pdf,
             model,
@@ -182,7 +190,7 @@ fn main() -> Result<()> {
             agreement.warnings.extend(info.usage_note());
             println!("{}", report::render(&agreement, &results));
             let out = out.unwrap_or_else(|| {
-                repo_root().join("data/processed").join(format!(
+                s106::data::processed().join(format!(
                     "{}.audit.json",
                     doc.path.file_stem().unwrap_or_default().to_string_lossy()
                 ))
@@ -208,7 +216,7 @@ fn main() -> Result<()> {
             register,
             out,
         } => {
-            let d = eval::EvalArgs::defaults(&repo_root());
+            let d = eval::EvalArgs::defaults();
             eval::run(
                 &eval::EvalArgs {
                     runs,
@@ -219,6 +227,7 @@ fn main() -> Result<()> {
                     candidates: candidates.unwrap_or(d.candidates),
                     register: register.unwrap_or(d.register),
                     out: out.unwrap_or(d.out),
+                    pdfs: d.pdfs,
                 },
                 &repo_root(),
             )

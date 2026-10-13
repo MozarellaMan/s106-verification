@@ -438,44 +438,6 @@ fn mutations_of_sampled_cardinals_fail_or_change_the_value() {
 }
 
 #[test]
-fn recorded_words_replay_with_negative_twins() {
-    // Recorded figures are compatibility references, not independently verified legal truth.
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let mut checked = 0;
-    for version in ["llm", "llm-v1"] {
-        for deed in std::fs::read_dir(root.join("fixtures").join(version)).unwrap() {
-            for fixture in std::fs::read_dir(deed.unwrap().path()).unwrap() {
-                let path = fixture.unwrap().path();
-                let raw: serde_json::Value =
-                    serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-                for c in raw["output"]["contributions"].as_array().unwrap() {
-                    let Some(words) = c["amount_in_words"].as_str().filter(|s| !s.is_empty())
-                    else {
-                        continue;
-                    };
-                    let figure =
-                        Decimal::from_str_exact(c["amount_gbp"].as_str().unwrap()).unwrap();
-                    assert_eq!(
-                        quantity::amount(words).unwrap(),
-                        figure,
-                        "{}: {words}",
-                        path.display()
-                    );
-                    assert!(
-                        quantity::amount(&format!("{words} banana")).is_err(),
-                        "{}: corrupted {words}",
-                        path.display()
-                    );
-                    checked += 1;
-                }
-            }
-        }
-    }
-    assert!(checked > 0, "no recorded words fields found");
-    eprintln!("{checked} recorded words fields reparsed; {checked} corrupted twins rejected");
-}
-
-#[test]
 fn review_regressions_from_pr13() {
     // exact fields carry no prose suffix
     for bad in ["50th", "£50%", "50%", "50 per cent", "50percent"] {

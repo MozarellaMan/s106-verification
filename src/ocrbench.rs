@@ -1,4 +1,4 @@
-//! Score page text against a hand-transcribed gold set (`gold/*.json`).
+//! Score page text against a hand-transcribed gold set (`gold/*.json` in the data repository).
 //!
 //! * Line CER: for each gold line, the best semi-global alignment against any line on the same
 //!   page, or any row rebuilt from boxes whose vertical centres align (table cells come back as
@@ -25,6 +25,68 @@ pub struct Gold {
     pub facts: Vec<GoldFact>,
     #[serde(default)]
     pub term_definitions: Vec<GoldTerm>,
+    /// What the regression tiers require of page text on these pages. They sit just below the
+    /// scores when the gold set was made, so a regression fails while noise on a few pages
+    /// does not.
+    #[serde(default)]
+    pub thresholds: Thresholds,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub struct Thresholds {
+    /// highest mean line CER, whitespace ignored
+    pub max_line_cer_squashed: Option<f64>,
+    /// fewest facts read as printed, with no OCR repair
+    pub min_facts_raw: Option<usize>,
+    /// fewest printed page numbers found
+    pub min_printed_found: Option<usize>,
+    /// every two-column definition on its own line, apart from its term
+    #[serde(default)]
+    pub definitions_on_own_line: bool,
+    /// every line, fact and printed page number read exactly (a text layer)
+    #[serde(default)]
+    pub exact: bool,
+}
+
+impl Thresholds {
+    /// The ways `s` falls short; empty when it meets every threshold.
+    pub fn failures(&self, s: &Score) -> Vec<String> {
+        let mut out = vec![];
+        if let Some(max) = self.max_line_cer_squashed
+            && s.mean_cer_squashed > max
+        {
+            out.push(format!("line CER {} > {max}", s.mean_cer_squashed));
+        }
+        if let Some(min) = self.min_facts_raw
+            && s.facts_raw < min
+        {
+            out.push(format!(
+                "facts read as printed {}/{} < {min}",
+                s.facts_raw, s.facts
+            ));
+        }
+        if let Some(min) = self.min_printed_found
+            && s.printed_found < min
+        {
+            out.push(format!(
+                "printed page numbers {}/{} < {min}",
+                s.printed_found, s.printed
+            ));
+        }
+        if self.definitions_on_own_line && s.definitions_on_own_line != s.definitions {
+            out.push("two-column definitions merged with their terms".into());
+        }
+        if self.exact
+            && (s.exact_lines != s.lines || s.facts_raw != s.facts || s.printed_found != s.printed)
+        {
+            out.push(format!(
+                "not exact: lines {}/{}, facts {}/{}, printed {}/{}",
+                s.exact_lines, s.lines, s.facts_raw, s.facts, s.printed_found, s.printed
+            ));
+        }
+        out
+    }
 }
 #[derive(Deserialize)]
 pub struct GoldLine {

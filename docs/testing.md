@@ -1,14 +1,14 @@
 # Testing and evaluation tiers
 
-The expensive stages are reading PDFs (PDFium, and OCR for scans: the 109-page Southwark deed
+The expensive stages are reading PDFs (PDFium, and OCR for scans: the corpus's 109-page deed
 takes about four minutes) and calling the model. Each stage's output is kept as a reproducible
 artifact with its provenance, so everything after it can be tested without re-running it:
 
 | Stage | Artifact | Keyed by |
 |---|---|---|
-| PDF -> page text | `data/interim/ocr/<sha>-<ocr_version>/` (cache), `fixtures/pages/<stem>.pages.json` (committed snapshot) | PDF SHA-256; line-logic version (`PAGE_TEXT_LOGIC`), OCR settings, pinned SHA-256 of PDFium, ONNX Runtime and each model file |
-| PDF -> model answer | `fixtures/llm/<stem>/<model>.extract.v2.json` | PDF SHA-256; hash of prompts and schemas |
-| answer + page text -> checks | `fixtures/expected/<stem>.checks.json`, `fixtures/expected/eval-replay.json` | the code (reviewed in the diff) |
+| PDF -> page text | `data/interim/ocr/<sha>-<ocr_version>/` (cache), `data/pages/<stem>.pages.json` (snapshot, in the data repository) | PDF SHA-256; line-logic version (`PAGE_TEXT_LOGIC`), OCR settings, pinned SHA-256 of PDFium, ONNX Runtime and each model file |
+| PDF -> model answer | `data/extractions/<stem>/<model>.extract.v2.json` | PDF SHA-256; hash of prompts and schemas |
+| answer + page text -> checks | `data/expected/<stem>.checks.json`, `data/expected/eval-replay.json`, `data/expected/parser-on-extractions.txt` | the code (reviewed in the diff) |
 
 A change to any key gives a new cache directory, and a snapshot or fixture recorded under the old
 key fails tier 2 until it is regenerated. Model files that differ from their pins
@@ -17,7 +17,7 @@ directories named by their verified archive's SHA-256, so the library loaded is 
 names. The cache manifest is validated on read, and cache files are written through a temporary
 file unique to each writer. Snapshot comparison is exact: every page, its source, dimensions
 (page width decides which margin specks are dropped from the evidence text), lines and boxes. Each image-only page is OCR'd on its own: oar-ocr pads a batch to a common size, and pages
-recognised in batches of six read differently from the same pages read alone (5 of 9 TMBC pages,
+recognised in batches of six read differently from the same pages read alone (5 of 9 pages of one scanned deed,
 106 of 260 corpus pages). Page text is now a function of the page alone, so a partly warm cache, a
 partial load and a full cold run all agree.
 
@@ -25,14 +25,15 @@ partial load and a full cold run all agree.
 
 | Tier | What | Command | Needs | When |
 |---|---|---|---|---|
-| 1 | Unit tests: verifier, evidence matching, numbers, triggers, wire conversion, register scoring | `cargo test` | nothing | every change; CI on every push |
-| 2 | Offline replay: committed page text + recorded answers -> expected outcomes for all ten deeds; the frozen Python M1 outcomes; OCR gold thresholds on the snapshots; register evaluation | `cargo test` | nothing | every change; CI on every push |
-| 3 | Real PDFs, targeted: 25 difficult pages (`fixtures/pages/difficult.tsv`) read afresh into an empty cache must match their snapshots; OCR gold pages must meet the thresholds | `cargo test-pdf` | runtime artifacts, corpus | before merging OCR/layout changes; CI weekly |
-| 4 | Real PDFs, whole corpus: every deed read through the pipeline must reproduce its snapshot; register evaluation on the PDFs | `cargo test-corpus`, `s106 eval --replay` | runtime artifacts, corpus | CI weekly, on a cold cache; on demand |
+| 1 | Unit tests: verifier, evidence matching, numbers, triggers, wire conversion, register scoring; the invented deeds in `tests/synthetic/` | `cargo test` | nothing | every change; CI on every push |
+| 2 | Offline replay of the real corpus: recorded page text + recorded answers -> expected outcomes for all ten deeds; the frozen Python M1 outcomes; OCR gold thresholds on the snapshots; register evaluation; parser behaviour on every string the recorded responses cite | `cargo test-data` (`tests/replay.rs`, `tests/golden_python_m1.rs`) | the data checkout (`data/` or `S106_DATA`) | every change; CI on every push (second job) |
+| 3 | Real PDFs, targeted: 25 difficult pages (`data/pages/difficult.tsv`) read afresh into an empty cache must match their snapshots; OCR gold pages must meet the thresholds | `cargo test-pdf` | runtime artifacts, data checkout, corpus | before merging OCR/layout changes; CI weekly |
+| 4 | Real PDFs, whole corpus: every deed read through the pipeline must reproduce its snapshot; register evaluation on the PDFs | `cargo test-corpus`, `s106 eval --replay` | runtime artifacts, data checkout, corpus | CI weekly, on a cold cache; on demand |
 | 5 | Live model calls: new extractions, run-to-run agreement | `s106 eval --runs 3`, `s106 audit <pdf> --llm-mode record` | API key; costs money | only when requested (manual CI workflow) |
 
-`cargo test` (tiers 1 and 2) never opens a PDF, loads PDFium or ONNX Runtime, reads a model file,
-or touches the network, and the build no longer downloads ONNX Runtime (it is loaded at run time
+`cargo test` (tier 1) needs no data. `cargo test-data` (tier 2) needs the data checkout, fails with
+"data missing" without it, and, like `cargo test`, never opens a PDF, loads PDFium or ONNX Runtime,
+reads a model file, or touches the network, and the build no longer downloads ONNX Runtime (it is loaded at run time
 from `models/`, like PDFium). Tiers 3 and 4 fail with "corpus missing" rather than skip.
 
 Corpus downloads are checked before they are installed. `scripts/fetch-corpus.sh` exits 1 when a
@@ -43,7 +44,7 @@ fails, after writing its summary, unless every selected deed completed every req
 Tiers 3 and 4 are what make tier 2 trustworthy. Everything after page text is deterministic, so
 "every snapshot reproduces from its PDF" (tier 4) plus "replay from snapshots gives these
 outcomes" (tier 2) covers what the old replay-from-PDF tests covered. It was checked directly:
-the Southwark audit and the nine-deed register evaluation give identical results from the PDFs
+the 109-page audit and the nine-deed register evaluation give identical results from the PDFs
 and from the snapshots.
 
 What these tiers establish is repeatability: the same inputs give the same page text and the same
@@ -60,13 +61,13 @@ lets ONNX Runtime load at run time (the container cannot reach its build-time do
 
 | | Before, cold | Before, warm | After, cold | After, warm |
 |---|---:|---:|---:|---:|
-| Frozen Python M1 comparison (10 deeds) | 502 s (ignored test) | 0.8 s | in `cargo test`, 0.07 s, no cache involved | same |
+| Frozen Python M1 comparison (10 deeds) | 502 s (ignored test) | 0.8 s | in `cargo test-data`, 0.07 s, no cache involved | same |
 | OCR gold pages | 13.5 s (ignored test) | 0.6 s | 46 s with the 25 difficult pages (tier 3, always cold by design) | n/a |
 | Every deed read from its PDF and checked | no such test | | 494 s (tier 4) | 0.6 s |
 | `s106 eval --replay` (9 deeds, on PDFs) | 274 s | 0.4 s | 275 s | 0.2 s |
-| `s106 eval --replay --pages fixtures/pages` | not available | | 0.08 s, no cache involved | same |
-| `s106 audit` Southwark, replay | 230 s | 0.08 s | 235 s | 0.07 s |
-| `s106 audit fixtures/pages/southwark_s106_sample.pages.json` | not available | | 0.05 s | same |
+| `s106 eval --replay --pages data/pages` | not available | | 0.08 s, no cache involved | same |
+| `s106 audit` on the 109-page deed, replay | 230 s | 0.08 s | 235 s | 0.07 s |
+| `s106 audit data/pages/<id>.pages.json` (same deed) | not available | | 0.05 s | same |
 | Writing all ten snapshots (`s106 pages --write`) | | | 504 s (484 s with batches of six) | |
 
 Default `cargo test` (debug), tiers 1-2: 131 s from an empty `target/` (almost all compiling
@@ -77,7 +78,7 @@ A warm page-text load no longer opens the PDF in PDFium: it hashes the file and 
 pages. OCR of one page at a time costs about 4% more than batches of six.
 
 Live tier 5 was not run for this change (it needs a key and costs money). Recorded costs are in
-[migration.md](migration.md): about $1.03 for one run over all ten deeds.
+[migration.md](https://github.com/MozarellaMan/s106-data/blob/main/docs/migration.md) (s106-data): about $1.03 for one run over all ten deeds.
 
 ### Scaling
 
@@ -85,20 +86,20 @@ Per deed, tier 2 costs one snapshot read and one verification: under 0.1 s for a
 here, so a thousand deeds would add seconds, not minutes. Snapshots average about 3.5 KB per page
 (1.2 MB for 341 pages); a thousand 40-page deeds would be roughly 140 MB, which is past what
 belongs in git. At that point keep the snapshots outside the repository (a release asset or
-bucket, listed with their SHA-256s like `fixtures/corpus.tsv`) and point `fixtures/pages` at a
+bucket, listed with their SHA-256s like `corpus/manifest.tsv`) and point the data checkout's `pages/` at a
 local copy; nothing in the code assumes they are committed. Tiers 3 and 4 scale with pages
 needing OCR (about 2 s each here), so tier 4 is the one to schedule rather than run per change.
 
 ## Updating artifacts
 
 - **Verifier, extraction conversion or eval change** that alters outcomes: tier 2 fails and
-  prints each changed check. If intended: `S106_BLESS=1 cargo test --test replay`, then review
-  the diff of `fixtures/expected/`.
+  prints each changed check. If intended: `S106_BLESS=1 cargo test-data`, then review
+  the diff of `expected/` in the data repository.
 - **Line logic, OCR settings or a runtime artifact**: bump `PAGE_TEXT_LOGIC` (line logic) or the
   pins, then regenerate the snapshots from the PDFs with
-  `s106 pages data/raw/southwark_s106_sample.pdf data/raw/eval/*.pdf --write fixtures/pages`,
+  `s106 pages data/raw/*.pdf --write data/pages`,
   bless the expected outcomes, and review both diffs (one page per line).
 - **Prompt or schema**: re-record the fixtures (`--llm-mode record`, tier 5), then bless.
-- **New deed**: add it to `fixtures/corpus.tsv`, fetch it, record its fixture, write its
+- **New deed**: add it to `corpus/manifest.tsv` (data repository), fetch it, record its fixture, write its
   snapshot, bless.
-- **A difficult page found in review**: add it to `fixtures/pages/difficult.tsv` with the reason.
+- **A difficult page found in review**: add it to `pages/difficult.tsv` (data repository) with the reason.

@@ -1,7 +1,8 @@
 # Tiers 3-4 weekly and on demand: difficult pages and then every whole deed read afresh from the
 # PDFs (PDFium + OCR, empty page-text cache) and compared with the committed snapshots, then the
-# register evaluation on the PDFs. Deeds are fetched from the council registers and checked
-# against fixtures/corpus.tsv; the downloads are cached by that file's hash, page text never is.
+# register evaluation on the PDFs. The data comes from the private s106-data repository (read with
+# the read-only deploy key in the S106_DATA_DEPLOY_KEY secret); deeds are fetched from the council registers and checked against
+# its corpus/manifest.tsv. The downloads are cached by that file's hash, page text never is.
 # Council websites are third parties: if one can't be reached the PDF tiers are skipped with a
 # warning. A download that fails its checksum is an integrity failure and fails the run. This
 # workflow is not a pull-request check (ci.yml is).
@@ -16,6 +17,11 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: MozarellaMan/s106-data
+          path: data
+          ssh-key: ${{ secrets.S106_DATA_DEPLOY_KEY }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: actions/cache@v4
@@ -25,7 +31,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: data/raw
-          key: corpus-${{ hashFiles('fixtures/corpus.tsv') }}
+          key: corpus-${{ hashFiles('data/corpus/manifest.tsv') }}
       - run: scripts/fetch-models.sh
       - id: corpus
         # exit 1 (checksum mismatch) fails the job; exit 2 (source unreachable) skips the PDF tiers

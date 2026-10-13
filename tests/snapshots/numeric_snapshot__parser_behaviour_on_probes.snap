@@ -5,10 +5,6 @@ expression: probe_rendering()
 probe  and 
   decimal err NUM002 UnexpectedToken candidate 1..4 span 1..2 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 1..4 span 1..4 expected "units, tens, hundreds and descending million/thousand groups"
-probe "Secondary School Contribution" means the sum of £115,200 payable towards the Goodwin Academy expansion or Sir Roger Manwood's School expansion.
-  quantity 115200 Gbp 49..58
-  decimal err NUM002 UnexpectedToken candidate 0..145 span 0..1 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..145 span 0..1 expected "an amount in pounds and pence in words"
 probe +50.1234
   quantity 50.1234 Count 0..8
   decimal ok 50.1234
@@ -113,26 +109,25 @@ probe 10.20
   quantity 10.20 Count 0..5
   decimal ok 10.20
   amount err NUM002 UnexpectedToken candidate 0..5 span 0..5 expected "an amount in pounds and pence in words"
+probe 100 new homes of which 25% shall be Affordable Housing
+  quantity 100 Count 0..3
+  quantity 25 Percent 23..26
+  decimal err NUM002 UnexpectedToken candidate 0..54 span 3..4 expected "a single decimal number"
+  amount err NUM002 UnexpectedToken candidate 0..54 span 0..3 expected "an amount in pounds and pence in words"
 probe 1000602
   quantity 1000602 Count 0..7
   decimal ok 1000602
   amount err NUM002 UnexpectedToken candidate 0..7 span 0..7 expected "an amount in pounds and pence in words"
-probe 10058.60
-  quantity 10058.60 Count 0..8
-  decimal ok 10058.60
-  amount err NUM002 UnexpectedToken candidate 0..8 span 0..8 expected "an amount in pounds and pence in words"
-probe 10120
-  quantity 10120 Count 0..5
-  decimal ok 10120
+probe 10500
+  quantity 10500 Count 0..5
+  decimal ok 10500
   amount err NUM002 UnexpectedToken candidate 0..5 span 0..5 expected "an amount in pounds and pence in words"
-probe 115200
-  quantity 115200 Count 0..6
-  decimal ok 115200
-  amount err NUM002 UnexpectedToken candidate 0..6 span 0..6 expected "an amount in pounds and pence in words"
-probe 120120.00
-  quantity 120120.00 Count 0..9
-  decimal ok 120120.00
-  amount err NUM002 UnexpectedToken candidate 0..9 span 0..9 expected "an amount in pounds and pence in words"
+probe 120 residential dwellings (C3), 30% affordable by unit
+  quantity 120 Count 0..3
+  quantity 30 Percent 32..35
+  error NUM005 MixedLettersAndDigits candidate 27..29 span 27..29 expected "directly readable digits or number words"
+  decimal err NUM005 MixedLettersAndDigits candidate 27..29 span 27..29 expected "directly readable digits or number words"
+  amount err NUM005 MixedLettersAndDigits candidate 27..29 span 27..29 expected "directly readable digits or number words"
 probe 1234,567
   error NUM002 UnexpectedToken candidate 0..8 span 4..5 expected "digits with optional thousands commas and decimals"
   decimal err NUM002 UnexpectedToken candidate 0..8 span 4..5 expected "digits with optional thousands commas and decimals"
@@ -141,42 +136,14 @@ probe 1234,567%
   error NUM002 UnexpectedToken candidate 0..8 span 4..5 expected "digits with optional thousands commas and decimals"
   decimal err NUM002 UnexpectedToken candidate 0..8 span 4..5 expected "digits with optional thousands commas and decimals"
   amount err NUM002 UnexpectedToken candidate 0..9 span 0..8 expected "an amount in pounds and pence in words"
-probe 124204
-  quantity 124204 Count 0..6
-  decimal ok 124204
-  amount err NUM002 UnexpectedToken candidate 0..6 span 0..6 expected "an amount in pounds and pence in words"
-probe 12650
-  quantity 12650 Count 0..5
-  decimal ok 12650
-  amount err NUM002 UnexpectedToken candidate 0..5 span 0..5 expected "an amount in pounds and pence in words"
-probe 14000.00
-  quantity 14000.00 Count 0..8
-  decimal ok 14000.00
-  amount err NUM002 UnexpectedToken candidate 0..8 span 0..8 expected "an amount in pounds and pence in words"
-probe 14625.00
-  quantity 14625.00 Count 0..8
-  decimal ok 14625.00
+probe 12500.50
+  quantity 12500.50 Count 0..8
+  decimal ok 12500.50
   amount err NUM002 UnexpectedToken candidate 0..8 span 0..8 expected "an amount in pounds and pence in words"
 probe 150000
   quantity 150000 Count 0..6
   decimal ok 150000
   amount err NUM002 UnexpectedToken candidate 0..6 span 0..6 expected "an amount in pounds and pence in words"
-probe 1611502
-  quantity 1611502 Count 0..7
-  decimal ok 1611502
-  amount err NUM002 UnexpectedToken candidate 0..7 span 0..7 expected "an amount in pounds and pence in words"
-probe 16913.26
-  quantity 16913.26 Count 0..8
-  decimal ok 16913.26
-  amount err NUM002 UnexpectedToken candidate 0..8 span 0..8 expected "an amount in pounds and pence in words"
-probe 170570
-  quantity 170570 Count 0..6
-  decimal ok 170570
-  amount err NUM002 UnexpectedToken candidate 0..6 span 0..6 expected "an amount in pounds and pence in words"
-probe 185700.00
-  quantity 185700.00 Count 0..9
-  decimal ok 185700.00
-  amount err NUM002 UnexpectedToken candidate 0..9 span 0..9 expected "an amount in pounds and pence in words"
 probe 1e3
   error NUM005 MixedLettersAndDigits candidate 0..3 span 0..3 expected "directly readable digits or number words"
   decimal err NUM005 MixedLettersAndDigits candidate 0..3 span 0..3 expected "directly readable digits or number words"
@@ -189,87 +156,18 @@ probe 2
   quantity 2 Count 0..1
   decimal ok 2
   amount err NUM002 UnexpectedToken candidate 0..1 span 0..1 expected "an amount in pounds and pence in words"
-probe 20
-  quantity 20 Count 0..2
-  decimal ok 20
-  amount err NUM002 UnexpectedToken candidate 0..2 span 0..2 expected "an amount in pounds and pence in words"
-probe 20% (twenty per cent) of the total number of Dwellings approved
-  quantity 20 Percent 0..3
-  quantity 20 Percent 5..20
-  decimal err NUM002 UnexpectedToken candidate 0..63 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..63 span 0..2 expected "an amount in pounds and pence in words"
-probe 20% (twenty per cent) of the total number of Dwellings approved under the Planning Permission for the Development
-  quantity 20 Percent 0..3
-  quantity 20 Percent 5..20
-  decimal err NUM002 UnexpectedToken candidate 0..113 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..113 span 0..2 expected "an amount in pounds and pence in words"
-probe 2000
-  quantity 2000 Count 0..4
-  decimal ok 2000
+probe 2400
+  quantity 2400 Count 0..4
+  decimal ok 2400
   amount err NUM002 UnexpectedToken candidate 0..4 span 0..4 expected "an amount in pounds and pence in words"
-probe 20220.00
-  quantity 20220.00 Count 0..8
-  decimal ok 20220.00
-  amount err NUM002 UnexpectedToken candidate 0..8 span 0..8 expected "an amount in pounds and pence in words"
-probe 20580.00
-  quantity 20580.00 Count 0..8
-  decimal ok 20580.00
-  amount err NUM002 UnexpectedToken candidate 0..8 span 0..8 expected "an amount in pounds and pence in words"
-probe 212500.00
-  quantity 212500.00 Count 0..9
-  decimal ok 212500.00
-  amount err NUM002 UnexpectedToken candidate 0..9 span 0..9 expected "an amount in pounds and pence in words"
-probe 224
-  quantity 224 Count 0..3
-  decimal ok 224
-  amount err NUM002 UnexpectedToken candidate 0..3 span 0..3 expected "an amount in pounds and pence in words"
 probe 25
   quantity 25 Count 0..2
   decimal ok 25
   amount err NUM002 UnexpectedToken candidate 0..2 span 0..2 expected "an amount in pounds and pence in words"
-probe 25% prior to Commencement of Development
-  quantity 25 Percent 0..3
-  decimal err NUM002 UnexpectedToken candidate 0..40 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..40 span 0..2 expected "an amount in pounds and pence in words"
-probe 25% prior to Occupation of the 1st (first) Dwelling
-  quantity 25 Percent 0..3
-  quantity 1 Count 31..34
-  decimal err NUM002 UnexpectedToken candidate 0..51 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..51 span 0..2 expected "an amount in pounds and pence in words"
-probe 25% prior to Occupation of the 25th (twenty fifth) Dwelling
-  quantity 25 Percent 0..3
-  quantity 25 Count 31..35
-  quantity 20 Count 37..43
-  decimal err NUM002 UnexpectedToken candidate 0..59 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..59 span 0..2 expected "an amount in pounds and pence in words"
-probe 25275.00
-  quantity 25275.00 Count 0..8
-  decimal ok 25275.00
-  amount err NUM002 UnexpectedToken candidate 0..8 span 0..8 expected "an amount in pounds and pence in words"
-probe 252921
-  quantity 252921 Count 0..6
-  decimal ok 252921
-  amount err NUM002 UnexpectedToken candidate 0..6 span 0..6 expected "an amount in pounds and pence in words"
-probe 253 residential apartments (C3), 35.75% affordable by habitable room
-  quantity 253 Count 0..3
-  quantity 35.75 Percent 33..39
-  error NUM005 MixedLettersAndDigits candidate 28..30 span 28..30 expected "directly readable digits or number words"
-  decimal err NUM005 MixedLettersAndDigits candidate 28..30 span 28..30 expected "directly readable digits or number words"
-  amount err NUM005 MixedLettersAndDigits candidate 28..30 span 28..30 expected "directly readable digits or number words"
-probe 253 residential apartments (C3), 35.75% affordable by habitable room, and other associated infrastructure;
-  quantity 253 Count 0..3
-  quantity 35.75 Percent 33..39
-  error NUM005 MixedLettersAndDigits candidate 28..30 span 28..30 expected "directly readable digits or number words"
-  decimal err NUM005 MixedLettersAndDigits candidate 28..30 span 28..30 expected "directly readable digits or number words"
-  amount err NUM005 MixedLettersAndDigits candidate 28..30 span 28..30 expected "directly readable digits or number words"
-probe 2572
-  quantity 2572 Count 0..4
-  decimal ok 2572
-  amount err NUM002 UnexpectedToken candidate 0..4 span 0..4 expected "an amount in pounds and pence in words"
-probe 259552.00
-  quantity 259552.00 Count 0..9
-  decimal ok 259552.00
-  amount err NUM002 UnexpectedToken candidate 0..9 span 0..9 expected "an amount in pounds and pence in words"
+probe 25000
+  quantity 25000 Count 0..5
+  decimal ok 25000
+  amount err NUM002 UnexpectedToken candidate 0..5 span 0..5 expected "an amount in pounds and pence in words"
 probe 3
   quantity 3 Count 0..1
   decimal ok 3
@@ -279,81 +177,23 @@ probe 3-5 dwellings
   quantity 5 Count 2..3
   decimal err NUM002 UnexpectedToken candidate 0..13 span 1..2 expected "a single decimal number"
   amount err NUM002 UnexpectedToken candidate 0..13 span 0..1 expected "an amount in pounds and pence in words"
-probe 30% (5 Dwellings) of which shall be Shared Ownership Housing
-  quantity 30 Percent 0..3
-  quantity 5 Count 5..6
-  decimal err NUM002 UnexpectedToken candidate 0..60 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..60 span 0..2 expected "an amount in pounds and pence in words"
-probe 33
-  quantity 33 Count 0..2
-  decimal ok 33
+probe 30
+  quantity 30 Count 0..2
+  decimal ok 30
   amount err NUM002 UnexpectedToken candidate 0..2 span 0..2 expected "an amount in pounds and pence in words"
-probe 33% prior to the Occupation of the 1st Dwelling;
-  quantity 33 Percent 0..3
-  quantity 1 Count 35..38
-  decimal err NUM002 UnexpectedToken candidate 0..48 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..48 span 0..2 expected "an amount in pounds and pence in words"
-probe 33% prior to the Occupation of the 28th Dwelling.
-  quantity 33 Percent 0..3
-  quantity 28 Count 35..39
-  decimal err NUM002 UnexpectedToken candidate 0..49 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..49 span 0..2 expected "an amount in pounds and pence in words"
-probe 33% prior to the Occupation of the 28th Dwelling;
-  quantity 33 Percent 0..3
-  quantity 28 Count 35..39
-  decimal err NUM002 UnexpectedToken candidate 0..49 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..49 span 0..2 expected "an amount in pounds and pence in words"
-probe 34
-  quantity 34 Count 0..2
-  decimal ok 34
-  amount err NUM002 UnexpectedToken candidate 0..2 span 0..2 expected "an amount in pounds and pence in words"
-probe 34% prior to the Occupation of the 58th Dwelling
-  quantity 34 Percent 0..3
-  quantity 58 Count 35..39
-  decimal err NUM002 UnexpectedToken candidate 0..48 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..48 span 0..2 expected "an amount in pounds and pence in words"
-probe 34% prior to the Occupation of the 58th Dwelling.
-  quantity 34 Percent 0..3
-  quantity 58 Count 35..39
-  decimal err NUM002 UnexpectedToken candidate 0..49 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..49 span 0..2 expected "an amount in pounds and pence in words"
-probe 35.75
-  quantity 35.75 Count 0..5
-  decimal ok 35.75
+probe 30000
+  quantity 30000 Count 0..5
+  decimal ok 30000
   amount err NUM002 UnexpectedToken candidate 0..5 span 0..5 expected "an amount in pounds and pence in words"
-probe 35.75% affordable by habitable room
-  quantity 35.75 Percent 0..6
-  decimal err NUM002 UnexpectedToken candidate 0..35 span 6..7 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..35 span 0..5 expected "an amount in pounds and pence in words"
-probe 366
-  quantity 366 Count 0..3
-  decimal ok 366
-  amount err NUM002 UnexpectedToken candidate 0..3 span 0..3 expected "an amount in pounds and pence in words"
 probe 3–5 dwellings
   quantity 3 Count 0..1
   quantity 5 Count 4..5
   decimal err NUM002 UnexpectedToken candidate 0..15 span 1..4 expected "a single decimal number"
   amount err NUM002 UnexpectedToken candidate 0..15 span 0..1 expected "an amount in pounds and pence in words"
-probe 41062.00
-  quantity 41062.00 Count 0..8
-  decimal ok 41062.00
-  amount err NUM002 UnexpectedToken candidate 0..8 span 0..8 expected "an amount in pounds and pence in words"
-probe 45000.00
-  quantity 45000.00 Count 0..8
-  decimal ok 45000.00
-  amount err NUM002 UnexpectedToken candidate 0..8 span 0..8 expected "an amount in pounds and pence in words"
-probe 450000
-  quantity 450000 Count 0..6
-  decimal ok 450000
-  amount err NUM002 UnexpectedToken candidate 0..6 span 0..6 expected "an amount in pounds and pence in words"
-probe 475991.00
-  quantity 475991.00 Count 0..9
-  decimal ok 475991.00
-  amount err NUM002 UnexpectedToken candidate 0..9 span 0..9 expected "an amount in pounds and pence in words"
-probe 48375.00
-  quantity 48375.00 Count 0..8
-  decimal ok 48375.00
-  amount err NUM002 UnexpectedToken candidate 0..8 span 0..8 expected "an amount in pounds and pence in words"
+probe 45000
+  quantity 45000 Count 0..5
+  decimal ok 45000
+  amount err NUM002 UnexpectedToken candidate 0..5 span 0..5 expected "an amount in pounds and pence in words"
 probe 5
   quantity 5 Count 0..1
   decimal ok 5
@@ -382,39 +222,12 @@ probe 50%
   quantity 50 Percent 0..3
   decimal err NUM002 UnexpectedToken candidate 0..3 span 2..3 expected "a single decimal number"
   amount err NUM002 UnexpectedToken candidate 0..3 span 0..2 expected "an amount in pounds and pence in words"
-probe 50% (fifty per cent) of the Affordable Housing Contribution is payable when 30% (thirty per cent) of the Dwellings on the Site have been Sold
+probe 50% (fifty per cent) prior to Occupation of the 1st Dwelling
   quantity 50 Percent 0..3
   quantity 50 Percent 5..19
-  quantity 30 Percent 76..79
-  quantity 30 Percent 81..96
-  decimal err NUM002 UnexpectedToken candidate 0..141 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..141 span 0..2 expected "an amount in pounds and pence in words"
-probe 50% (fifty per cent) of the Affordable Housing Contribution is payable when 50% (fifty per cent) of the Dwellings on the Site have been Sold
-  quantity 50 Percent 0..3
-  quantity 50 Percent 5..19
-  quantity 50 Percent 76..79
-  quantity 50 Percent 81..95
-  decimal err NUM002 UnexpectedToken candidate 0..140 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..140 span 0..2 expected "an amount in pounds and pence in words"
-probe 50% (fifty per cent) on Occupation of 20% (twenty per cent) of the Dwellings on
-  quantity 50 Percent 0..3
-  quantity 50 Percent 5..19
-  quantity 20 Percent 38..41
-  quantity 20 Percent 43..58
-  decimal err NUM002 UnexpectedToken candidate 0..79 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..79 span 0..2 expected "an amount in pounds and pence in words"
-probe 50% (fifty per cent) on Occupation of 80% (eighty per cent) of the Dwellings on
-  quantity 50 Percent 0..3
-  quantity 50 Percent 5..19
-  quantity 80 Percent 38..41
-  quantity 80 Percent 43..58
-  decimal err NUM002 UnexpectedToken candidate 0..79 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..79 span 0..2 expected "an amount in pounds and pence in words"
-probe 50% prior to Occupation of the 1st (first) Dwelling
-  quantity 50 Percent 0..3
-  quantity 1 Count 31..34
-  decimal err NUM002 UnexpectedToken candidate 0..51 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..51 span 0..2 expected "an amount in pounds and pence in words"
+  quantity 1 Count 48..51
+  decimal err NUM002 UnexpectedToken candidate 0..60 span 3..4 expected "a single decimal number"
+  amount err NUM002 UnexpectedToken candidate 0..60 span 0..2 expected "an amount in pounds and pence in words"
 probe 50%%
   error NUM002 UnexpectedToken candidate 0..3 span 3..4 expected "a number set apart from surrounding text"
   decimal err NUM002 UnexpectedToken candidate 0..3 span 3..4 expected "a number set apart from surrounding text"
@@ -471,30 +284,6 @@ probe 50th Dwelling
   quantity 50 Count 0..4
   decimal err NUM002 UnexpectedToken candidate 0..13 span 4..5 expected "a single decimal number"
   amount err NUM002 UnexpectedToken candidate 0..13 span 0..2 expected "an amount in pounds and pence in words"
-probe 52500.00
-  quantity 52500.00 Count 0..8
-  decimal ok 52500.00
-  amount err NUM002 UnexpectedToken candidate 0..8 span 0..8 expected "an amount in pounds and pence in words"
-probe 5336500
-  quantity 5336500 Count 0..7
-  decimal ok 5336500
-  amount err NUM002 UnexpectedToken candidate 0..7 span 0..7 expected "an amount in pounds and pence in words"
-probe 5400.00
-  quantity 5400.00 Count 0..7
-  decimal ok 5400.00
-  amount err NUM002 UnexpectedToken candidate 0..7 span 0..7 expected "an amount in pounds and pence in words"
-probe 55620.00
-  quantity 55620.00 Count 0..8
-  decimal ok 55620.00
-  amount err NUM002 UnexpectedToken candidate 0..8 span 0..8 expected "an amount in pounds and pence in words"
-probe 5580.00
-  quantity 5580.00 Count 0..7
-  decimal ok 5580.00
-  amount err NUM002 UnexpectedToken candidate 0..7 span 0..7 expected "an amount in pounds and pence in words"
-probe 56000.00
-  quantity 56000.00 Count 0..8
-  decimal ok 56000.00
-  amount err NUM002 UnexpectedToken candidate 0..8 span 0..8 expected "an amount in pounds and pence in words"
 probe 567
   quantity 567 Count 0..3
   decimal ok 567
@@ -503,10 +292,6 @@ probe 58
   quantity 58 Count 0..2
   decimal ok 58
   amount err NUM002 UnexpectedToken candidate 0..2 span 0..2 expected "an amount in pounds and pence in words"
-probe 581011
-  quantity 581011 Count 0..6
-  decimal ok 581011
-  amount err NUM002 UnexpectedToken candidate 0..6 span 0..6 expected "an amount in pounds and pence in words"
 probe 5o%
   error NUM005 OcrSubstitutionCandidate { normalised: "50" } candidate 0..2 span 0..2 expected "directly readable digits or number words"
   decimal err NUM005 OcrSubstitutionCandidate { normalised: "50" } candidate 0..2 span 0..2 expected "directly readable digits or number words"
@@ -515,42 +300,14 @@ probe 5o% of the Development
   error NUM005 OcrSubstitutionCandidate { normalised: "50" } candidate 0..2 span 0..2 expected "directly readable digits or number words"
   decimal err NUM005 OcrSubstitutionCandidate { normalised: "50" } candidate 0..2 span 0..2 expected "directly readable digits or number words"
   amount err NUM005 OcrSubstitutionCandidate { normalised: "50" } candidate 0..2 span 0..2 expected "directly readable digits or number words"
-probe 6000
-  quantity 6000 Count 0..4
-  decimal ok 6000
-  amount err NUM002 UnexpectedToken candidate 0..4 span 0..4 expected "an amount in pounds and pence in words"
 probe 683100
   quantity 683100 Count 0..6
   decimal ok 683100
   amount err NUM002 UnexpectedToken candidate 0..6 span 0..6 expected "an amount in pounds and pence in words"
-probe 683100.00
-  quantity 683100.00 Count 0..9
-  decimal ok 683100.00
-  amount err NUM002 UnexpectedToken candidate 0..9 span 0..9 expected "an amount in pounds and pence in words"
 probe 7
   quantity 7 Count 0..1
   decimal ok 7
   amount err NUM002 UnexpectedToken candidate 0..1 span 0..1 expected "an amount in pounds and pence in words"
-probe 70% (12 Dwellings) of which shall be Affordable Rented Housing and/or Affordable Social Housing and 30% (5 Dwellings) of which shall be Shared Ownership Housing
-  quantity 70 Percent 0..3
-  quantity 12 Count 5..7
-  quantity 30 Percent 100..103
-  quantity 5 Count 105..106
-  decimal err NUM002 UnexpectedToken candidate 0..160 span 3..4 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..160 span 0..2 expected "an amount in pounds and pence in words"
-probe 7000
-  quantity 7000 Count 0..4
-  decimal ok 7000
-  amount err NUM002 UnexpectedToken candidate 0..4 span 0..4 expected "an amount in pounds and pence in words"
-probe 73100
-  quantity 73100 Count 0..5
-  decimal ok 73100
-  amount err NUM002 UnexpectedToken candidate 0..5 span 0..5 expected "an amount in pounds and pence in words"
-probe 76 (271 habitable rooms)
-  quantity 76 Count 0..2
-  quantity 271 Count 4..7
-  decimal err NUM002 UnexpectedToken candidate 0..24 span 2..3 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..24 span 0..2 expected "an amount in pounds and pence in words"
 probe 79228162514264337593543950335
   quantity 79228162514264337593543950335 Count 0..29
   decimal ok 79228162514264337593543950335
@@ -559,470 +316,119 @@ probe 79228162514264337593543950336
   error NUM004 UnrepresentableDecimal candidate 0..29 span 0..29 expected "a number a Decimal can hold exactly"
   decimal err NUM004 UnrepresentableDecimal candidate 0..29 span 0..29 expected "a number a Decimal can hold exactly"
   amount err NUM002 UnexpectedToken candidate 0..29 span 0..29 expected "an amount in pounds and pence in words"
-probe A further twenty five per cent (25%) of the Contributions Indexed Linked on Completion of fifty per cent (50%) of the Dwellings,
-  quantity 25 Percent 10..30
-  quantity 25 Percent 32..35
-  quantity 50 Percent 90..104
-  quantity 50 Percent 106..109
-  decimal err NUM002 UnexpectedToken candidate 0..128 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..128 span 0..1 expected "an amount in pounds and pence in words"
-probe A new clause 7.15 shall be inserted into the Original Obligation as follows
-  quantity 7.15 Count 13..17
-  decimal err NUM002 UnexpectedToken candidate 0..75 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..75 span 0..1 expected "an amount in pounds and pence in words"
-probe A new clause 7.16 shall be inserted in to the Original Obligation as follows
-  quantity 7.16 Count 13..17
-  decimal err NUM002 UnexpectedToken candidate 0..76 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..76 span 0..1 expected "an amount in pounds and pence in words"
-probe A new definition of "Affordable Rent" shall be included as a new clause
-  decimal err NUM002 UnexpectedToken candidate 0..71 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..71 span 0..1 expected "an amount in pounds and pence in words"
-probe A new definition of "Affordable Social Housing" shall be included as a new clause
-  decimal err NUM002 UnexpectedToken candidate 0..81 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..81 span 0..1 expected "an amount in pounds and pence in words"
-probe A new definition of "Assured Shorthold Tenancy" shall be included as a new clause
-  decimal err NUM002 UnexpectedToken candidate 0..81 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..81 span 0..1 expected "an amount in pounds and pence in words"
-probe A new definition of "Help to Buy Agent" shall be included as a new clause 1.1.17A as
-  error NUM005 MixedLettersAndDigits candidate 74..81 span 74..81 expected "directly readable digits or number words"
-  decimal err NUM005 MixedLettersAndDigits candidate 74..81 span 74..81 expected "directly readable digits or number words"
-  amount err NUM005 MixedLettersAndDigits candidate 74..81 span 74..81 expected "directly readable digits or number words"
-probe A new definition of "Housing Need" shall be included as a new clause 1.1.19A as
-  error NUM005 MixedLettersAndDigits candidate 69..76 span 69..76 expected "directly readable digits or number words"
-  decimal err NUM005 MixedLettersAndDigits candidate 69..76 span 69..76 expected "directly readable digits or number words"
-  amount err NUM005 MixedLettersAndDigits candidate 69..76 span 69..76 expected "directly readable digits or number words"
-probe A new definition of "Local Housing Allowance" shall be included as a new clause
-  decimal err NUM002 UnexpectedToken candidate 0..79 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..79 span 0..1 expected "an amount in pounds and pence in words"
-probe A new definition of "Shared Ownership Lease" shall be included as a new clause
-  decimal err NUM002 UnexpectedToken candidate 0..78 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..78 span 0..1 expected "an amount in pounds and pence in words"
-probe AGREEMENT pursuant to section 106 of the Town and Country Planning Act 1990 (as amended)
-  quantity 106 Count 30..33
-  quantity 1990 Count 71..75
-  decimal err NUM002 UnexpectedToken candidate 0..88 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..88 span 0..9 expected "an amount in pounds and pence in words"
-probe Affordable Housing Contribution” an Index Linked sum equivalent to the cost to the Owner of providing the number, size and type of Affordable Housing Units on the Site
-  decimal err NUM002 UnexpectedToken candidate 0..169 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..169 span 0..10 expected "an amount in pounds and pence in words"
-probe Agreement pursuant to Section 106 of the Town and Country Planning Act 1990
+probe 8000
+  quantity 8000 Count 0..4
+  decimal ok 8000
+  amount err NUM002 UnexpectedToken candidate 0..4 span 0..4 expected "an amount in pounds and pence in words"
+probe A new definition of "First Homes" shall be inserted into clause 1.1
+  quantity 1.1 Count 64..67
+  decimal err NUM002 UnexpectedToken candidate 0..67 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..67 span 0..1 expected "an amount in pounds and pence in words"
+probe AGREEMENT pursuant to Section 106 of the Town and Country Planning Act 1990
   quantity 106 Count 30..33
   quantity 1990 Count 71..75
   decimal err NUM002 UnexpectedToken candidate 0..75 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..75 span 0..9 expected "an amount in pounds and pence in words"
-probe Alpha shall pay to the Council the Health Contribution in respect of the Market Dwellings comprised in the Development in the following manner
-  decimal err NUM002 UnexpectedToken candidate 0..142 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..142 span 0..5 expected "an amount in pounds and pence in words"
-probe Alpha shall pay to the Council the Off-site Highways Contribution in respect of the Market Dwellings comprised in the Development in the following manner
-  decimal err NUM002 UnexpectedToken candidate 0..153 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..153 span 0..5 expected "an amount in pounds and pence in words"
-probe Alpha shall pay to the Council the Primary Education Contribution in respect of the Market Dwellings comprised in the Development in the following manner
-  decimal err NUM002 UnexpectedToken candidate 0..153 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..153 span 0..5 expected "an amount in pounds and pence in words"
-probe An agreement completed pursuant to Section 106 of the Town and Country Planning Act 1990 dated 6 February 2020 was made between
-  quantity 106 Count 43..46
-  quantity 1990 Count 84..88
-  quantity 6 Count 95..96
-  quantity 2020 Count 106..110
-  decimal err NUM002 UnexpectedToken candidate 0..127 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..127 span 0..2 expected "an amount in pounds and pence in words"
-probe An agreement pursuant to section 106 of the Act dated 13 April 2021 supporting the Planning Permission was made by
+probe An agreement pursuant to Section 106 of the Town and Country Planning Act 1990 dated 4 March 2019
   quantity 106 Count 33..36
-  quantity 13 Count 54..56
-  quantity 2021 Count 63..67
-  decimal err NUM002 UnexpectedToken candidate 0..114 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..114 span 0..2 expected "an amount in pounds and pence in words"
+  quantity 1990 Count 74..78
+  quantity 4 Count 85..86
+  quantity 2019 Count 93..97
+  decimal err NUM002 UnexpectedToken candidate 0..97 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..97 span 0..2 expected "an amount in pounds and pence in words"
 probe Café — sum 1,23 payable
   error NUM002 UnexpectedToken candidate 14..18 span 16..17 expected "digits with optional thousands commas and decimals"
   decimal err NUM002 UnexpectedToken candidate 14..18 span 16..17 expected "digits with optional thousands commas and decimals"
   amount err NUM003 UnsupportedWord candidate 0..26 span 0..5 expected "an amount in pounds and pence in words"
-probe Clause 1.1.18 and the definition of "HCA" shall be amended to include the words
-  error NUM002 UnexpectedToken candidate 7..13 span 10..11 expected "digits with optional thousands commas and decimals"
-  decimal err NUM002 UnexpectedToken candidate 7..13 span 10..11 expected "digits with optional thousands commas and decimals"
-  amount err NUM003 UnsupportedWord candidate 0..79 span 0..6 expected "an amount in pounds and pence in words"
-probe Clause 1.1.2 and the definition of "Affordable Housing" shall be deleted and
-  error NUM002 UnexpectedToken candidate 7..12 span 10..11 expected "digits with optional thousands commas and decimals"
-  decimal err NUM002 UnexpectedToken candidate 7..12 span 10..11 expected "digits with optional thousands commas and decimals"
-  amount err NUM003 UnsupportedWord candidate 0..76 span 0..6 expected "an amount in pounds and pence in words"
-probe Clause 1.1.38 and the definition of "Shared Ownership Housing" shall be deleted and
-  error NUM002 UnexpectedToken candidate 7..13 span 10..11 expected "digits with optional thousands commas and decimals"
-  decimal err NUM002 UnexpectedToken candidate 7..13 span 10..11 expected "digits with optional thousands commas and decimals"
-  amount err NUM003 UnsupportedWord candidate 0..83 span 0..6 expected "an amount in pounds and pence in words"
-probe Clause 1.1.6 and the definition of "Affordable Rented Housing" shall be deleted and
-  error NUM002 UnexpectedToken candidate 7..12 span 10..11 expected "digits with optional thousands commas and decimals"
-  decimal err NUM002 UnexpectedToken candidate 7..12 span 10..11 expected "digits with optional thousands commas and decimals"
-  amount err NUM003 UnsupportedWord candidate 0..83 span 0..6 expected "an amount in pounds and pence in words"
-probe Clause 1.1.8 and the definition of "Chargee" shall be amended to include the words
-  error NUM002 UnexpectedToken candidate 7..12 span 10..11 expected "digits with optional thousands commas and decimals"
-  decimal err NUM002 UnexpectedToken candidate 7..12 span 10..11 expected "digits with optional thousands commas and decimals"
-  amount err NUM003 UnsupportedWord candidate 0..82 span 0..6 expected "an amount in pounds and pence in words"
-probe Clause 3.4.1 shall be deleted and replaced with:
-  error NUM002 UnexpectedToken candidate 7..12 span 10..11 expected "digits with optional thousands commas and decimals"
-  decimal err NUM002 UnexpectedToken candidate 7..12 span 10..11 expected "digits with optional thousands commas and decimals"
-  amount err NUM003 UnsupportedWord candidate 0..48 span 0..6 expected "an amount in pounds and pence in words"
-probe Construction of 9 detached dwellings on the Site with associated access
-  quantity 9 Count 16..17
-  decimal err NUM002 UnexpectedToken candidate 0..71 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..71 span 0..12 expected "an amount in pounds and pence in words"
-probe Construction of 9 detached dwellings on the Site with associated access landscaping and drainage works
-  quantity 9 Count 16..17
-  decimal err NUM002 UnexpectedToken candidate 0..102 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..102 span 0..12 expected "an amount in pounds and pence in words"
-probe DEED OF VARIATION RELATING TO THE DEVELOPMENT OF
-  decimal err NUM002 UnexpectedToken candidate 0..48 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..48 span 0..4 expected "an amount in pounds and pence in words"
-probe DEED OF VARIATION under Section 106A of the Town and Country Planning Act 1990
-  quantity 1990 Count 74..78
-  error NUM005 MixedLettersAndDigits candidate 32..36 span 32..36 expected "directly readable digits or number words"
-  decimal err NUM005 MixedLettersAndDigits candidate 32..36 span 32..36 expected "directly readable digits or number words"
-  amount err NUM005 MixedLettersAndDigits candidate 32..36 span 32..36 expected "directly readable digits or number words"
-probe Development: Development of the Site for construction of 75 residential dwellings with associated access, parking, landscaping and infrastructure
-  quantity 75 Count 57..59
-  decimal err NUM002 UnexpectedToken candidate 0..145 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..145 span 0..11 expected "an amount in pounds and pence in words"
+probe DEED OF AGREEMENT pursuant to Section 106 of the Town and Country Planning Act 1990
+  quantity 106 Count 38..41
+  quantity 1990 Count 79..83
+  decimal err NUM002 UnexpectedToken candidate 0..83 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..83 span 0..4 expected "an amount in pounds and pence in words"
+probe DEED OF VARIATION
+  decimal err NUM002 UnexpectedToken candidate 0..17 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..17 span 0..4 expected "an amount in pounds and pence in words"
 probe FIFTYEIGHT
   quantity 58 Count 0..10
   decimal err NUM002 UnexpectedToken candidate 0..10 span 9..10 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..10 span 10..10 expected "units, tens, hundreds and descending million/thousand groups"
-probe Fifty six thousand pounds
-  quantity 56000 Gbp 0..25
-  decimal err NUM002 UnexpectedToken candidate 0..25 span 24..25 expected "a single decimal number"
-  amount ok 56000
-probe Five thousand four hundred pounds
-  quantity 5400 Gbp 0..33
-  decimal err NUM002 UnexpectedToken candidate 0..33 span 32..33 expected "a single decimal number"
-  amount ok 5400
-probe Forty eight thousand three hundred and seventy five pounds
-  quantity 48375 Gbp 0..58
-  decimal err NUM002 UnexpectedToken candidate 0..58 span 57..58 expected "a single decimal number"
-  amount ok 48375
-probe Forty one thousand and sixty two pounds
-  quantity 41062 Gbp 0..39
-  decimal err NUM002 UnexpectedToken candidate 0..39 span 38..39 expected "a single decimal number"
-  amount ok 41062
-probe Fourteen thousand pounds
-  quantity 14000 Gbp 0..24
-  decimal err NUM002 UnexpectedToken candidate 0..24 span 23..24 expected "a single decimal number"
-  amount ok 14000
-probe Fourteen thousand six hundred and twenty five pounds
-  quantity 14625 Gbp 0..52
-  decimal err NUM002 UnexpectedToken candidate 0..52 span 51..52 expected "a single decimal number"
-  amount ok 14625
-probe If the results of the Greenfield Run-off Rate Strategy approved pursuant to paragraph 6.1 above show that the Development does not include provisions for attenuation storage
-  quantity 6.1 Count 86..89
-  decimal err NUM002 UnexpectedToken candidate 0..173 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..173 span 0..2 expected "an amount in pounds and pence in words"
-probe In accordance with the SPD the amount payable is £124,204 (one hundred and twenty four thousand two hundred and four pounds) and Index Linked
-  quantity 124204 Gbp 49..58
-  quantity 124204 Gbp 60..124
-  decimal err NUM002 UnexpectedToken candidate 0..142 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..142 span 0..2 expected "an amount in pounds and pence in words"
-probe In the event of the earlier of
-  decimal err NUM002 UnexpectedToken candidate 0..30 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..30 span 0..2 expected "an amount in pounds and pence in words"
-probe In the event of the earlier of:
-  decimal err NUM002 UnexpectedToken candidate 0..31 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..31 span 0..2 expected "an amount in pounds and pence in words"
-probe In the event that the targets in paragraphs 1.4 above have not been achieved to the satisfaction of the Council
-  quantity 1.4 Count 44..47
-  decimal err NUM002 UnexpectedToken candidate 0..111 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..111 span 0..2 expected "an amount in pounds and pence in words"
-probe In the event that the targets in the Employment and Skills Plan have not been achieved to the satisfaction of the Council within the Employment and Skills Plan Period
-  decimal err NUM002 UnexpectedToken candidate 0..166 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..166 span 0..2 expected "an amount in pounds and pence in words"
-probe Means the 6 (six) Dwellings to be constructed on the Site
-  quantity 6 Count 10..11
-  quantity 6 Count 13..16
-  decimal err NUM002 UnexpectedToken candidate 0..57 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..57 span 0..5 expected "an amount in pounds and pence in words"
-probe Means the 6 (six) Dwellings to be constructed on the Site and provided as Affordable Housing pursuant to the Planning Permission
-  quantity 6 Count 10..11
-  quantity 6 Count 13..16
+probe If the Travel Plan targets are not met the Owner shall pay the Travel Plan Contribution within 20 working days of written demand
+  quantity 20 Count 95..97
   decimal err NUM002 UnexpectedToken candidate 0..128 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..128 span 0..5 expected "an amount in pounds and pence in words"
-probe Means those five (5) dwellings to be provided on the Site
-  quantity 5 Count 12..16
-  quantity 5 Count 18..19
-  decimal err NUM002 UnexpectedToken candidate 0..57 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..57 span 0..5 expected "an amount in pounds and pence in words"
-probe Means those five (5) dwellings to be provided on the Site which are to be owned and managed by a Registered Provider
-  quantity 5 Count 12..16
-  quantity 5 Count 18..19
-  decimal err NUM002 UnexpectedToken candidate 0..116 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..116 span 0..5 expected "an amount in pounds and pence in words"
-probe PLANNING OBLIGATION BY SUPPLEMENTAL DEED OF AGREEMENT UNDER SECTION 106 AND SECTION 106A OF THE TOWN AND COUNTRY PLANNING ACT 1990
-  quantity 106 Count 68..71
-  quantity 1990 Count 126..130
-  error NUM005 MixedLettersAndDigits candidate 84..88 span 84..88 expected "directly readable digits or number words"
-  decimal err NUM005 MixedLettersAndDigits candidate 84..88 span 84..88 expected "directly readable digits or number words"
-  amount err NUM005 MixedLettersAndDigits candidate 84..88 span 84..88 expected "directly readable digits or number words"
-probe PLANNING OBLIGATION UNDER SECTION 106 OF THE TOWN AND COUNTRY PLANNING ACT 1990 RELATING TO LAND AT MOORHOUSES COVERED RESERVOIR, BILLY MILL LANE, NORTH SHIELDS
-  quantity 106 Count 34..37
-  quantity 1990 Count 75..79
-  decimal err NUM002 UnexpectedToken candidate 0..160 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..160 span 0..8 expected "an amount in pounds and pence in words"
-probe Paragraph 1.10 of Part 1 of the Third Schedule (Affordable Housing) to the Original Obligation shall be deleted in its entirety.
-  quantity 1.10 Count 10..14
-  quantity 1 Count 23..24
-  decimal err NUM002 UnexpectedToken candidate 0..128 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..128 span 0..9 expected "an amount in pounds and pence in words"
-probe Paragraph 1.5.1 of Part 1 of the Third Schedule (Affordable Housing) to the Original Obligation shall be amended to read as follows
-  quantity 1 Count 24..25
-  error NUM002 UnexpectedToken candidate 10..15 span 13..14 expected "digits with optional thousands commas and decimals"
-  decimal err NUM002 UnexpectedToken candidate 10..15 span 13..14 expected "digits with optional thousands commas and decimals"
-  amount err NUM003 UnsupportedWord candidate 0..131 span 0..9 expected "an amount in pounds and pence in words"
-probe Paragraph 1.5.2 to 1.5.4 of Part 1 of the Third Schedule (Affordable Housing) to the Original Obligation shall be deleted and replaced with the following
-  quantity 1 Count 33..34
-  error NUM002 UnexpectedToken candidate 10..15 span 13..14 expected "digits with optional thousands commas and decimals"
-  error NUM002 UnexpectedToken candidate 19..24 span 22..23 expected "digits with optional thousands commas and decimals"
-  decimal err NUM002 UnexpectedToken candidate 10..15 span 13..14 expected "digits with optional thousands commas and decimals"
-  amount err NUM003 UnsupportedWord candidate 0..153 span 0..9 expected "an amount in pounds and pence in words"
-probe Paragraph 4.3 of Schedule 1 shall be deleted
-  quantity 4.3 Count 10..13
-  quantity 1 Count 26..27
+  amount err NUM003 UnsupportedWord candidate 0..128 span 0..2 expected "an amount in pounds and pence in words"
+probe Paragraph 3.2 of Schedule 2 shall be deleted
+  quantity 3.2 Count 10..13
+  quantity 2 Count 26..27
   decimal err NUM002 UnexpectedToken candidate 0..44 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..44 span 0..9 expected "an amount in pounds and pence in words"
-probe Paragraph 4.4 of Schedule 1 shall be deleted
-  quantity 4.4 Count 10..13
-  quantity 1 Count 26..27
+probe Paragraph 9.1 of Schedule 5 shall be deleted
+  quantity 9.1 Count 10..13
+  quantity 5 Count 26..27
   decimal err NUM002 UnexpectedToken candidate 0..44 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..44 span 0..9 expected "an amount in pounds and pence in words"
-probe Paragraph 4.6 of Schedule 1 shall be deleted
-  quantity 4.6 Count 10..13
-  quantity 1 Count 26..27
-  decimal err NUM002 UnexpectedToken candidate 0..44 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..44 span 0..9 expected "an amount in pounds and pence in words"
-probe Prior to Occupation of the first Market Housing Unit
-  decimal err NUM002 UnexpectedToken candidate 0..52 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..52 span 0..5 expected "an amount in pounds and pence in words"
-probe Prior to Occupation of the first Market Housing Unit, the Owner undertakes to pay to the Council the Affordable Housing Contribution
-  decimal err NUM002 UnexpectedToken candidate 0..132 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..132 span 0..5 expected "an amount in pounds and pence in words"
-probe Prior to Occupation of the first Market Housing Unit, the Owner undertakes to pay to the Council the Affordable Housing Contribution;
-  decimal err NUM002 UnexpectedToken candidate 0..133 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..133 span 0..5 expected "an amount in pounds and pence in words"
-probe SECOND DEED OF VARIATION RELATING TO THE DEVELOPMENT OF LAND AT WOODNESBOROUGH LANE, EASTRY, KENT
-  decimal err NUM002 UnexpectedToken candidate 0..97 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..97 span 0..6 expected "an amount in pounds and pence in words"
-probe Section 106 of the Town and Country Planning Act 1990 dated 14 September 2020
-  quantity 106 Count 8..11
-  quantity 1990 Count 49..53
-  quantity 14 Count 60..62
-  quantity 2020 Count 73..77
-  decimal err NUM002 UnexpectedToken candidate 0..77 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..77 span 0..7 expected "an amount in pounds and pence in words"
-probe Subject to paragraph 4 below Alpha shall pay to the Council the Green Land Management Contribution in the following manner
-  quantity 4 Count 21..22
-  decimal err NUM002 UnexpectedToken candidate 0..122 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..122 span 0..7 expected "an amount in pounds and pence in words"
-probe That all the Affordable Housing to be provided on the Site or if applicable in that Phase shall be Intermediate Housing Shared Ownership tenure and:
-  decimal err NUM002 UnexpectedToken candidate 0..148 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..148 span 0..4 expected "an amount in pounds and pence in words"
-probe The Developer covenants to pay the Allotments Contribution in the following instalments:-
-  decimal err NUM002 UnexpectedToken candidate 0..89 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..89 span 0..3 expected "an amount in pounds and pence in words"
-probe The Developer covenants to pay the Biodiversity Contribution in the following instalments:-
-  decimal err NUM002 UnexpectedToken candidate 0..91 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..91 span 0..3 expected "an amount in pounds and pence in words"
-probe The Developer covenants to pay the Education Contribution in the following instalments:-
+probe The Owner covenants to pay the Highways Contribution to the Council prior to Commencement of Development
+  decimal err NUM002 UnexpectedToken candidate 0..104 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..104 span 0..3 expected "an amount in pounds and pence in words"
+probe The Owner shall pay the Bus Stop Contribution on demand
+  decimal err NUM002 UnexpectedToken candidate 0..55 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..55 span 0..3 expected "an amount in pounds and pence in words"
+probe The Owner shall pay the Education Contribution prior to Occupation of the 30th Dwelling
+  quantity 30 Count 74..78
+  decimal err NUM002 UnexpectedToken candidate 0..87 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..87 span 0..3 expected "an amount in pounds and pence in words"
+probe The Owner shall pay the Healthcare Contribution prior to Occupation of the 50th dwelling
+  quantity 50 Count 75..79
   decimal err NUM002 UnexpectedToken candidate 0..88 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..88 span 0..3 expected "an amount in pounds and pence in words"
-probe The Developer covenants to pay the Public Transport Contribution in the following instalments:-
-  decimal err NUM002 UnexpectedToken candidate 0..95 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..95 span 0..3 expected "an amount in pounds and pence in words"
-probe The Developer covenants to pay the RDLR Contribution in the following instalments:-
-  decimal err NUM002 UnexpectedToken candidate 0..83 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..83 span 0..3 expected "an amount in pounds and pence in words"
-probe The Developer covenants to pay the Recreational Contribution in the following instalments:-
-  decimal err NUM002 UnexpectedToken candidate 0..91 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..91 span 0..3 expected "an amount in pounds and pence in words"
-probe The Developer will pay the Employment in the End Use Contribution to the Council within 28 days of receipt of the notice referred to in paragraph 3.6.
-  quantity 28 Count 88..90
-  quantity 3.6 Count 146..149
-  decimal err NUM002 UnexpectedToken candidate 0..150 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..150 span 0..3 expected "an amount in pounds and pence in words"
-probe The Owner covenants to pay the Administration Cost to the Council within 28 days of receiving written request
-  quantity 28 Count 73..75
-  decimal err NUM002 UnexpectedToken candidate 0..109 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..109 span 0..3 expected "an amount in pounds and pence in words"
-probe The Owner shall not Occupy or permit Occupation of more than 50 per cent of the Market Housing Units comprised within the Development unless and until any Affordable Housing Contribution
-  quantity 50 Percent 61..72
-  decimal err NUM002 UnexpectedToken candidate 0..186 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..186 span 0..3 expected "an amount in pounds and pence in words"
-probe The Owner will pay the Construction Industry Employment and Training Contribution(s) to the Council within 28 Working Days of the notice referred to in paragraph 1.6 above.
-  quantity 28 Count 107..109
-  quantity 1.6 Count 162..165
-  decimal err NUM002 UnexpectedToken candidate 0..172 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..172 span 0..3 expected "an amount in pounds and pence in words"
-probe The construction of 60 Dwellings and associated infrastructure on the Site
-  quantity 60 Count 20..22
-  decimal err NUM002 UnexpectedToken candidate 0..74 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..74 span 0..3 expected "an amount in pounds and pence in words"
-probe The construction of 60 Dwellings and associated infrastructure on the Site;
-  quantity 60 Count 20..22
-  decimal err NUM002 UnexpectedToken candidate 0..75 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..75 span 0..3 expected "an amount in pounds and pence in words"
-probe The definition of "Affordable Housing Dwellings" in the Original Obligation shall be deleted and replaced with the following wording
-  decimal err NUM002 UnexpectedToken candidate 0..132 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..132 span 0..3 expected "an amount in pounds and pence in words"
-probe The definition of "Affordable Housing Scheme" in clause 1.1 shall be varied by deleting the number "8" and replacing it with the number "28"
-  quantity 1.1 Count 56..59
-  quantity 8 Count 100..101
-  quantity 28 Count 137..139
+probe The Owner shall pay the Library Contribution prior to Commencement
+  decimal err NUM002 UnexpectedToken candidate 0..66 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..66 span 0..3 expected "an amount in pounds and pence in words"
+probe The Owner shall pay the Monitoring Contribution within 28 days of the date of this Agreement
+  quantity 28 Count 55..57
+  decimal err NUM002 UnexpectedToken candidate 0..92 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..92 span 0..3 expected "an amount in pounds and pence in words"
+probe The Owner shall pay the Open Space Contribution prior to Occupation of the 10th Dwelling
+  quantity 10 Count 75..79
+  decimal err NUM002 UnexpectedToken candidate 0..88 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..88 span 0..3 expected "an amount in pounds and pence in words"
+probe The Owner shall pay the Play Space Contribution in the following instalments:
+  decimal err NUM002 UnexpectedToken candidate 0..77 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..77 span 0..3 expected "an amount in pounds and pence in words"
+probe The Owner shall pay the Sports Contribution prior to first Occupation
+  decimal err NUM002 UnexpectedToken candidate 0..69 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..69 span 0..3 expected "an amount in pounds and pence in words"
+probe The definition of "Affordable Housing Units" in clause 1.1 shall be varied by deleting the number "12" and replacing it with the number "18"
+  quantity 1.1 Count 55..58
+  quantity 12 Count 99..101
+  quantity 18 Count 137..139
   decimal err NUM002 UnexpectedToken candidate 0..140 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..140 span 0..3 expected "an amount in pounds and pence in words"
-probe The definition of "Affordable Rented Units" in the Original Obligation shall be deleted and replaced with the following wording
-  decimal err NUM002 UnexpectedToken candidate 0..127 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..127 span 0..3 expected "an amount in pounds and pence in words"
-probe The definition of "Chargee" in the Original Obligation shall be amended by inserting the word "Dwellings" after "Affordable Housing"
-  decimal err NUM002 UnexpectedToken candidate 0..132 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..132 span 0..3 expected "an amount in pounds and pence in words"
-probe The definition of "Qualifying Person" in clause 1.1 shall be deleted
-  quantity 1.1 Count 48..51
-  decimal err NUM002 UnexpectedToken candidate 0..68 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..68 span 0..3 expected "an amount in pounds and pence in words"
-probe The definition of "Restricted-Age Dwelling" in clause 1.1 shall be deleted
+probe The definition of "Open Space Contribution" in clause 1.1 shall be replaced with
   quantity 1.1 Count 54..57
-  decimal err NUM002 UnexpectedToken candidate 0..74 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..74 span 0..3 expected "an amount in pounds and pence in words"
-probe The remaining twenty five per cent (25%) of the Contributions Indexed Linked on Completion of seventy five per cent (75%) of the Dwellings
-  quantity 25 Percent 14..34
-  quantity 25 Percent 36..39
-  quantity 75 Percent 94..115
-  quantity 75 Percent 117..120
-  decimal err NUM002 UnexpectedToken candidate 0..138 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..138 span 0..3 expected "an amount in pounds and pence in words"
-probe To pay the Allotments Contribution in the following instalments:
-  decimal err NUM002 UnexpectedToken candidate 0..64 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..64 span 0..2 expected "an amount in pounds and pence in words"
-probe To pay the Carbon Green Fund Contribution in accordance with the procedure outlined in paragraph 3 of Schedule 11.
-  quantity 3 Count 97..98
-  quantity 11 Count 111..113
-  decimal err NUM002 UnexpectedToken candidate 0..114 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..114 span 0..2 expected "an amount in pounds and pence in words"
-probe To pay the Children's Equipped Playspace Contribution in the following instalments:
-  decimal err NUM002 UnexpectedToken candidate 0..83 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..83 span 0..2 expected "an amount in pounds and pence in words"
-probe To pay the Coastal Mitigation Contribution in the following instalments:
-  decimal err NUM002 UnexpectedToken candidate 0..72 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..72 span 0..2 expected "an amount in pounds and pence in words"
-probe To pay the Cycle Hire Docking Station Contribution on or before Occupation.
-  decimal err NUM002 UnexpectedToken candidate 0..75 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..75 span 0..2 expected "an amount in pounds and pence in words"
-probe To pay the Employment and Training Contribution in the following instalments:
-  decimal err NUM002 UnexpectedToken candidate 0..77 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..77 span 0..2 expected "an amount in pounds and pence in words"
-probe To pay the Parks and Green Space Contribution in the following instalments:
-  decimal err NUM002 UnexpectedToken candidate 0..75 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..75 span 0..2 expected "an amount in pounds and pence in words"
-probe To pay the Playing Pitches Improvements Contribution in the following instalments:
-  decimal err NUM002 UnexpectedToken candidate 0..82 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..82 span 0..2 expected "an amount in pounds and pence in words"
-probe To pay the Primary Education Contribution in the following instalments:
-  decimal err NUM002 UnexpectedToken candidate 0..71 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..71 span 0..2 expected "an amount in pounds and pence in words"
-probe To pay the Site and Development Contributions on or before Implementation.
-  decimal err NUM002 UnexpectedToken candidate 0..74 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..74 span 0..2 expected "an amount in pounds and pence in words"
-probe To pay the Sports Facilities Improvements Contribution in the following instalments:
-  decimal err NUM002 UnexpectedToken candidate 0..84 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..84 span 0..2 expected "an amount in pounds and pence in words"
-probe To pay to the Council
-  decimal err NUM002 UnexpectedToken candidate 0..21 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..21 span 0..2 expected "an amount in pounds and pence in words"
-probe To pay to the Council the Open Space Contribution on or before Commencement of Development
-  decimal err NUM002 UnexpectedToken candidate 0..90 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..90 span 0..2 expected "an amount in pounds and pence in words"
-probe Total 76 (271 habitable rooms)
-  quantity 76 Count 6..8
-  quantity 271 Count 10..13
+  decimal err NUM002 UnexpectedToken candidate 0..80 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..80 span 0..3 expected "an amount in pounds and pence in words"
+probe Total 36 (100 habitable rooms)
+  quantity 36 Count 6..8
+  quantity 100 Count 10..13
   decimal err NUM002 UnexpectedToken candidate 0..30 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..30 span 0..5 expected "an amount in pounds and pence in words"
-probe Twenty five thousand two hundred and seventy five pounds
-  quantity 25275 Gbp 0..56
-  decimal err NUM002 UnexpectedToken candidate 0..56 span 55..56 expected "a single decimal number"
-  amount ok 25275
-probe Two hundred and fifty nine thousand and five hundred and fifty two pounds
-  quantity 259552 Gbp 0..73
-  decimal err NUM002 UnexpectedToken candidate 0..73 span 72..73 expected "a single decimal number"
-  amount ok 259552
-probe Two hundred and twelve thousand five hundred pounds
-  quantity 212500 Gbp 0..51
-  decimal err NUM002 UnexpectedToken candidate 0..51 span 50..51 expected "a single decimal number"
-  amount ok 212500
-probe UNILATERAL UNDERTAKING PURSUANT TO SECTION 106 OF THE TOWN AND COUNTRY PLANNING ACT 1990
-  quantity 106 Count 43..46
-  quantity 1990 Count 84..88
-  decimal err NUM002 UnexpectedToken candidate 0..88 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..88 span 0..10 expected "an amount in pounds and pence in words"
-probe Under Section 106 of the Town and Country Planning Act 1990 (as Amended) relating to land on the north side of Burdon Lane, Sunderland
-  quantity 106 Count 14..17
-  quantity 1990 Count 55..59
-  decimal err NUM002 UnexpectedToken candidate 0..134 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..134 span 0..5 expected "an amount in pounds and pence in words"
-probe a sum equating to £5,336,500 (five million and three hundred and thirty six thousand and five hundred pounds) Index Linked
-  quantity 5336500 Gbp 18..29
-  quantity 5336500 Gbp 31..109
-  decimal err NUM002 UnexpectedToken candidate 0..123 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..123 span 0..1 expected "an amount in pounds and pence in words"
-probe a sum equating to £5,336,500 (five million and three hundred and thirty six thousand and five hundred pounds) Index Linked to be paid in lieu of on site affordable housing delivery,
-  quantity 5336500 Gbp 18..29
-  quantity 5336500 Gbp 31..109
-  decimal err NUM002 UnexpectedToken candidate 0..182 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..182 span 0..1 expected "an amount in pounds and pence in words"
-probe an Index Linked sum equivalent to the cost to the Owner of providing the number, size and type of Affordable Housing Units on the Site
-  decimal err NUM002 UnexpectedToken candidate 0..134 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..134 span 0..2 expected "an amount in pounds and pence in words"
 probe and
   decimal err NUM002 UnexpectedToken candidate 0..3 span 0..1 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..3 span 0..3 expected "units, tens, hundreds and descending million/thousand groups"
 probe and 
   decimal err NUM002 UnexpectedToken candidate 0..3 span 0..1 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..3 span 0..3 expected "units, tens, hundreds and descending million/thousand groups"
-probe and 38 (thirty eight) apartments together with parking and servicing at lower ground floor level
-  quantity 38 Count 4..6
-  quantity 38 Count 8..20
-  decimal err NUM002 UnexpectedToken candidate 0..96 span 0..1 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..96 span 4..6 expected "an amount in pounds and pence in words"
-probe and not to Implement the Development until the Green Run-off Rate Off-Set Contribution has been paid to the Council in full.
-  decimal err NUM002 UnexpectedToken candidate 0..124 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..124 span 4..7 expected "an amount in pounds and pence in words"
 probe banana
   decimal err NUM002 UnexpectedToken candidate 0..6 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..6 span 0..6 expected "an amount in pounds and pence in words"
-probe being 25% (twenty five percent) of the total number of Dwellings
-  quantity 25 Percent 6..9
-  quantity 25 Percent 11..30
-  decimal err NUM002 UnexpectedToken candidate 0..64 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..64 span 0..5 expected "an amount in pounds and pence in words"
-probe being 25% (twenty five percent) of the total number of Dwellings of which 50% (fifty percent) shall be Affordable Rented Units
-  quantity 25 Percent 6..9
-  quantity 25 Percent 11..30
-  quantity 50 Percent 74..77
-  quantity 50 Percent 79..92
-  decimal err NUM002 UnexpectedToken candidate 0..126 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..126 span 0..5 expected "an amount in pounds and pence in words"
-probe being 6 (six) Intermediate Housing Units and 13 (thirteen) Affordable Rented Units
-  quantity 6 Count 6..7
-  quantity 6 Count 9..12
-  quantity 13 Count 45..47
-  quantity 13 Count 49..57
-  decimal err NUM002 UnexpectedToken candidate 0..82 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..82 span 0..5 expected "an amount in pounds and pence in words"
-probe comprising 17 Dwellings which shall be constructed for Affordable Housing in accordance with the approved Affordable Housing Scheme
-  quantity 17 Count 11..13
-  decimal err NUM002 UnexpectedToken candidate 0..131 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..131 span 0..10 expected "an amount in pounds and pence in words"
-probe comprising 17 Dwellings which shall be constructed for Affordable Housing in accordance with the approved Affordable Housing Scheme, 70% (12 Dwellings)
-  quantity 17 Count 11..13
-  quantity 70 Percent 133..136
-  quantity 12 Count 138..140
-  decimal err NUM002 UnexpectedToken candidate 0..151 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..151 span 0..10 expected "an amount in pounds and pence in words"
 probe eight
   quantity 8 Count 0..5
   decimal err NUM002 UnexpectedToken candidate 0..5 span 4..5 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..5 span 5..5 expected "units, tens, hundreds and descending million/thousand groups"
+probe eight thousand pounds
+  quantity 8000 Gbp 0..21
+  decimal err NUM002 UnexpectedToken candidate 0..21 span 20..21 expected "a single decimal number"
+  amount ok 8000
 probe eighteen
   quantity 18 Count 0..8
   decimal err NUM002 UnexpectedToken candidate 0..8 span 7..8 expected "a single decimal number"
@@ -1035,24 +441,6 @@ probe eleven
   quantity 11 Count 0..6
   decimal err NUM002 UnexpectedToken candidate 0..6 span 5..6 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..6 span 6..6 expected "units, tens, hundreds and descending million/thousand groups"
-probe erection of a part 2/3, 9 and 28 storey (up to 94.65m AOD) mixed-use development comprising of 3,581 sqm including 2,538 sqm of industrial floorspace
-  quantity 9 Count 24..25
-  quantity 28 Count 30..32
-  quantity 3581 Count 95..100
-  quantity 2538 Count 115..120
-  error NUM005 MixedLettersAndDigits candidate 47..53 span 47..53 expected "directly readable digits or number words"
-  error NUM002 UnexpectedToken candidate 19..20 span 20..21 expected "a number set apart from surrounding text"
-  error NUM002 UnexpectedToken candidate 21..22 span 20..21 expected "a number set apart from surrounding text"
-  decimal err NUM005 MixedLettersAndDigits candidate 47..53 span 47..53 expected "directly readable digits or number words"
-  amount err NUM005 MixedLettersAndDigits candidate 47..53 span 47..53 expected "directly readable digits or number words"
-probe erection of up to 209 dwellings
-  quantity 209 Count 18..21
-  decimal err NUM002 UnexpectedToken candidate 0..31 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..31 span 0..8 expected "an amount in pounds and pence in words"
-probe erection of up to 209 dwellings, creation of open space and associated infrastructure
-  quantity 209 Count 18..21
-  decimal err NUM002 UnexpectedToken candidate 0..85 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..85 span 0..8 expected "an amount in pounds and pence in words"
 probe f10,058.60
   quantity 10058.60 Gbp 0..10
   decimal ok 10058.60
@@ -1073,36 +461,22 @@ probe fifty %
   quantity 50 Percent 0..7
   decimal err NUM002 UnexpectedToken candidate 0..7 span 6..7 expected "a single decimal number"
   amount err NUM002 UnexpectedToken candidate 0..7 span 6..7 expected "an amount in pounds and pence in words"
-probe fifty five thousand, six hundred and twenty pounds
-  quantity 55620 Gbp 0..50
-  decimal err NUM002 UnexpectedToken candidate 0..50 span 49..50 expected "a single decimal number"
-  amount ok 55620
 probe fifty per cent
   quantity 50 Percent 0..14
   decimal err NUM002 UnexpectedToken candidate 0..14 span 13..14 expected "a single decimal number"
   amount err NUM003 UnsupportedNumberOrder candidate 0..14 span 6..9 expected "units, tens, hundreds and descending million/thousand groups"
-probe fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development
-  quantity 50 Percent 0..14
-  quantity 50 Percent 16..19
-  decimal err NUM002 UnexpectedToken candidate 0..87 span 14..15 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..87 span 15..16 expected "an amount in pounds and pence in words"
-probe fifty per cent (50%) of the Contributions Indexed Linked on Commencement of Development;
-  quantity 50 Percent 0..14
-  quantity 50 Percent 16..19
-  decimal err NUM002 UnexpectedToken candidate 0..88 span 14..15 expected "a single decimal number"
-  amount err NUM002 UnexpectedToken candidate 0..88 span 15..16 expected "an amount in pounds and pence in words"
 probe fifty per cent and payable on commencement
   quantity 50 Percent 0..14
   decimal err NUM002 UnexpectedToken candidate 0..42 span 14..15 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..42 span 19..26 expected "an amount in pounds and pence in words"
+probe fifty thousand pounds
+  quantity 50000 Gbp 0..21
+  decimal err NUM002 UnexpectedToken candidate 0..21 span 20..21 expected "a single decimal number"
+  amount ok 50000
 probe fifty thousand, payable
   quantity 50000 Count 0..14
   decimal err NUM002 UnexpectedToken candidate 0..23 span 14..15 expected "a single decimal number"
   amount err NUM002 UnexpectedToken candidate 0..23 span 14..15 expected "an amount in pounds and pence in words"
-probe fifty two thousand five hundred pounds
-  quantity 52500 Gbp 0..38
-  decimal err NUM002 UnexpectedToken candidate 0..38 span 37..38 expected "a single decimal number"
-  amount ok 52500
 probe fifty%
   quantity 50 Percent 0..6
   decimal err NUM002 UnexpectedToken candidate 0..6 span 5..6 expected "a single decimal number"
@@ -1123,30 +497,10 @@ probe five
   quantity 5 Count 0..4
   decimal err NUM002 UnexpectedToken candidate 0..4 span 3..4 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..4 span 4..4 expected "units, tens, hundreds and descending million/thousand groups"
-probe five hundred and eighty one thousand and eleven pounds
-  quantity 581011 Gbp 0..54
-  decimal err NUM002 UnexpectedToken candidate 0..54 span 53..54 expected "a single decimal number"
-  amount ok 581011
 probe five million and three hundred and thirty six thousand and five hundred
   quantity 5336500 Count 0..71
   decimal err NUM002 UnexpectedToken candidate 0..71 span 70..71 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..71 span 71..71 expected "units, tens, hundreds and descending million/thousand groups"
-probe five million and three hundred and thirty six thousand and five hundred pounds
-  quantity 5336500 Gbp 0..78
-  decimal err NUM002 UnexpectedToken candidate 0..78 span 77..78 expected "a single decimal number"
-  amount ok 5336500
-probe five thousand, five hundred and eighty pounds
-  quantity 5580 Gbp 0..45
-  decimal err NUM002 UnexpectedToken candidate 0..45 span 44..45 expected "a single decimal number"
-  amount ok 5580
-probe for construction of 75 residential dwellings
-  quantity 75 Count 20..22
-  decimal err NUM002 UnexpectedToken candidate 0..44 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..44 span 0..3 expected "an amount in pounds and pence in words"
-probe for the erection of 112 Dwellings
-  quantity 112 Count 20..23
-  decimal err NUM002 UnexpectedToken candidate 0..33 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..33 span 0..3 expected "an amount in pounds and pence in words"
 probe forty
   quantity 40 Count 0..5
   decimal err NUM002 UnexpectedToken candidate 0..5 span 4..5 expected "a single decimal number"
@@ -1159,14 +513,6 @@ probe four
   quantity 4 Count 0..4
   decimal err NUM002 UnexpectedToken candidate 0..4 span 3..4 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..4 span 4..4 expected "units, tens, hundreds and descending million/thousand groups"
-probe four hundred and fifty thousand pounds
-  quantity 450000 Gbp 0..38
-  decimal err NUM002 UnexpectedToken candidate 0..38 span 37..38 expected "a single decimal number"
-  amount ok 450000
-probe four hundred and seventy five thousand nine hundred and ninety one pounds
-  quantity 475991 Gbp 0..73
-  decimal err NUM002 UnexpectedToken candidate 0..73 span 72..73 expected "a single decimal number"
-  amount ok 475991
 probe fourteen
   quantity 14 Count 0..8
   decimal err NUM002 UnexpectedToken candidate 0..8 span 7..8 expected "a single decimal number"
@@ -1174,272 +520,89 @@ probe fourteen
 probe hello
   decimal err NUM002 UnexpectedToken candidate 0..5 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..5 span 0..5 expected "an amount in pounds and pence in words"
-probe in lieu of the provision of 4 Affordable Housing units on the Site as part of the Development
-  quantity 4 Count 28..29
-  decimal err NUM002 UnexpectedToken candidate 0..93 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..93 span 0..2 expected "an amount in pounds and pence in words"
-probe in so far as it relates to the Affordable Housing Land
-  decimal err NUM002 UnexpectedToken candidate 0..54 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..54 span 0..2 expected "an amount in pounds and pence in words"
-probe means 13 of the Affordable Housing Units as shown coloured blue on Plan 2
-  quantity 13 Count 6..8
-  quantity 2 Count 72..73
-  decimal err NUM002 UnexpectedToken candidate 0..73 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..73 span 0..5 expected "an amount in pounds and pence in words"
-probe means a financial contribution calculated at a rate of £366 per cubic
-  quantity 366 Gbp 55..60
-  decimal err NUM002 UnexpectedToken candidate 0..70 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..70 span 0..5 expected "an amount in pounds and pence in words"
-probe means a financial contribution calculated at a rate of £366 per cubic metre of shortfall in surface water attenuation storage
-  quantity 366 Gbp 55..60
-  decimal err NUM002 UnexpectedToken candidate 0..126 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..126 span 0..5 expected "an amount in pounds and pence in words"
-probe means a financial contribution of £73,100 (seventy three thousand one hundred pounds) Index Linked
-  quantity 73100 Gbp 34..42
-  quantity 73100 Gbp 44..85
-  decimal err NUM002 UnexpectedToken candidate 0..99 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..99 span 0..5 expected "an amount in pounds and pence in words"
-probe means a financial contribution of £73,100 (seventy three thousand one hundred pounds) Index Linked which may be payable by the Owner
-  quantity 73100 Gbp 34..42
-  quantity 73100 Gbp 44..85
-  decimal err NUM002 UnexpectedToken candidate 0..133 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..133 span 0..5 expected "an amount in pounds and pence in words"
-probe means a financial contribution that may arise pursuant to a Viability
-  decimal err NUM002 UnexpectedToken candidate 0..69 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..69 span 0..5 expected "an amount in pounds and pence in words"
-probe means a financial contribution that may arise pursuant to a Viability Review
+probe means a sum calculated in accordance with the formula in Schedule 2
+  quantity 2 Count 66..67
+  decimal err NUM002 UnexpectedToken candidate 0..67 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..67 span 0..5 expected "an amount in pounds and pence in words"
+probe means a sum not exceeding £150,000 (one hundred and fifty thousand pounds)
+  quantity 150000 Gbp 26..35
+  quantity 150000 Gbp 37..74
+  decimal err NUM002 UnexpectedToken candidate 0..75 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..75 span 0..5 expected "an amount in pounds and pence in words"
+probe means the 12 Residential Units (30 Habitable Rooms) to be disposed of on a Shared Ownership Lease
+  quantity 12 Count 10..12
+  quantity 30 Count 32..34
+  decimal err NUM002 UnexpectedToken candidate 0..97 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..97 span 0..5 expected "an amount in pounds and pence in words"
+probe means the 15 dwellings to be let at Affordable Rent
+  quantity 15 Count 10..12
+  decimal err NUM002 UnexpectedToken candidate 0..51 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..51 span 0..5 expected "an amount in pounds and pence in words"
+probe means the 24 Residential Units (70 Habitable Rooms) to be let at Social Rent
+  quantity 24 Count 10..12
+  quantity 70 Count 32..34
   decimal err NUM002 UnexpectedToken candidate 0..76 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..76 span 0..5 expected "an amount in pounds and pence in words"
-probe means a financial contribution that may arise pursuant to a Viability Review as referred to in paragraph 5.8 of Schedule 4 to be paid to the Council
-  quantity 5.8 Count 105..108
-  quantity 4 Count 121..122
-  decimal err NUM002 UnexpectedToken candidate 0..148 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..148 span 0..5 expected "an amount in pounds and pence in words"
-probe means a sum of up to a maximum £475,991.00 (four hundred and seventy five thousand nine hundred and ninety one pounds) Index Linked
-  quantity 475991.00 Gbp 31..43
-  quantity 475991 Gbp 45..118
-  decimal err NUM002 UnexpectedToken candidate 0..132 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..132 span 0..5 expected "an amount in pounds and pence in words"
-probe means save where agreed otherwise the six (6) Affordable Housing Units as shown coloured pink on Plan 2
-  quantity 6 Count 38..41
-  quantity 6 Count 43..44
-  quantity 2 Count 102..103
-  decimal err NUM002 UnexpectedToken candidate 0..103 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..103 span 0..5 expected "an amount in pounds and pence in words"
-probe means the 177 Residential Units of Market Housing comprised within the Development;
-  quantity 177 Count 10..13
-  decimal err NUM002 UnexpectedToken candidate 0..83 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..83 span 0..5 expected "an amount in pounds and pence in words"
-probe means the 18 Residential Units (provided as 7 one bedroom units, 5 two bedroom units and 6 three bedroom units (59 Habitable Rooms))
-  quantity 18 Count 10..12
-  quantity 7 Count 44..45
-  quantity 1 Count 46..49
-  quantity 5 Count 65..66
-  quantity 2 Count 67..70
-  quantity 6 Count 89..90
-  quantity 3 Count 91..96
-  quantity 59 Count 112..114
-  decimal err NUM002 UnexpectedToken candidate 0..132 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..132 span 0..5 expected "an amount in pounds and pence in words"
-probe means the 18 Residential Units (provided as 7 one bedroom units, 5 two bedroom units and 6 three bedroom units (59 Habitable Rooms)) to be provided in the Tower Block as Intermediate Housing;
-  quantity 18 Count 10..12
-  quantity 7 Count 44..45
-  quantity 1 Count 46..49
-  quantity 5 Count 65..66
-  quantity 2 Count 67..70
-  quantity 6 Count 89..90
-  quantity 3 Count 91..96
-  quantity 59 Count 112..114
-  decimal err NUM002 UnexpectedToken candidate 0..191 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..191 span 0..5 expected "an amount in pounds and pence in words"
-probe means the 58 Residential Units (made up of 10 one bedroom units, 24 two bedroom units and 24 three bedroom units (212) Habitable Rooms))
-  quantity 58 Count 10..12
-  quantity 10 Count 43..45
-  quantity 1 Count 46..49
-  quantity 24 Count 65..67
-  quantity 2 Count 68..71
-  quantity 24 Count 90..92
-  quantity 3 Count 93..98
-  quantity 212 Count 114..117
-  decimal err NUM002 UnexpectedToken candidate 0..136 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..136 span 0..5 expected "an amount in pounds and pence in words"
-probe means the 58 Residential Units (made up of 10 one bedroom units, 24 two bedroom units and 24 three bedroom units (212) Habitable Rooms)) to be provided in the Southern Block as Social Rented Housing;
-  quantity 58 Count 10..12
-  quantity 10 Count 43..45
-  quantity 1 Count 46..49
-  quantity 24 Count 65..67
-  quantity 2 Count 68..71
-  quantity 24 Count 90..92
-  quantity 3 Count 93..98
-  quantity 212 Count 114..117
-  decimal err NUM002 UnexpectedToken candidate 0..199 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..199 span 0..5 expected "an amount in pounds and pence in words"
-probe means the 76 Residential Units (271 Habitable Rooms) to be
-  quantity 76 Count 10..12
-  quantity 271 Count 32..35
-  decimal err NUM002 UnexpectedToken candidate 0..58 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..58 span 0..5 expected "an amount in pounds and pence in words"
-probe means the 76 Residential Units (271 Habitable Rooms) to be constructed upon the Site in accordance with the Approved Affordable Housing Mix
-  quantity 76 Count 10..12
-  quantity 271 Count 32..35
-  decimal err NUM002 UnexpectedToken candidate 0..139 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..139 span 0..5 expected "an amount in pounds and pence in words"
-probe means the contribution of £120,120.00 (one hundred and twenty thousand one hundred and twenty pounds)
-  quantity 120120.00 Gbp 26..38
-  quantity 120120 Gbp 40..101
-  decimal err NUM002 UnexpectedToken candidate 0..102 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..102 span 0..5 expected "an amount in pounds and pence in words"
-probe means the contribution of £185,700.00 (one hundred and eighty five thousand seven hundred pounds)
-  quantity 185700.00 Gbp 26..38
-  quantity 185700 Gbp 40..97
-  decimal err NUM002 UnexpectedToken candidate 0..98 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..98 span 0..5 expected "an amount in pounds and pence in words"
-probe means the contribution of £55,620.00 (fifty five thousand, six hundred and twenty pounds)
-  quantity 55620.00 Gbp 26..37
-  quantity 55620 Gbp 39..89
-  decimal err NUM002 UnexpectedToken candidate 0..90 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..90 span 0..5 expected "an amount in pounds and pence in words"
-probe means the contribution of £5580.00 (five thousand, five hundred and eighty pounds)
-  quantity 5580.00 Gbp 26..35
-  quantity 5580 Gbp 37..82
-  decimal err NUM002 UnexpectedToken candidate 0..83 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..83 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum as calculated in accordance with the formula in paragraph 3.6 of Part 1 of Schedule 9
-  quantity 3.6 Count 72..75
-  quantity 1 Count 84..85
-  quantity 9 Count 98..99
-  decimal err NUM002 UnexpectedToken candidate 0..99 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..99 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked
-  quantity 10058.60 Gbp 17..28
-  quantity 10058.60 Gbp 30..81
-  decimal err NUM002 UnexpectedToken candidate 0..95 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..95 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £10,058.60 (ten thousand and fifty eight pounds and sixty pence) Index Linked to be paid by the Owner to the Council
-  quantity 10058.60 Gbp 17..28
-  quantity 10058.60 Gbp 30..81
-  decimal err NUM002 UnexpectedToken candidate 0..134 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..134 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £10,120 (ten thousand and one hundred and twenty pounds) Index Linked
-  quantity 10120 Gbp 17..25
-  quantity 10120 Gbp 27..73
-  decimal err NUM002 UnexpectedToken candidate 0..87 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..87 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £10,120 (ten thousand and one hundred and twenty pounds) Index Linked to be paid by the Owner to the Council
-  quantity 10120 Gbp 17..25
-  quantity 10120 Gbp 27..73
-  decimal err NUM002 UnexpectedToken candidate 0..126 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..126 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £115,200 payable towards the Goodwin Academy expansion or Sir Roger Manwood's School expansion.
-  quantity 115200 Gbp 17..26
-  decimal err NUM002 UnexpectedToken candidate 0..113 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..113 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £12,650 (twelve thousand and six hundred and fifty pounds) Index Linked
-  quantity 12650 Gbp 17..25
-  quantity 12650 Gbp 27..75
+probe means the 25 dwellings comprising Affordable Rent Units and First Homes
+  quantity 25 Count 10..12
+  decimal err NUM002 UnexpectedToken candidate 0..71 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..71 span 0..5 expected "an amount in pounds and pence in words"
+probe means the 36 Residential Units (100 Habitable Rooms) to be provided as Affordable Housing
+  quantity 36 Count 10..12
+  quantity 100 Count 32..35
   decimal err NUM002 UnexpectedToken candidate 0..89 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..89 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £12,650 (twelve thousand and six hundred and fifty pounds) Index Linked to be paid by the Owner to the Council
-  quantity 12650 Gbp 17..25
-  quantity 12650 Gbp 27..75
-  decimal err NUM002 UnexpectedToken candidate 0..128 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..128 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £16,913.26 (sixteen thousand nine hundred and thirteen pounds and twenty six pence) Index Linked
-  quantity 16913.26 Gbp 17..28
-  quantity 16913.26 Gbp 30..100
-  decimal err NUM002 UnexpectedToken candidate 0..114 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..114 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £16,913.26 (sixteen thousand nine hundred and thirteen pounds and twenty six pence) Index Linked to be paid by the Owner
-  quantity 16913.26 Gbp 17..28
-  quantity 16913.26 Gbp 30..100
-  decimal err NUM002 UnexpectedToken candidate 0..138 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..138 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £20,220.00 (twenty thousand two hundred and twenty pounds)
-  quantity 20220.00 Gbp 17..28
-  quantity 20220 Gbp 30..75
-  decimal err NUM002 UnexpectedToken candidate 0..76 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..76 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £20,580.00 (twenty thousand five hundred and eighty pounds)
-  quantity 20580.00 Gbp 17..28
-  quantity 20580 Gbp 30..76
-  decimal err NUM002 UnexpectedToken candidate 0..77 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..77 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £259,552.00 (Two hundred and fifty nine thousand and five hundred and fifty two pounds ) Index Linked
-  quantity 259552.00 Gbp 17..29
-  quantity 259552 Gbp 31..104
-  decimal err NUM002 UnexpectedToken candidate 0..119 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..119 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £259,552.00 (Two hundred and fifty nine thousand and five hundred and fifty two pounds ) Index Linked to be paid by the Owner
-  quantity 259552.00 Gbp 17..29
-  quantity 259552 Gbp 31..104
-  decimal err NUM002 UnexpectedToken candidate 0..143 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..143 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £52,500.00 (fifty two thousand five hundred pounds)
-  quantity 52500.00 Gbp 17..28
-  quantity 52500 Gbp 30..68
-  decimal err NUM002 UnexpectedToken candidate 0..69 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..69 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £683,100.00 (six hundred and eighty three thousand and one hundred pounds)
-  quantity 683100.00 Gbp 17..29
-  quantity 683100 Gbp 31..91
-  decimal err NUM002 UnexpectedToken candidate 0..92 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..92 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sum of £683,100.00 (six hundred and eighty three thousand and one hundred pounds) (or such lesser amount as may be specified by the Director of Planning
-  quantity 683100.00 Gbp 17..29
-  quantity 683100 Gbp 31..91
-  decimal err NUM002 UnexpectedToken candidate 0..163 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..163 span 0..5 expected "an amount in pounds and pence in words"
-probe means the sums as calculated by the Council in accordance with the formula in paragraph 1.6 of Part 1 of Schedule 9
-  quantity 1.6 Count 88..91
-  quantity 1 Count 100..101
-  quantity 9 Count 114..115
-  decimal err NUM002 UnexpectedToken candidate 0..115 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..115 span 0..5 expected "an amount in pounds and pence in words"
-probe means £14,000.00 (Fourteen thousand pounds)
-  quantity 14000.00 Gbp 6..17
-  quantity 14000 Gbp 19..43
-  decimal err NUM002 UnexpectedToken candidate 0..44 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..44 span 0..5 expected "an amount in pounds and pence in words"
-probe means £14,625.00 (Fourteen thousand six hundred and twenty five pounds)
-  quantity 14625.00 Gbp 6..17
-  quantity 14625 Gbp 19..71
-  decimal err NUM002 UnexpectedToken candidate 0..72 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..72 span 0..5 expected "an amount in pounds and pence in words"
-probe means £212,500.00 (Two hundred and twelve thousand five hundred pounds)
-  quantity 212500.00 Gbp 6..18
-  quantity 212500 Gbp 20..71
-  decimal err NUM002 UnexpectedToken candidate 0..72 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..72 span 0..5 expected "an amount in pounds and pence in words"
-probe means £25,275.00 (Twenty five thousand two hundred and seventy five pounds)
-  quantity 25275.00 Gbp 6..17
-  quantity 25275 Gbp 19..75
-  decimal err NUM002 UnexpectedToken candidate 0..76 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..76 span 0..5 expected "an amount in pounds and pence in words"
-probe means £41,062.00 (Forty one thousand and sixty two pounds)
-  quantity 41062.00 Gbp 6..17
-  quantity 41062 Gbp 19..58
-  decimal err NUM002 UnexpectedToken candidate 0..59 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..59 span 0..5 expected "an amount in pounds and pence in words"
-probe means £48,375.00 (Forty eight thousand three hundred and seventy five pounds)
-  quantity 48375.00 Gbp 6..17
-  quantity 48375 Gbp 19..77
-  decimal err NUM002 UnexpectedToken candidate 0..78 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..78 span 0..5 expected "an amount in pounds and pence in words"
-probe means £5,400.00 (Five thousand four hundred pounds)
-  quantity 5400.00 Gbp 6..16
-  quantity 5400 Gbp 18..51
+probe means the 70 dwellings to be sold on the open market
+  quantity 70 Count 10..12
   decimal err NUM002 UnexpectedToken candidate 0..52 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..52 span 0..5 expected "an amount in pounds and pence in words"
-probe means £56,000.00 (Fifty six thousand pounds)
-  quantity 56000.00 Gbp 6..17
-  quantity 56000 Gbp 19..44
-  decimal err NUM002 UnexpectedToken candidate 0..45 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..45 span 0..5 expected "an amount in pounds and pence in words"
-probe means: £212,500.00 (Two hundred and twelve thousand five hundred pounds)
-  quantity 212500.00 Gbp 7..19
-  quantity 212500 Gbp 21..72
-  decimal err NUM002 UnexpectedToken candidate 0..73 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..73 span 0..5 expected "an amount in pounds and pence in words"
+probe means the 84 Residential Units to be sold on the open market
+  quantity 84 Count 10..12
+  decimal err NUM002 UnexpectedToken candidate 0..60 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..60 span 0..5 expected "an amount in pounds and pence in words"
+probe means the sum of £10,500 (ten thousand pounds)
+  quantity 10500 Gbp 17..25
+  quantity 10000 Gbp 27..46
+  decimal err NUM002 UnexpectedToken candidate 0..47 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..47 span 0..5 expected "an amount in pounds and pence in words"
+probe means the sum of £12,500.50 (twelve thousand five hundred pounds and fifty pence)
+  quantity 12500.50 Gbp 17..28
+  quantity 12500.50 Gbp 30..81
+  decimal err NUM002 UnexpectedToken candidate 0..82 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..82 span 0..5 expected "an amount in pounds and pence in words"
+probe means the sum of £2,400 (two thousand four hundred pounds)
+  quantity 2400 Gbp 17..24
+  quantity 2400 Gbp 26..58
+  decimal err NUM002 UnexpectedToken candidate 0..59 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..59 span 0..5 expected "an amount in pounds and pence in words"
+probe means the sum of £20,000 (twenty thousand pounds)
+  quantity 20000 Gbp 17..25
+  quantity 20000 Gbp 27..49
+  decimal err NUM002 UnexpectedToken candidate 0..50 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..50 span 0..5 expected "an amount in pounds and pence in words"
+probe means the sum of £30,000 (thirty thousand pounds)
+  quantity 30000 Gbp 17..25
+  quantity 30000 Gbp 27..49
+  decimal err NUM002 UnexpectedToken candidate 0..50 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..50 span 0..5 expected "an amount in pounds and pence in words"
+probe means the sum of £45,000 (forty five thousand pounds) Index Linked
+  quantity 45000 Gbp 17..25
+  quantity 45000 Gbp 27..53
+  decimal err NUM002 UnexpectedToken candidate 0..67 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..67 span 0..5 expected "an amount in pounds and pence in words"
+probe means the sum of £50,000 (fifty thousand pounds)
+  quantity 50000 Gbp 17..25
+  quantity 50000 Gbp 27..48
+  decimal err NUM002 UnexpectedToken candidate 0..49 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..49 span 0..5 expected "an amount in pounds and pence in words"
+probe means the sum of £8,000 (eight thousand pounds) payable only if the Travel Plan targets are not met
+  quantity 8000 Gbp 17..24
+  quantity 8000 Gbp 26..47
+  decimal err NUM002 UnexpectedToken candidate 0..100 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..100 span 0..5 expected "an amount in pounds and pence in words"
+probe means those dwellings to be sold as First Homes
+  decimal err NUM002 UnexpectedToken candidate 0..47 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..47 span 0..5 expected "an amount in pounds and pence in words"
 probe nine
   quantity 9 Count 0..4
   decimal err NUM002 UnexpectedToken candidate 0..4 span 3..4 expected "a single decimal number"
@@ -1456,21 +619,9 @@ probe ninety hundred hundred hundred hundred hundred hundred hundred hundred hun
   error NUM003 UnsupportedNumberOrder candidate 0..86 span 7..14 expected "units, tens, hundreds and descending million/thousand groups"
   decimal err NUM003 UnsupportedNumberOrder candidate 0..86 span 7..14 expected "units, tens, hundreds and descending million/thousand groups"
   amount err NUM003 UnsupportedNumberOrder candidate 0..86 span 7..14 expected "units, tens, hundreds and descending million/thousand groups"
-probe not to Implement the Development until the Green Run-off Rate Off-Set Contribution has been paid to the Council in full
-  decimal err NUM002 UnexpectedToken candidate 0..119 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..119 span 0..3 expected "an amount in pounds and pence in words"
-probe on or before Commencement of Development
-  decimal err NUM002 UnexpectedToken candidate 0..40 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..40 span 0..2 expected "an amount in pounds and pence in words"
-probe on or before Implementation
-  decimal err NUM002 UnexpectedToken candidate 0..27 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..27 span 0..2 expected "an amount in pounds and pence in words"
-probe on or before Occupation
-  decimal err NUM002 UnexpectedToken candidate 0..23 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..23 span 0..2 expected "an amount in pounds and pence in words"
-probe on or before first Occupation of any part of the Development
-  decimal err NUM002 UnexpectedToken candidate 0..60 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..60 span 0..2 expected "an amount in pounds and pence in words"
+probe on demand
+  decimal err NUM002 UnexpectedToken candidate 0..9 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..9 span 0..2 expected "an amount in pounds and pence in words"
 probe one
   quantity 1 Count 0..3
   decimal err NUM002 UnexpectedToken candidate 0..3 span 2..3 expected "a single decimal number"
@@ -1479,10 +630,6 @@ probe one hundred and
   error NUM002 IncompleteExpression candidate 0..15 span 12..15 expected "units, tens, hundreds and descending million/thousand groups"
   decimal err NUM002 IncompleteExpression candidate 0..15 span 12..15 expected "units, tens, hundreds and descending million/thousand groups"
   amount err NUM002 IncompleteExpression candidate 0..15 span 12..15 expected "units, tens, hundreds and descending million/thousand groups"
-probe one hundred and eighty five thousand seven hundred pounds
-  quantity 185700 Gbp 0..57
-  decimal err NUM002 UnexpectedToken candidate 0..57 span 56..57 expected "a single decimal number"
-  amount ok 185700
 probe one hundred and fifty thousand pounds
   quantity 150000 Gbp 0..37
   decimal err NUM002 UnexpectedToken candidate 0..37 span 36..37 expected "a single decimal number"
@@ -1491,26 +638,10 @@ probe one hundred and five
   quantity 105 Count 0..20
   decimal err NUM002 UnexpectedToken candidate 0..20 span 19..20 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..20 span 20..20 expected "units, tens, hundreds and descending million/thousand groups"
-probe one hundred and seventy thousand, five hundred and seventy pounds
-  quantity 170570 Gbp 0..65
-  decimal err NUM002 UnexpectedToken candidate 0..65 span 64..65 expected "a single decimal number"
-  amount ok 170570
-probe one hundred and twenty four thousand two hundred and four pounds
-  quantity 124204 Gbp 0..64
-  decimal err NUM002 UnexpectedToken candidate 0..64 span 63..64 expected "a single decimal number"
-  amount ok 124204
-probe one hundred and twenty thousand one hundred and twenty pounds
-  quantity 120120 Gbp 0..61
-  decimal err NUM002 UnexpectedToken candidate 0..61 span 60..61 expected "a single decimal number"
-  amount ok 120120
 probe one million, six hundred and eleven thousand and five hundred and two
   quantity 1611502 Count 0..69
   decimal err NUM002 UnexpectedToken candidate 0..69 span 68..69 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..69 span 69..69 expected "units, tens, hundreds and descending million/thousand groups"
-probe one million, six hundred and eleven thousand and five hundred and two pounds
-  quantity 1611502 Gbp 0..76
-  decimal err NUM002 UnexpectedToken candidate 0..76 span 75..76 expected "a single decimal number"
-  amount ok 1611502
 probe one million, six hundred and two pounds
   quantity 1000602 Gbp 0..39
   decimal err NUM002 UnexpectedToken candidate 0..39 span 38..39 expected "a single decimal number"
@@ -1536,20 +667,31 @@ probe one,,two
   error NUM002 UnexpectedToken candidate 5..8 span 4..5 expected "a number set apart from surrounding text"
   decimal err NUM002 UnexpectedToken candidate 0..3 span 3..4 expected "a number set apart from surrounding text"
   amount err NUM002 UnexpectedToken candidate 0..8 span 3..4 expected "an amount in pounds and pence in words"
-probe payable on Completion of Construction of all of the Dwellings comprised in the first Block or Phase to be Completed
-  decimal err NUM002 UnexpectedToken candidate 0..115 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..115 span 0..7 expected "an amount in pounds and pence in words"
-probe prior to Occupation of the final Dwelling a reconciliation calculation shall be performed
-  decimal err NUM002 UnexpectedToken candidate 0..89 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..89 span 0..5 expected "an amount in pounds and pence in words"
-probe prior to Occupation of the final Dwelling a reconciliation calculation shall be performed and Alpha shall pay all contributions
-  decimal err NUM002 UnexpectedToken candidate 0..127 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..127 span 0..5 expected "an amount in pounds and pence in words"
-probe pursuant to section 106 of the Town and Country Planning Act 1990 (as amended)
-  quantity 106 Count 20..23
-  quantity 1990 Count 61..65
-  decimal err NUM002 UnexpectedToken candidate 0..78 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..78 span 0..8 expected "an amount in pounds and pence in words"
+probe payable only if the Travel Plan targets are not met
+  decimal err NUM002 UnexpectedToken candidate 0..51 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..51 span 0..7 expected "an amount in pounds and pence in words"
+probe prior to Commencement
+  decimal err NUM002 UnexpectedToken candidate 0..21 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..21 span 0..5 expected "an amount in pounds and pence in words"
+probe prior to Commencement of Development
+  decimal err NUM002 UnexpectedToken candidate 0..36 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..36 span 0..5 expected "an amount in pounds and pence in words"
+probe prior to Occupation of the 10th Dwelling
+  quantity 10 Count 27..31
+  decimal err NUM002 UnexpectedToken candidate 0..40 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..40 span 0..5 expected "an amount in pounds and pence in words"
+probe prior to Occupation of the 30th Dwelling
+  quantity 30 Count 27..31
+  decimal err NUM002 UnexpectedToken candidate 0..40 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..40 span 0..5 expected "an amount in pounds and pence in words"
+probe prior to Occupation of the 50th dwelling
+  quantity 50 Count 27..31
+  decimal err NUM002 UnexpectedToken candidate 0..40 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..40 span 0..5 expected "an amount in pounds and pence in words"
+probe replacing it with the number "18"
+  quantity 18 Count 30..32
+  decimal err NUM002 UnexpectedToken candidate 0..33 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..33 span 0..9 expected "an amount in pounds and pence in words"
 probe see fif5ty and paragraph1of
   error NUM005 MixedLettersAndDigits candidate 4..10 span 4..10 expected "directly readable digits or number words"
   error NUM005 MixedLettersAndDigits candidate 15..27 span 15..27 expected "directly readable digits or number words"
@@ -1559,10 +701,6 @@ probe seven
   quantity 7 Count 0..5
   decimal err NUM002 UnexpectedToken candidate 0..5 span 4..5 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..5 span 5..5 expected "units, tens, hundreds and descending million/thousand groups"
-probe seven thousand pounds
-  quantity 7000 Gbp 0..21
-  decimal err NUM002 UnexpectedToken candidate 0..21 span 20..21 expected "a single decimal number"
-  amount ok 7000
 probe seventeen
   quantity 17 Count 0..9
   decimal err NUM002 UnexpectedToken candidate 0..9 span 8..9 expected "a single decimal number"
@@ -1571,106 +709,6 @@ probe seventy
   quantity 70 Count 0..7
   decimal err NUM002 UnexpectedToken candidate 0..7 span 6..7 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..7 span 7..7 expected "units, tens, hundreds and descending million/thousand groups"
-probe seventy three thousand one hundred pounds
-  quantity 73100 Gbp 0..41
-  decimal err NUM002 UnexpectedToken candidate 0..41 span 40..41 expected "a single decimal number"
-  amount ok 73100
-probe shall be Intermediate Housing Shared Ownership tenure and
-  decimal err NUM002 UnexpectedToken candidate 0..57 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..57 span 0..5 expected "an amount in pounds and pence in words"
-probe shall be amended so that the reference to paragraph 3.5 shall be replaced with reference to paragraph 3.6.
-  quantity 3.5 Count 52..55
-  quantity 3.6 Count 102..105
-  decimal err NUM002 UnexpectedToken candidate 0..106 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..106 span 0..5 expected "an amount in pounds and pence in words"
-probe shall be payable within 20 Working Days of such agreement or determination
-  quantity 20 Count 24..26
-  decimal err NUM002 UnexpectedToken candidate 0..74 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..74 span 0..5 expected "an amount in pounds and pence in words"
-probe shall be payable within 20 Working Days of such agreement or determination.
-  quantity 20 Count 24..26
-  decimal err NUM002 UnexpectedToken candidate 0..75 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..75 span 0..5 expected "an amount in pounds and pence in words"
-probe shall be the sum of £150,000 (one hundred and fifty thousand pounds) Index Linked
-  quantity 150000 Gbp 20..29
-  quantity 150000 Gbp 31..68
-  decimal err NUM002 UnexpectedToken candidate 0..82 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..82 span 0..5 expected "an amount in pounds and pence in words"
-probe shall be the sum of £150,000 (one hundred and fifty thousand pounds) Index Linked calculated in accordance with the provisions of Policy OB6 of the SPD,
-  quantity 150000 Gbp 20..29
-  quantity 150000 Gbp 31..68
-  error NUM005 MixedLettersAndDigits candidate 138..141 span 138..141 expected "directly readable digits or number words"
-  decimal err NUM005 MixedLettersAndDigits candidate 138..141 span 138..141 expected "directly readable digits or number words"
-  amount err NUM005 MixedLettersAndDigits candidate 138..141 span 138..141 expected "directly readable digits or number words"
-probe shall be the sum of £170,570 (one hundred and seventy thousand, five hundred and seventy pounds) Index Linked
-  quantity 170570 Gbp 20..29
-  quantity 170570 Gbp 31..96
-  decimal err NUM002 UnexpectedToken candidate 0..110 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..110 span 0..5 expected "an amount in pounds and pence in words"
-probe shall be the sum of £170,570 (one hundred and seventy thousand, five hundred and seventy pounds) Index Linked calculated in accordance with Policy OB2 of the SPD,
-  quantity 170570 Gbp 20..29
-  quantity 170570 Gbp 31..96
-  error NUM005 MixedLettersAndDigits candidate 148..151 span 148..151 expected "directly readable digits or number words"
-  decimal err NUM005 MixedLettersAndDigits candidate 148..151 span 148..151 expected "directly readable digits or number words"
-  amount err NUM005 MixedLettersAndDigits candidate 148..151 span 148..151 expected "directly readable digits or number words"
-probe shall be the sum of £252,921 (two hundred and fifty two thousand and nine hundred and twenty one pounds Index Linked
-  quantity 252921 Gbp 20..29
-  quantity 252921 Gbp 31..104
-  decimal err NUM002 UnexpectedToken candidate 0..117 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..117 span 0..5 expected "an amount in pounds and pence in words"
-probe shall be the sum of £252,921 (two hundred and fifty two thousand and nine hundred and twenty one pounds Index Linked calculated in accordance with the provisions of Policy OB2 of the SPD,
-  quantity 252921 Gbp 20..29
-  quantity 252921 Gbp 31..104
-  error NUM005 MixedLettersAndDigits candidate 173..176 span 173..176 expected "directly readable digits or number words"
-  decimal err NUM005 MixedLettersAndDigits candidate 173..176 span 173..176 expected "directly readable digits or number words"
-  amount err NUM005 MixedLettersAndDigits candidate 173..176 span 173..176 expected "directly readable digits or number words"
-probe shall be the sum of £450,000 (four hundred and fifty thousand pounds) Index Linked
-  quantity 450000 Gbp 20..29
-  quantity 450000 Gbp 31..69
-  decimal err NUM002 UnexpectedToken candidate 0..83 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..83 span 0..5 expected "an amount in pounds and pence in words"
-probe shall be the sum of £450,000 (four hundred and fifty thousand pounds) Index Linked;
-  quantity 450000 Gbp 20..29
-  quantity 450000 Gbp 31..69
-  decimal err NUM002 UnexpectedToken candidate 0..84 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..84 span 0..5 expected "an amount in pounds and pence in words"
-probe shall be the sum of £581,011 (five hundred and eighty one thousand and eleven pounds) Index Linked
-  quantity 581011 Gbp 20..29
-  quantity 581011 Gbp 31..85
-  decimal err NUM002 UnexpectedToken candidate 0..99 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..99 span 0..5 expected "an amount in pounds and pence in words"
-probe shall be the sum of £581,011 (five hundred and eighty one thousand and eleven pounds) Index Linked calculated in accordance with the provisions of Policy OB3 of the SPD,
-  quantity 581011 Gbp 20..29
-  quantity 581011 Gbp 31..85
-  error NUM005 MixedLettersAndDigits candidate 155..158 span 155..158 expected "directly readable digits or number words"
-  decimal err NUM005 MixedLettersAndDigits candidate 155..158 span 155..158 expected "directly readable digits or number words"
-  amount err NUM005 MixedLettersAndDigits candidate 155..158 span 155..158 expected "directly readable digits or number words"
-probe shall be the sum of £7,000 (seven thousand pounds) Index Linked
-  quantity 7000 Gbp 20..27
-  quantity 7000 Gbp 29..50
-  decimal err NUM002 UnexpectedToken candidate 0..64 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..64 span 0..5 expected "an amount in pounds and pence in words"
-probe shall be the sum of £7,000 (seven thousand pounds) Index Linked,
-  quantity 7000 Gbp 20..27
-  quantity 7000 Gbp 29..50
-  decimal err NUM002 UnexpectedToken candidate 0..65 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..65 span 0..5 expected "an amount in pounds and pence in words"
-probe shall instead pay to the Council the Affordable Housing Contribution in the following instalments
-  decimal err NUM002 UnexpectedToken candidate 0..97 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..97 span 0..5 expected "an amount in pounds and pence in words"
-probe shall make provision for 19 (nineteen) Affordable Housing Units
-  quantity 19 Count 25..27
-  quantity 19 Count 29..37
-  decimal err NUM002 UnexpectedToken candidate 0..63 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..63 span 0..5 expected "an amount in pounds and pence in words"
-probe shall no longer apply to the Development carried out and Occupations under the Reserved Matters Approval in respect of the Phase 1 Development Site
-  quantity 1 Count 129..130
-  decimal err NUM002 UnexpectedToken candidate 0..147 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..147 span 0..5 expected "an amount in pounds and pence in words"
-probe shall not Occupy or permit Occupation of more than 50 per cent of the Market Housing Units
-  quantity 50 Percent 51..62
-  decimal err NUM002 UnexpectedToken candidate 0..90 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..90 span 0..5 expected "an amount in pounds and pence in words"
 probe six
   quantity 6 Count 0..3
   decimal err NUM002 UnexpectedToken candidate 0..3 span 2..3 expected "a single decimal number"
@@ -1679,18 +717,10 @@ probe six hundred and eighty three thousand and one hundred
   quantity 683100 Count 0..53
   decimal err NUM002 UnexpectedToken candidate 0..53 span 52..53 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..53 span 53..53 expected "units, tens, hundreds and descending million/thousand groups"
-probe six hundred and eighty three thousand and one hundred pounds
-  quantity 683100 Gbp 0..60
-  decimal err NUM002 UnexpectedToken candidate 0..60 span 59..60 expected "a single decimal number"
-  amount ok 683100
 probe sixteen
   quantity 16 Count 0..7
   decimal err NUM002 UnexpectedToken candidate 0..7 span 6..7 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..7 span 7..7 expected "units, tens, hundreds and descending million/thousand groups"
-probe sixteen thousand nine hundred and thirteen pounds and twenty six pence
-  quantity 16913.26 Gbp 0..70
-  decimal err NUM002 UnexpectedToken candidate 0..70 span 69..70 expected "a single decimal number"
-  amount ok 16913.26
 probe sixty
   quantity 60 Count 0..5
   decimal err NUM002 UnexpectedToken candidate 0..5 span 4..5 expected "a single decimal number"
@@ -1748,145 +778,32 @@ probe ten poundsandtwentypence
   quantity 10.20 Gbp 0..24
   decimal err NUM002 UnexpectedToken candidate 0..24 span 23..24 expected "a single decimal number"
   amount ok 10.20
-probe ten thousand and fifty eight pounds and sixty pence
-  quantity 10058.60 Gbp 0..51
-  decimal err NUM002 UnexpectedToken candidate 0..51 span 50..51 expected "a single decimal number"
-  amount ok 10058.60
-probe ten thousand and one hundred and twenty pounds
-  quantity 10120 Gbp 0..46
-  decimal err NUM002 UnexpectedToken candidate 0..46 span 45..46 expected "a single decimal number"
-  amount ok 10120
-probe the 1 (one) Affordable Housing Unit which is to be provided at a Discounted Price
-  quantity 1 Count 4..5
-  quantity 1 Count 7..10
-  decimal err NUM002 UnexpectedToken candidate 0..81 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..81 span 0..3 expected "an amount in pounds and pence in words"
-probe the 1 (one) Affordable Housing Unit which is to be provided at a Discounted Price in accordance with Schedule 4.
-  quantity 1 Count 4..5
-  quantity 1 Count 7..10
-  quantity 4 Count 110..111
-  decimal err NUM002 UnexpectedToken candidate 0..112 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..112 span 0..3 expected "an amount in pounds and pence in words"
-probe the 177 Residential Units of Market Housing comprised
-  quantity 177 Count 4..7
-  decimal err NUM002 UnexpectedToken candidate 0..53 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..53 span 0..3 expected "an amount in pounds and pence in words"
+probe ten thousand pounds
+  quantity 10000 Gbp 0..19
+  decimal err NUM002 UnexpectedToken candidate 0..19 span 18..19 expected "a single decimal number"
+  amount ok 10000
 probe the 50th Dwelling
   quantity 50 Count 4..8
   decimal err NUM002 UnexpectedToken candidate 0..17 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..17 span 0..3 expected "an amount in pounds and pence in words"
-probe the Agreement dated 14 September 2015
-  quantity 14 Count 20..22
-  quantity 2015 Count 33..37
-  decimal err NUM002 UnexpectedToken candidate 0..37 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..37 span 0..3 expected "an amount in pounds and pence in words"
-probe the Health Contribution provisions as set out at Part 2 of Schedule 1 of this Deed shall apply
-  quantity 2 Count 54..55
-  quantity 1 Count 68..69
-  decimal err NUM002 UnexpectedToken candidate 0..94 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..94 span 0..3 expected "an amount in pounds and pence in words"
-probe the Owner shall pay to the Council the Affordable Housing Contribution in the following instalments:
-  decimal err NUM002 UnexpectedToken candidate 0..100 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..100 span 0..3 expected "an amount in pounds and pence in words"
-probe the Owner will pay the Default Employment in the End Use Contribution within 28 days of receiving written notice from the Council.
-  quantity 28 Count 77..79
-  decimal err NUM002 UnexpectedToken candidate 0..130 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..130 span 0..3 expected "an amount in pounds and pence in words"
-probe the Primary Education Contribution provisions as set out at Part 1 of Schedule 1 of this Deed shall apply
-  quantity 1 Count 65..66
-  quantity 1 Count 79..80
-  decimal err NUM002 UnexpectedToken candidate 0..105 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..105 span 0..3 expected "an amount in pounds and pence in words"
-probe the remaining 25% prior to Occupation of the 50th (fiftieth) Dwelling
-  quantity 25 Percent 14..17
-  quantity 50 Count 45..49
-  decimal err NUM002 UnexpectedToken candidate 0..69 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..69 span 0..3 expected "an amount in pounds and pence in words"
-probe the remaining 50% prior to Occupation of the 37th (thirty seventh) Dwelling
+probe the construction of 100 new homes
+  quantity 100 Count 20..23
+  decimal err NUM002 UnexpectedToken candidate 0..33 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..33 span 0..3 expected "an amount in pounds and pence in words"
+probe the erection of 120 residential dwellings
+  quantity 120 Count 16..19
+  decimal err NUM002 UnexpectedToken candidate 0..41 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..41 span 0..3 expected "an amount in pounds and pence in words"
+probe the remaining 50% (fifty per cent) prior to Occupation of the 60th Dwelling
   quantity 50 Percent 14..17
-  quantity 37 Count 45..49
-  quantity 30 Count 51..57
+  quantity 50 Percent 19..33
+  quantity 60 Count 62..66
   decimal err NUM002 UnexpectedToken candidate 0..75 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..75 span 0..3 expected "an amount in pounds and pence in words"
 probe the sum of ten pounds and payable
   quantity 10 Gbp 11..21
   decimal err NUM002 UnexpectedToken candidate 0..33 span 0..1 expected "a single decimal number"
   amount err NUM003 UnsupportedWord candidate 0..33 span 0..3 expected "an amount in pounds and pence in words"
-probe the sum of £1,611,502 (one million, six hundred and eleven thousand and five hundred and two pounds) Index Linked
-  quantity 1611502 Gbp 11..22
-  quantity 1611502 Gbp 24..100
-  decimal err NUM002 UnexpectedToken candidate 0..114 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..114 span 0..3 expected "an amount in pounds and pence in words"
-probe the sum of £1,611,502 (one million, six hundred and eleven thousand and five hundred and two pounds) Index Linked;
-  quantity 1611502 Gbp 11..22
-  quantity 1611502 Gbp 24..100
-  decimal err NUM002 UnexpectedToken candidate 0..115 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..115 span 0..3 expected "an amount in pounds and pence in words"
-probe the sum of £2,000 (two thousand pounds) per Market Dwelling to be paid to the Council in
-  quantity 2000 Gbp 11..18
-  quantity 2000 Gbp 20..39
-  decimal err NUM002 UnexpectedToken candidate 0..89 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..89 span 0..3 expected "an amount in pounds and pence in words"
-probe the sum of £2,000 (two thousand pounds) per Market Dwelling to be paid to the Council in accordance with Part 3 of Schedule 1
-  quantity 2000 Gbp 11..18
-  quantity 2000 Gbp 20..39
-  quantity 3 Count 111..112
-  quantity 1 Count 125..126
-  decimal err NUM002 UnexpectedToken candidate 0..126 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..126 span 0..3 expected "an amount in pounds and pence in words"
-probe the sum of £2,572 (two thousand five hundred and seventy two pounds) per Market Dwelling
-  quantity 2572 Gbp 11..18
-  quantity 2572 Gbp 20..68
-  decimal err NUM002 UnexpectedToken candidate 0..89 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..89 span 0..3 expected "an amount in pounds and pence in words"
-probe the sum of £2,572 (two thousand five hundred and seventy two pounds) per Market Dwelling to be paid by Alpha to the Council
-  quantity 2572 Gbp 11..18
-  quantity 2572 Gbp 20..68
-  decimal err NUM002 UnexpectedToken candidate 0..124 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..124 span 0..3 expected "an amount in pounds and pence in words"
-probe the sum of £224 per Market Dwelling to be
-  quantity 224 Gbp 11..16
-  decimal err NUM002 UnexpectedToken candidate 0..42 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..42 span 0..3 expected "an amount in pounds and pence in words"
-probe the sum of £224 per Market Dwelling to be paid by Alpha to the Council in accordance with Part 2 of Schedule 1 of this Deed
-  quantity 224 Gbp 11..16
-  quantity 2 Count 96..97
-  quantity 1 Count 110..111
-  decimal err NUM002 UnexpectedToken candidate 0..124 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..124 span 0..3 expected "an amount in pounds and pence in words"
-probe the sum of £45,000.00 (forty five thousand pounds) paid in lieu of the loss of 4 x Dwellings
-  quantity 45000.00 Gbp 11..22
-  quantity 45000 Gbp 24..50
-  quantity 4 Count 80..81
-  decimal err NUM002 UnexpectedToken candidate 0..93 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..93 span 0..3 expected "an amount in pounds and pence in words"
-probe the sum of £45,000.00 (forty five thousand pounds) paid in lieu of the loss of 4 x Dwellings for Affordable Housing
-  quantity 45000.00 Gbp 11..22
-  quantity 45000 Gbp 24..50
-  quantity 4 Count 80..81
-  decimal err NUM002 UnexpectedToken candidate 0..116 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..116 span 0..3 expected "an amount in pounds and pence in words"
-probe the sum of £6,000 per annum (being a
-  quantity 6000 Gbp 11..18
-  decimal err NUM002 UnexpectedToken candidate 0..37 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..37 span 0..3 expected "an amount in pounds and pence in words"
-probe the sum of £6,000 per annum (being a proportionate contribution by the
-  quantity 6000 Gbp 11..18
-  decimal err NUM002 UnexpectedToken candidate 0..71 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..71 span 0..3 expected "an amount in pounds and pence in words"
-probe the total amount of Affordable Housing Units on the Site shall be three Units as specified in Paragraph 1.2 of this Schedule
-  quantity 3 Count 66..71
-  quantity 1.2 Count 104..107
-  decimal err NUM002 UnexpectedToken candidate 0..124 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..124 span 0..3 expected "an amount in pounds and pence in words"
-probe the total amount of Affordable Housing Units on the Site shall be three Units as specified in Paragraph 1.2 of this Schedule.
-  quantity 3 Count 66..71
-  quantity 1.2 Count 104..107
-  decimal err NUM002 UnexpectedToken candidate 0..125 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..125 span 0..3 expected "an amount in pounds and pence in words"
-probe then the Owner shall pay to the Council the Affordable Housing Contribution in the following instalments
-  decimal err NUM002 UnexpectedToken candidate 0..104 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..104 span 0..4 expected "an amount in pounds and pence in words"
 probe thirteen
   quantity 13 Count 0..8
   decimal err NUM002 UnexpectedToken candidate 0..8 span 7..8 expected "a single decimal number"
@@ -1895,33 +812,26 @@ probe thirty
   quantity 30 Count 0..6
   decimal err NUM002 UnexpectedToken candidate 0..6 span 5..6 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..6 span 6..6 expected "units, tens, hundreds and descending million/thousand groups"
+probe thirty thousand pounds
+  quantity 30000 Gbp 0..22
+  decimal err NUM002 UnexpectedToken candidate 0..22 span 21..22 expected "a single decimal number"
+  amount ok 30000
 probe three
   quantity 3 Count 0..5
   decimal err NUM002 UnexpectedToken candidate 0..5 span 4..5 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..5 span 5..5 expected "units, tens, hundreds and descending million/thousand groups"
-probe to pay the Bus Contribution on or before first Occupation of any part of the Development
-  decimal err NUM002 UnexpectedToken candidate 0..88 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..88 span 0..2 expected "an amount in pounds and pence in words"
 probe twelve
   quantity 12 Count 0..6
   decimal err NUM002 UnexpectedToken candidate 0..6 span 5..6 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..6 span 6..6 expected "units, tens, hundreds and descending million/thousand groups"
-probe twelve thousand and six hundred and fifty pounds
-  quantity 12650 Gbp 0..48
-  decimal err NUM002 UnexpectedToken candidate 0..48 span 47..48 expected "a single decimal number"
-  amount ok 12650
+probe twelve thousand five hundred pounds and fifty pence
+  quantity 12500.50 Gbp 0..51
+  decimal err NUM002 UnexpectedToken candidate 0..51 span 50..51 expected "a single decimal number"
+  amount ok 12500.50
 probe twenty
   quantity 20 Count 0..6
   decimal err NUM002 UnexpectedToken candidate 0..6 span 5..6 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..6 span 6..6 expected "units, tens, hundreds and descending million/thousand groups"
-probe twenty thousand five hundred and eighty pounds
-  quantity 20580 Gbp 0..46
-  decimal err NUM002 UnexpectedToken candidate 0..46 span 45..46 expected "a single decimal number"
-  amount ok 20580
-probe twenty thousand two hundred and twenty pounds
-  quantity 20220 Gbp 0..45
-  decimal err NUM002 UnexpectedToken candidate 0..45 span 44..45 expected "a single decimal number"
-  amount ok 20220
 probe twenty#five
   error NUM002 UnexpectedToken candidate 0..6 span 6..7 expected "a number set apart from surrounding text"
   error NUM002 UnexpectedToken candidate 7..11 span 6..7 expected "a number set apart from surrounding text"
@@ -1949,90 +859,29 @@ probe two
   quantity 2 Count 0..3
   decimal err NUM002 UnexpectedToken candidate 0..3 span 2..3 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..3 span 3..3 expected "units, tens, hundreds and descending million/thousand groups"
-probe two hundred and fifty two thousand and nine hundred and twenty one pounds
-  quantity 252921 Gbp 0..73
-  decimal err NUM002 UnexpectedToken candidate 0..73 span 72..73 expected "a single decimal number"
-  amount ok 252921
 probe two thousand and one
   quantity 2001 Count 0..20
   decimal err NUM002 UnexpectedToken candidate 0..20 span 19..20 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..20 span 20..20 expected "units, tens, hundreds and descending million/thousand groups"
-probe two thousand five hundred and seventy two pounds
-  quantity 2572 Gbp 0..48
-  decimal err NUM002 UnexpectedToken candidate 0..48 span 47..48 expected "a single decimal number"
-  amount ok 2572
-probe two thousand pounds
-  quantity 2000 Gbp 0..19
-  decimal err NUM002 UnexpectedToken candidate 0..19 span 18..19 expected "a single decimal number"
-  amount ok 2000
+probe two thousand four hundred pounds
+  quantity 2400 Gbp 0..32
+  decimal err NUM002 UnexpectedToken candidate 0..32 span 31..32 expected "a single decimal number"
+  amount ok 2400
 probe two thousand seven
   quantity 2007 Count 0..18
   decimal err NUM002 UnexpectedToken candidate 0..18 span 17..18 expected "a single decimal number"
   amount err NUM002 IncompleteExpression candidate 0..18 span 18..18 expected "units, tens, hundreds and descending million/thousand groups"
-probe unless and until any Affordable Housing Contribution that may be required to be paid pursuant to paragraph 5.8 of this Schedule has been paid to the Council in full
-  quantity 5.8 Count 107..110
-  decimal err NUM002 UnexpectedToken candidate 0..164 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..164 span 0..6 expected "an amount in pounds and pence in words"
-probe varying the Original Agreement in respect of the land comprised in the Phase 1 Development Site
-  quantity 1 Count 77..78
-  decimal err NUM002 UnexpectedToken candidate 0..95 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..95 span 0..7 expected "an amount in pounds and pence in words"
-probe which may be payable by the Owner to the Council in accordance with paragraph 3.4 of Part 1 of Schedule 9
-  quantity 3.4 Count 78..81
-  quantity 1 Count 90..91
-  quantity 9 Count 104..105
-  decimal err NUM002 UnexpectedToken candidate 0..105 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..105 span 0..5 expected "an amount in pounds and pence in words"
-probe which shall make provision for 19 (nineteen) Affordable Housing Units (being 6 (six) Intermediate Housing Units and 13 (thirteen) Affordable Rented Units)
-  quantity 19 Count 31..33
-  quantity 19 Count 35..43
-  quantity 6 Count 77..78
-  quantity 6 Count 80..83
-  quantity 13 Count 116..118
-  quantity 13 Count 120..128
-  decimal err NUM002 UnexpectedToken candidate 0..154 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..154 span 0..5 expected "an amount in pounds and pence in words"
-probe will be payable on Completion of Construction of all of the Dwellings comprised in that Block or Phase
-  decimal err NUM002 UnexpectedToken candidate 0..102 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..102 span 0..4 expected "an amount in pounds and pence in words"
-probe within 28 Working Days of the notice referred to in paragraph 1.6 above
+probe upon practical completion of the community hall
+  decimal err NUM002 UnexpectedToken candidate 0..47 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..47 span 0..4 expected "an amount in pounds and pence in words"
+probe within 20 working days of written demand
+  quantity 20 Count 7..9
+  decimal err NUM002 UnexpectedToken candidate 0..40 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..40 span 0..6 expected "an amount in pounds and pence in words"
+probe within 28 days of the date of this Agreement
   quantity 28 Count 7..9
-  quantity 1.6 Count 62..65
-  decimal err NUM002 UnexpectedToken candidate 0..71 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..71 span 0..6 expected "an amount in pounds and pence in words"
-probe within 28 days of receipt of the notice referred to in paragraph 3.6
-  quantity 28 Count 7..9
-  quantity 3.6 Count 65..68
-  decimal err NUM002 UnexpectedToken candidate 0..68 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..68 span 0..6 expected "an amount in pounds and pence in words"
-probe within 28 days of receiving written notice from the Council
-  quantity 28 Count 7..9
-  decimal err NUM002 UnexpectedToken candidate 0..59 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..59 span 0..6 expected "an amount in pounds and pence in words"
-probe within 28 days of receiving written request
-  quantity 28 Count 7..9
-  decimal err NUM002 UnexpectedToken candidate 0..43 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..43 span 0..6 expected "an amount in pounds and pence in words"
-probe within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Health Contribution
-  quantity 4 Count 7..8
-  decimal err NUM002 UnexpectedToken candidate 0..102 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..102 span 0..6 expected "an amount in pounds and pence in words"
-probe within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Off-site Highways Contribution
-  quantity 4 Count 7..8
-  decimal err NUM002 UnexpectedToken candidate 0..113 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..113 span 0..6 expected "an amount in pounds and pence in words"
-probe within 4 weeks of each anniversary of this Deed Alpha shall pay to the Council the Primary Education Contribution
-  quantity 4 Count 7..8
-  decimal err NUM002 UnexpectedToken candidate 0..113 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..113 span 0..6 expected "an amount in pounds and pence in words"
-probe within 5 Working Days of each anniversary of the date on which payment became due under
-  quantity 5 Count 7..8
-  decimal err NUM002 UnexpectedToken candidate 0..87 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..87 span 0..6 expected "an amount in pounds and pence in words"
-probe within 5 Working Days of the completion of the laying out of the first phase or first acre
-  quantity 5 Count 7..8
-  decimal err NUM002 UnexpectedToken candidate 0..90 span 0..1 expected "a single decimal number"
-  amount err NUM003 UnsupportedWord candidate 0..90 span 0..6 expected "an amount in pounds and pence in words"
+  decimal err NUM002 UnexpectedToken candidate 0..44 span 0..1 expected "a single decimal number"
+  amount err NUM003 UnsupportedWord candidate 0..44 span 0..6 expected "an amount in pounds and pence in words"
 probe zero
   quantity 0 Count 0..4
   decimal err NUM002 UnexpectedToken candidate 0..4 span 3..4 expected "a single decimal number"

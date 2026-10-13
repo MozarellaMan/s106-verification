@@ -9,10 +9,12 @@ cites, and that passage must be found on the cited page. Nothing in the gate is 
 
 Architecture and contributor reading path: [docs/architecture.md](docs/architecture.md).
 
-Scope, roadmap and open research questions: [docs/research-plan.md](docs/research-plan.md).
-Schema v2 and the real deeds behind it: [docs/schema-v2.md](docs/schema-v2.md).
-Obligations against delivery (M5): [docs/reconciliation.md](docs/reconciliation.md).
-How the Rust harness was accepted against the former Python one: [docs/migration.md](docs/migration.md).
+This repository holds code and invented test deeds only; it describes no real planning
+application. The data, and the research notes about specific deeds (the roadmap, the deeds behind
+schema v2, how the Rust harness was accepted against the former Python one), are in the private
+[s106-data](https://github.com/MozarellaMan/s106-data) repository's `docs/`.
+
+Obligations against delivery: [docs/reconciliation.md](docs/reconciliation.md).
 
 ```
 src/
@@ -27,14 +29,14 @@ src/
   text.rs       number and words-to-amount reading
   report.rs     terminal report and JSON
   eval.rs       evaluation against the national S106 register (planning.data.gov.uk)
-  pld.rs        read-only Planning London Datahub client; saves raw snapshots under snapshots/pld/
+  pld.rs        read-only Planning London Datahub client; saves raw snapshots under <data>/snapshots/pld/
   reconcile.rs  obligation events vs PLD delivery, one row per measure, with a status per row
-  ocrbench.rs   OCR scored against hand-transcribed gold (gold/*.json)
+  ocrbench.rs   OCR scored against hand-transcribed gold (`gold/*.json` in the data repository)
 ```
 
 ## Setup
 
-Rust 1.85+ (edition 2024). `cargo build` and `cargo test` need nothing else: no network, PDFs,
+Rust 1.85+ (edition 2024). `cargo build` and `cargo test` need nothing else: no data, network, PDFs,
 PDFium, ONNX Runtime or models. To read PDFs, fetch PDFium, ONNX Runtime and the OCR models;
 each file is checked against its pinned SHA-256 in `scripts/runtime-artifacts.tsv`:
 
@@ -47,43 +49,68 @@ cargo build --release
 ```
 
 Live extraction needs an Anthropic API key in `~/.config/s106/anthropic_key` (or
-`ANTHROPIC_API_KEY`). Replaying recorded fixtures needs nothing.
+`ANTHROPIC_API_KEY`). Replaying recorded fixtures needs nothing but the data checkout.
 
-### The deeds
+### The data
 
-Deeds come from public planning registers and are not committed. The Southwark sample is the S106
-for **19/AP/1773** (227–255 Ilderton Road SE15, dated 28 Jan 2021):
+The deeds' recorded outputs (page text, model responses, expected outcomes, gold, register rows)
+live in a separate private repository, `MozarellaMan/s106-data`; access must be granted. Clone it
+into `data/` (ignored by git), or point the `S106_DATA` environment variable or the global
+`--data <dir>` flag at a checkout elsewhere. Then fetch the PDFs, which come from public planning
+registers and are not committed anywhere:
 
 ```bash
-mkdir -p data/raw && curl -sSL -c /tmp/sk -b /tmp/sk \
-  "https://planning.southwark.gov.uk/online-applications/applicationDetails.do?keyVal=ZZZV0MKBWR618&activeTab=documents" -o /dev/null && \
-curl -sSL -c /tmp/sk -b /tmp/sk -o data/raw/southwark_s106_sample.pdf \
-  "https://planning.southwark.gov.uk/online-applications/files/CFCAC9FF6638E1A5FE9D3B098E9E71CD/pdf/19_AP_1773-AGREEMENT_28_01_2021-1089043.pdf"
+git clone git@github.com:MozarellaMan/s106-data.git data
+scripts/fetch-corpus.sh
 ```
 
-The register needs a session cookie, which the first request picks up. The server also omits
-its Sectigo intermediate certificate. If curl reports an SSL error, add the intermediate from
-`http://crt.sectigo.com/SectigoPublicServerAuthenticationCAOVR36.crt` to a CA bundle and pass it
-with `--cacert`.
+`scripts/fetch-corpus.sh` reads `corpus/manifest.tsv` from the data checkout, downloads every
+deed into `data/raw/<id>.pdf`, and refuses a file with a different SHA-256, as do the recorded
+responses (`data/extractions/<id>/`). The evaluation's candidate list and the register rows for
+those deeds are in the data repository's `eval/`.
 
-All ten deeds are listed with their URLs and SHA-256s in `fixtures/corpus.tsv`;
-`scripts/fetch-corpus.sh` downloads them (the nine evaluation deeds into `data/raw/eval/<id>.pdf`)
-and refuses a file with a different hash, as do the recorded fixtures (`fixtures/llm/<id>/`).
-The evaluation's candidate list and the register rows for those deeds are committed under
-`fixtures/eval/`.
+### Starting without the data repository
+
+Any folder with the same layout works as a data checkout (`src/data.rs` names every path). To
+start one, find the executed deed for a planning application on the council's register, then:
+
+1. Add it to `corpus/manifest.tsv` (id, `raw/<id>.pdf`, SHA-256, URL, session page or `-`) and
+   run `scripts/fetch-corpus.sh <id>`.
+2. Write its page text with `s106 pages data/raw/<id>.pdf --write data/pages` (needs
+   `scripts/fetch-models.sh`).
+3. Record one extraction with `s106 audit data/raw/<id>.pdf --llm-mode record` (costs money; see
+   below). From then on, `s106 audit data/pages/<id>.pages.json` replays it offline.
+4. To compare with the national register, list it in `eval/candidates.tsv`, download the register
+   files (see the `eval/` README in s106-data) and run `s106 eval --replay --register <dir>`.
+
+These are the applications the current corpus was built from, a mix of agreements, a unilateral
+undertaking and deeds of variation:
+
+| Council | Planning reference | Instrument |
+|---|---|---|
+| Southwark | 19/AP/1773 | S106 agreement |
+| Salford | 19/73971/FUL | S106 agreement (counterpart) |
+| Salford | 20/75239/FUL | S106 agreement |
+| Dover | DOV/18/00681/FULL | deed of variation (redacted) |
+| Dover | DOV/19/00403/OUTLINE | deed of variation (redacted) |
+| Sunderland | 21/01544/FU4 | S106 (redacted) |
+| North Tyneside | 19/01280/FUL | S106 agreement |
+| Bolton | 01373/17 | supplemental S106 |
+| Tonbridge & Malling | 20/02239/FL | unilateral undertaking |
+| Tonbridge & Malling | 24/00842/PA | deed of variation |
 
 ## Run
 
 ```bash
-s106 audit data/raw/southwark_s106_sample.pdf                      # replay if no credentials, else live
-s106 audit data/raw/southwark_s106_sample.pdf --llm-mode record    # call the API and save the fixture
+s106 audit data/raw/<id>.pdf                                       # replay if no credentials, else live
+s106 audit data/raw/<id>.pdf --llm-mode record                     # call the API and save the fixture
 s106 audit <pdf> --escalate                                        # re-read Parser-Error fields with Opus 5.5
-s106 audit fixtures/pages/southwark_s106_sample.pages.json         # replay from committed page text, no PDF
+s106 audit data/pages/<id>.pages.json                             # replay from committed page text, no PDF
 s106 eval --replay                                                 # all candidate deeds vs the register, offline
-s106 eval --replay --pages fixtures/pages                          # the same from committed page text, no PDFs
-s106 pages <pdf>... --check fixtures/pages                         # read PDFs afresh and compare with the snapshots
+s106 eval --replay --pages data/pages                              # the same from committed page text, no PDFs
+s106 pages <pdf>... --check data/pages                             # read PDFs afresh and compare with the snapshots
 s106 eval --runs 3                                                 # live, three runs per deed (run-to-run agreement)
-s106 bench-ocr gold/southwark_19_AP_1773.json data/raw/southwark_s106_sample.pdf --models ppocrv5-en-mobile,ppocrv4-mobile
+s106 bench-ocr data/gold/<gold>.json data/raw/<id>.pdf --models ppocrv5-en-mobile,ppocrv4-mobile
 ```
 
 (`cargo run --release --` instead of `s106` without installing.)
@@ -93,8 +120,8 @@ clean, `1` Parser Errors or REVIEW flags, and `2` Document Discrepancies.
 
 **What a run costs.** Extraction is three structured-output calls over the whole PDF. A single
 schema for everything compiles to a grammar the API rejects, and the PDF can't be cached across
-calls whose schemas differ. With Haiku 5.5 a 30-page deed costs a few cents; the 109-page
-Southwark scan costs about $0.30. Escalation to Opus 5.5 costs more and only runs with
+calls whose schemas differ. With Haiku 5.5 a 30-page deed costs a few cents; a 109-page scan
+costs about $0.30. Escalation to Opus 5.5 costs more and only runs with
 `--escalate`.
 
 ## Outcomes
@@ -133,15 +160,15 @@ when one line on the table's page states all of its counts.
 
 ## Reproducibility
 
-- **Page text** is cached under `data/interim/ocr/<sha256[:16]>-<ocr version>/` and committed,
-  per deed, as a snapshot in `fixtures/pages/<stem>.pages.json`. Both are keyed by the PDF's
+- **Page text** is cached under `data/interim/ocr/<sha256[:16]>-<ocr version>/` and kept in the data
+  repository, per deed, as a snapshot in `data/pages/<stem>.pages.json`. Both are keyed by the PDF's
   SHA-256 and a hash of everything that produces the text: line-logic version, OCR settings and
   the pinned SHA-256 of PDFium, ONNX Runtime and each model file. Changing any of them gives a new
   key; artifact files that differ from their pins are refused; the cache manifest is validated on
   read. Each image-only page is OCR'd on its own, so its text does not depend on other pages.
-- **Model responses** are recorded in `fixtures/llm/<stem>/<model>.extract.v2.json`, tied to the
+- **Model responses** are recorded in `data/extractions/<stem>/<model>.extract.v2.json`, tied to the
   PDF's SHA-256 and to a hash of the prompts and schemas. A different deed or a changed prompt
-  refuses to replay. v1 fixtures from the former Python harness (`fixtures/llm-v1/`) still replay.
+  refuses to replay. v1 fixtures from the former Python harness (`data/extractions-v1/`) still replay.
 - **Runtime artifacts** (PDFium, ONNX Runtime, OCR models) are pinned by SHA-256 in
   `scripts/runtime-artifacts.tsv`.
 - **Determinism:** trigger labels come from the cited phrase, not the model. Plural group terms
@@ -153,15 +180,18 @@ Five tiers, from always-on to on-request. Details, timings and how to update the
 [docs/testing.md](docs/testing.md).
 
 ```bash
-cargo test                      # 1 unit + 2 offline replay: no PDFs, models, credentials or network
+cargo test                      # 1 unit tests and invented deeds (tests/synthetic/): no data, PDFs, models or network
+cargo test-data                 # 2 replay of the real corpus from the data checkout (S106_BLESS=1 to bless)
 cargo test-pdf                  # 3 difficult pages read afresh from the PDFs, OCR gold thresholds
 cargo test-corpus               # 4 every deed read through PDFium/OCR, compared with its snapshot
 s106 eval --replay              # 4 register evaluation on the PDFs
 s106 eval --runs 3              # 5 live model calls (costs money; manual only)
 ```
 
-Tiers 3 and 4 need `scripts/fetch-models.sh` and `scripts/fetch-corpus.sh`. They fail with
-"corpus missing" when deeds are absent; they never skip silently. CI runs tiers 1-2 on every push,
-3-4 weekly on a cold cache, and 5 only when started by hand (`.github/workflows/`). Only tiers
-1-2 gate pull requests; the weekly job skips the PDF tiers with a warning when the council sites
-it downloads from are unreachable.
+Tier 2 (`cargo test-data`) needs the data checkout and fails with "data missing" without it.
+Tiers 3 and 4 also need `scripts/fetch-models.sh` and `scripts/fetch-corpus.sh`. They fail with
+"corpus missing" when deeds are absent; they never skip silently. CI runs `cargo test` on every push, plus a second job that checks out
+the data repository (secret `S106_DATA_DEPLOY_KEY`) and runs `cargo test-data`; tiers 3-4 run weekly on
+a cold cache (also with the data checkout), and 5 only when started by hand (`.github/workflows/`).
+Only tiers 1-2 gate pull requests; the weekly job skips the PDF tiers with a warning when the
+council sites it downloads from are unreachable.

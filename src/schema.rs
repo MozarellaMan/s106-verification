@@ -1,6 +1,7 @@
 //! Schema v2: what an S106 instrument says, with evidence for every extracted value.
 //!
-//! Design notes and the real deeds behind each choice: docs/schema-v2.md.
+//! Design notes and the real deeds behind each choice: docs/schema-v2.md in the s106-data
+//! repository.
 //! Every number carries an `Evidence` (page + verbatim snippet) so the verifier can re-locate it
 //! in the page text and decide whether a failed check is the extractor's fault or the deed's.
 
@@ -57,7 +58,7 @@ pub struct Provenance {
     /// "text-layer", "ocr" or "mixed"
     pub text_source: String,
     pub ocr_version: Option<String>,
-    /// e.g. "claude-haiku-5-5 (replay of fixtures/…)"
+    /// e.g. "claude-haiku-5-5 (replay of data/extractions/…)"
     pub extracted_by: String,
 }
 

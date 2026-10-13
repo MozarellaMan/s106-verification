@@ -1,18 +1,18 @@
 //! Regression against the frozen outputs of the former Python harness (M1), recorded before it
-//! was retired (`fixtures/golden-python-m1/*.llm-pdf.audit.json`).
+//! was retired (`golden-python-m1/*.llm-pdf.audit.json` in the data repository).
 //!
-//! For each of the ten deeds: take the page text from its committed snapshot (tier 2: no PDF or
-//! OCR; `tests/corpus.rs` checks the snapshots against the PDFs), replay the recorded model
+//! Data tier (`cargo test-data`). For each of the ten deeds: take the page text from its snapshot
+//! (no PDF or OCR; `tests/corpus.rs` checks the snapshots against the PDFs), replay the recorded model
 //! response, verify, and compare every Python check (by id and description) on status and error
 //! class. The only differences allowed are those listed, with a reason, in
-//! `fixtures/golden-python-m1/expected-differences.json`.
+//! `golden-python-m1/expected-differences.json`.
 
 mod common;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use common::{root, snapshot};
+use common::{data, snapshot};
 use s106::extract;
 use s106::verify::{ErrorClass, Status, verify};
 use s106::wire::PageMap;
@@ -35,8 +35,9 @@ fn class_name(c: Option<ErrorClass>) -> Option<&'static str> {
 }
 
 #[test]
+#[ignore = "data tier: needs the s106-data checkout; cargo test-data"]
 fn rust_reproduces_python_m1() {
-    let golden_dir = root().join("fixtures/golden-python-m1");
+    let golden_dir = data().join("golden-python-m1");
     let expected: Vec<Value> = serde_json::from_str(
         &std::fs::read_to_string(golden_dir.join("expected-differences.json")).unwrap(),
     )
@@ -76,9 +77,9 @@ fn rust_reproduces_python_m1() {
         let doc = snapshot(&deed).document();
         // replay the v1 fixture Python used, even where a newer v2 fixture exists
         let fx: Value = serde_json::from_str(
-            &std::fs::read_to_string(root().join(format!(
-                "fixtures/llm-v1/{deed}/claude-haiku-5-5.extract.json"
-            )))
+            &std::fs::read_to_string(
+                s106::data::extractions_v1().join(format!("{deed}/claude-haiku-5-5.extract.json")),
+            )
             .unwrap(),
         )
         .unwrap();

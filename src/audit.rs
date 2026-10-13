@@ -307,8 +307,13 @@ pub fn escape_probe(s: &str) -> String {
 /// unit and span, each error with cause and spans, then the whole-input readers. This is what the
 /// fingerprint hashes and what `tests/numeric_snapshot.rs` snapshots.
 pub fn probe_rendering() -> String {
+    render_probes(PROBES)
+}
+
+/// What the parser does on each probe (one per line, escaped as in the probe file).
+pub fn render_probes(probes: &str) -> String {
     let mut out = String::new();
-    for line in PROBES.lines().filter(|l| !l.is_empty()) {
+    for line in probes.lines().filter(|l| !l.is_empty()) {
         let probe = unescape_probe(line);
         let _ = writeln!(out, "probe {line}");
         let scan = quantity::scan(&probe);

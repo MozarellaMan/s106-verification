@@ -20,12 +20,9 @@ fn audit_with(
     words: &str,
     edit: impl FnOnce(&mut Value),
 ) -> (Agreement, Vec<CheckResult>) {
-    // Recorded shape only: every numeric expectation and source here is constructed.
-    let mut output: Value = serde_json::from_str(include_str!(
-        "../fixtures/llm/southwark_s106_sample/claude-haiku-5-5.extract.v2.json"
-    ))
-    .unwrap();
-    output = output["output"].take();
+    // An invented deed's extraction, for its shape only: every expectation and source here is constructed.
+    let mut output: Value =
+        serde_json::from_str(include_str!("synthetic/agreement/extraction.json")).unwrap();
     let mut c = output["contributions"][0].take();
     c["name"] = json!("Test Contribution");
     c["amount_gbp"] = json!(figure);

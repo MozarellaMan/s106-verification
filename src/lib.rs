@@ -6,6 +6,7 @@
 //! Layer B: `pld` (Planning London Datahub snapshots) and `reconcile` (obligations vs delivery).
 
 pub mod audit;
+pub mod data;
 pub mod document;
 pub mod eval;
 pub mod evidence;

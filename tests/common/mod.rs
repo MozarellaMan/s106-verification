@@ -1,16 +1,30 @@
-//! Shared by the tiered tests: the corpus list, committed page-text snapshots and thresholds.
+//! Shared by the tiered tests: the corpus list and page-text snapshots from the data repository
+//! (`s106::data`), the invented deeds, and OCR thresholds.
 #![allow(dead_code)]
+
+pub mod synthetic;
 
 use std::path::{Path, PathBuf};
 
 use s106::document::Snapshot;
-use s106::ocrbench::Score;
+use s106::ocrbench::Gold;
 
 pub fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-/// One row of fixtures/corpus.tsv.
+/// The data checkout; the data tiers fail (never skip) without it.
+pub fn data() -> PathBuf {
+    let root = s106::data::root();
+    assert!(
+        s106::data::manifest().exists(),
+        "data missing: no {} (clone https://github.com/MozarellaMan/s106-data into data/, or set S106_DATA)",
+        s106::data::manifest().display()
+    );
+    root
+}
+
+/// One row of the data repository's corpus/manifest.tsv.
 pub struct Deed {
     pub id: String,
     pub pdf: PathBuf,
@@ -18,7 +32,8 @@ pub struct Deed {
 }
 
 pub fn corpus() -> Vec<Deed> {
-    std::fs::read_to_string(root().join("fixtures/corpus.tsv"))
+    let data = data();
+    std::fs::read_to_string(s106::data::manifest())
         .unwrap()
         .lines()
         .filter(|l| !l.starts_with('#') && !l.starts_with("id\t"))
@@ -26,7 +41,7 @@ pub fn corpus() -> Vec<Deed> {
             let f: Vec<&str> = l.split('\t').collect();
             Deed {
                 id: f[0].into(),
-                pdf: root().join(f[1]),
+                pdf: data.join(f[1]),
                 sha256: f[2].into(),
             }
         })
@@ -34,7 +49,7 @@ pub fn corpus() -> Vec<Deed> {
 }
 
 pub fn snapshot_dir() -> PathBuf {
-    root().join("fixtures/pages")
+    data().join("pages")
 }
 
 pub fn snapshot(id: &str) -> Snapshot {
@@ -50,37 +65,48 @@ pub fn require_pdf(path: &Path) {
     );
 }
 
-/// OCR quality on the Southwark gold pages. Thresholds sit just below today's scores, so a
-/// regression fails while noise on a 6-page gold set does not.
-pub fn assert_southwark_gold(s: &Score) {
-    assert!(
-        s.mean_cer_squashed <= 0.01,
-        "line CER {}",
-        s.mean_cer_squashed
-    );
-    assert!(
-        s.facts_raw >= 8,
-        "facts {}/{} (no £ repair needed with PP-OCRv5)",
-        s.facts_raw,
-        s.facts
-    );
-    assert!(
-        s.printed_found >= 5,
-        "printed page numbers {}/{}",
-        s.printed_found,
-        s.printed
-    );
-    assert_eq!(
-        s.definitions_on_own_line, s.definitions,
-        "two-column definitions merged with their terms"
-    );
+/// Every gold file in the data repository, with the deed it describes (matched by SHA-256).
+pub fn gold_sets() -> Vec<(PathBuf, Gold, Deed)> {
+    let mut paths: Vec<PathBuf> = std::fs::read_dir(data().join("gold"))
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|e| e == "json"))
+        .collect();
+    paths.sort();
+    let deeds = corpus();
+    paths
+        .into_iter()
+        .map(|p| {
+            let g = Gold::load(&p).unwrap();
+            let deed = deeds
+                .iter()
+                .find(|d| d.sha256 == g.sha256)
+                .unwrap_or_else(|| {
+                    panic!("{}: no deed in the manifest has its SHA-256", p.display())
+                });
+            let deed = Deed {
+                id: deed.id.clone(),
+                pdf: deed.pdf.clone(),
+                sha256: deed.sha256.clone(),
+            };
+            (p, g, deed)
+        })
+        .collect()
 }
 
-/// The Salford text layer must read exactly.
-pub fn assert_salford_gold(s: &Score) {
-    assert_eq!(s.exact_lines, s.lines);
-    assert_eq!(s.facts_raw, s.facts);
-    assert_eq!(s.printed_found, s.printed);
+/// Fail with every gold set that misses its thresholds.
+pub fn assert_gold(results: &[(PathBuf, Vec<String>)]) {
+    assert!(!results.is_empty(), "no gold sets in the data repository");
+    let failed: Vec<String> = results
+        .iter()
+        .filter(|(_, f)| !f.is_empty())
+        .map(|(p, f)| format!("{}: {}", p.display(), f.join("; ")))
+        .collect();
+    assert!(
+        failed.is_empty(),
+        "OCR below the gold thresholds:\n{}",
+        failed.join("\n")
+    );
 }
 
 /// `S106_BLESS=1` rewrites expected-output files instead of comparing against them.

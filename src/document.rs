@@ -8,7 +8,8 @@
 //!   `manifest.json` that records the full [`Producer`]. A warm cache is read without opening the
 //!   PDF in PDFium or loading the OCR runtime.
 //! * a [`Snapshot`]: the whole document's page text in one reviewable file, committed under
-//!   `fixtures/pages/` so replay, regression tests and evaluation run without PDFs or models.
+//!   `pages/` in the data repository so replay, regression tests and evaluation run without
+//!   PDFs or models.
 //!
 //! Both are keyed by the PDF's SHA-256 and by everything that produces the text: the line logic
 //! version, the OCR settings, and the pinned SHA-256 of every runtime artifact (PDFium, ONNX
@@ -29,7 +30,7 @@ use crate::evidence::Pages;
 const MIN_TEXT_CHARS: usize = 50;
 const OCR_DPI: f32 = 200.0;
 /// Bump when `text_layer`, `group_lines`, `ocr_lines` or the OCR filtering change their output for
-/// the same input, then regenerate the snapshots (`s106 pages --write fixtures/pages`). It is part
+/// the same input, then regenerate the snapshots (`s106 pages --write data/pages`). It is part
 /// of the cache key. An unbumped change shows up as a snapshot mismatch in the real-PDF tiers.
 pub const PAGE_TEXT_LOGIC: u32 = 3;
 const PDFIUM_ARCHIVE: &str = "pdfium-linux-x64.tgz";
@@ -143,7 +144,7 @@ pub struct Config {
 }
 
 impl Config {
-    /// Defaults relative to the repository: `models/` and `data/interim/ocr/`.
+    /// Defaults: `models/` in the repository and `interim/ocr/` in the data checkout.
     /// `S106_MODELS` and `S106_OCR_CACHE` override them.
     pub fn from_env(repo_root: &Path) -> Config {
         let models_dir = std::env::var_os("S106_MODELS")
@@ -151,7 +152,7 @@ impl Config {
             .unwrap_or(repo_root.join("models"));
         let cache_root = std::env::var_os("S106_OCR_CACHE")
             .map(PathBuf::from)
-            .unwrap_or(repo_root.join("data/interim/ocr"));
+            .unwrap_or(crate::data::root().join("interim/ocr"));
         let ocr = OcrModels::default_in(&models_dir);
         Config {
             models_dir,
@@ -520,8 +521,8 @@ pub fn load_pages(
         }
         let engine = ocr_engine(&cfg.ocr)?;
         // One page per call. oar-ocr pads a batch's images and text crops to a common size, so a
-        // page recognised alongside others can read differently (measured: 5 of 9 TMBC pages
-        // changed between batches of 6 and of 1). Alone, a page's text depends only on that page,
+        // page recognised alongside others can read differently (measured: 5 of 9 pages of one
+        // scanned deed changed between batches of 6 and of 1). Alone, a page's text depends only on that page,
         // whatever else is cached or requested. oar-ocr still parallelises within the page.
         for &n in &need_ocr {
             let page = doc.pages().get((n - 1) as i32)?;
@@ -561,7 +562,7 @@ pub fn load_pages(
 // ------------------------------------------------------------------------------- snapshots
 
 /// A whole document's page text with its provenance: the committed, reviewable form of the
-/// page-text stage (`fixtures/pages/<stem>.pages.json`). Replaying from a snapshot needs no PDF,
+/// page-text stage (`pages/<stem>.pages.json` in the data repository). Replaying from a snapshot needs no PDF,
 /// PDFium or OCR models.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snapshot {

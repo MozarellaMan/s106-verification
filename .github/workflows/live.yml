@@ -1,6 +1,7 @@
 # Tier 5: live model calls. Only when started by hand; needs the ANTHROPIC_API_KEY secret and
 # costs about $0.10 per deed per run (docs/migration.md). Run 1 of each deed is recorded as a
-# fixture; the recorded fixtures and summary are uploaded for review, never committed here.
+# fixture; the recorded responses and summary are uploaded for review, to be committed to the
+# s106-data repository (read here with the read-only deploy key in the S106_DATA_DEPLOY_KEY secret), never to this one.
 # `s106 eval` fails unless every selected deed completed every requested run; the artifacts are
 # uploaded either way.
 name: live
@@ -19,17 +20,22 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: MozarellaMan/s106-data
+          path: data
+          ssh-key: ${{ secrets.S106_DATA_DEPLOY_KEY }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: actions/cache@v4
         with:
           path: data/raw
-          key: corpus-${{ hashFiles('fixtures/corpus.tsv') }}
+          key: corpus-${{ hashFiles('data/corpus/manifest.tsv') }}
       - run: scripts/fetch-models.sh
       # only the deeds this run evaluates: the selected ids, or every evaluation candidate
       - run: |
           ids="${ONLY//,/ }"
-          [ -n "$ids" ] || ids=$(tail -n +2 fixtures/eval/candidates.tsv | cut -f1)
+          [ -n "$ids" ] || ids=$(tail -n +2 data/eval/candidates.tsv | cut -f1)
           scripts/fetch-corpus.sh $ids
         env:
           ONLY: ${{ inputs.only }}
@@ -44,4 +50,4 @@ jobs:
           name: live-eval
           path: |
             data/processed/eval
-            fixtures/llm
+            data/extractions

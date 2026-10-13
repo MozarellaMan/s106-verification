@@ -1,7 +1,8 @@
 //! Verifier behaviour: grounding outcomes, basis handling, mix-table grounding, trigger gate
 //! (ports of the former Python grounding and trigger tests) plus the schema v2 checks.
 //!
-//! Pages are short verbatim RapidOCR excerpts from the Southwark sample (19/AP/1773).
+//! Pages are invented, written to reproduce the OCR artefacts seen in real scans: dropped spaces,
+//! spliced columns, digits misread inside words and garbled amounts.
 
 use s106::evidence::Pages;
 use s106::quantity;
@@ -21,37 +22,37 @@ fn pages(items: &[(usize, &str)]) -> Pages {
     items.iter().map(|(p, t)| (*p, t.to_string())).collect()
 }
 
-/// Verbatim OCR lines (spaces dropped as RapidOCR drops them).
-fn southwark_pages() -> Pages {
+/// Invented OCR-style lines (spaces dropped as RapidOCR drops them).
+fn sample_pages() -> Pages {
     pages(&[
         (
             5,
-            r#""AffordableHousingUnits" means the 76 Residential Units (271 Habitable Rooms) tobe"#,
+            r#""AffordableHousingUnits" means the 36 Residential Units (126 Habitable Rooms) tobe"#,
         ),
         (
             14,
-            "445 sqm ancillary plant and equipment; and 253 residential\napartments(C3),35.75%affordablebyhabitable room,andother",
+            "310 sqm ancillary plant and equipment; and 120 residential\napartments(C3),31.5%affordablebyhabitable room,andother",
         ),
         (
             22,
-            r#"3 "Market Housing Units" meansthe177ResidentialUnitsofMarketHousingcomprised"#,
+            r#"3 "Market Housing Units" meansthe84ResidentialUnitsofMarketHousingcomprised"#,
         ),
         (
             91,
-            "UnitType Social Rented Housing Intermediate Housing\n1 bed 10 7\n2bed 24 5\n3bed 24 6\n\
-             Sub-Total 58 18\nTotal 76 (271 habitable rooms)",
+            "UnitType Social Rented Housing Intermediate Housing\n1 bed 6 4\n2bed 10 5\n3bed 8 3\n\
+             Sub-Total 24 12\nTotal 36 (126 habitable rooms)",
         ),
     ])
 }
 
 fn total() -> Evidence {
-    ev(14, "253 residential apartments")
+    ev(14, "120 residential apartments")
 }
 fn market() -> Evidence {
-    ev(22, "the 177 Residential Units of Market Housing")
+    ev(22, "the 84 Residential Units of Market Housing")
 }
 fn affordable() -> Evidence {
-    ev(5, "the 76 Residential Units (271 Habitable Rooms)")
+    ev(5, "the 36 Residential Units (126 Habitable Rooms)")
 }
 
 fn agreement_with(kind: InstrumentKind, housing: Housing) -> Agreement {
@@ -85,25 +86,25 @@ fn inp(label: &str, value: Option<Value>, evidence: Option<Evidence>) -> Input {
 }
 
 fn good() -> Vec<Input> {
-    vec![inp("total units", Some(253u32.into()), Some(total()))]
+    vec![inp("total units", Some(120u32.into()), Some(total()))]
 }
 
 // --------------------------------------------------------------------------- ResolveTest
 
 #[test]
 fn resolve_holds_and_grounded_passes() {
-    let r = resolve("X", "d", true, &good(), &southwark_pages(), None, None, &[]);
+    let r = resolve("X", "d", true, &good(), &sample_pages(), None, None, &[]);
     assert_eq!(r.status, Status::Pass);
 }
 
 #[test]
 fn resolve_holds_but_ungrounded_needs_review() {
-    let i = [inp("total units", Some(250u32.into()), Some(total()))];
-    let r = resolve("X", "d", true, &i, &southwark_pages(), None, None, &[]);
+    let i = [inp("total units", Some(123u32.into()), Some(total()))];
+    let r = resolve("X", "d", true, &i, &sample_pages(), None, None, &[]);
     assert_eq!(r.status, Status::Review);
     assert_eq!(r.error_class, None);
     assert!(
-        r.detail.contains("250 not stated in its cited snippet"),
+        r.detail.contains("123 not stated in its cited snippet"),
         "{}",
         r.detail
     );
@@ -111,16 +112,7 @@ fn resolve_holds_but_ungrounded_needs_review() {
 
 #[test]
 fn resolve_fails_and_grounded_is_discrepancy_with_caveat() {
-    let r = resolve(
-        "X",
-        "d",
-        false,
-        &good(),
-        &southwark_pages(),
-        None,
-        None,
-        &[],
-    );
+    let r = resolve("X", "d", false, &good(), &sample_pages(), None, None, &[]);
     assert_eq!(r.status, Status::Fail);
     assert_eq!(r.error_class, Some(ErrorClass::DocumentDiscrepancy));
     assert!(r.detail.contains("confirm against the original deed"));
@@ -129,15 +121,15 @@ fn resolve_fails_and_grounded_is_discrepancy_with_caveat() {
 #[test]
 fn resolve_snippet_found_but_value_not_in_it_is_parser_error() {
     // Review repro (B): the quotation exists in the deed, but the extracted value isn't in it.
-    let i = [inp("total units", Some(250u32.into()), Some(total()))];
-    let r = resolve("X", "d", false, &i, &southwark_pages(), None, None, &[]);
+    let i = [inp("total units", Some(123u32.into()), Some(total()))];
+    let r = resolve("X", "d", false, &i, &sample_pages(), None, None, &[]);
     assert_eq!(r.error_class, Some(ErrorClass::ParserError));
 }
 
 #[test]
 fn resolve_missing_value_is_parser_error() {
     let i = [inp("total units", None, Some(total()))];
-    let r = resolve("X", "d", false, &i, &southwark_pages(), None, None, &[]);
+    let r = resolve("X", "d", false, &i, &sample_pages(), None, None, &[]);
     assert_eq!(r.error_class, Some(ErrorClass::ParserError));
     assert!(r.detail.contains("not extracted"));
 }
@@ -146,19 +138,19 @@ fn resolve_missing_value_is_parser_error() {
 fn resolve_relocation_still_required() {
     let i = [inp(
         "total units",
-        Some(253u32.into()),
-        Some(ev(22, "253 residential apartments")),
+        Some(120u32.into()),
+        Some(ev(22, "120 residential apartments")),
     )];
-    let r = resolve("X", "d", true, &i, &southwark_pages(), None, None, &[]);
+    let r = resolve("X", "d", true, &i, &sample_pages(), None, None, &[]);
     assert_eq!(r.status, Status::Review);
     assert!(r.detail.contains("not re-locatable on p22"), "{}", r.detail);
 }
 
 #[test]
 fn grounding_problem_messages() {
-    let pg = southwark_pages();
+    let pg = sample_pages();
     assert_eq!(grounding_problem(&good()[0], &pg), None);
-    let no_ev = inp("total units", Some(253u32.into()), None);
+    let no_ev = inp("total units", Some(120u32.into()), None);
     assert_eq!(
         grounding_problem(&no_ev, &pg).as_deref(),
         Some("total units: no evidence cited")
@@ -181,44 +173,44 @@ fn unit_housing(t: u32, m: u32, a: u32) -> Housing {
 
 #[test]
 fn arithmetic_alone_no_longer_passes() {
-    // Review repro (B): 250 = 174 + 76 adds up, but 250 and 174 aren't what the cited text says.
-    let a = agreement(unit_housing(250, 174, 76));
-    let r = check_unit_consistency(&a, &southwark_pages());
+    // Review repro (B): 123 = 87 + 36 adds up, but 123 and 87 aren't what the cited text says.
+    let a = agreement(unit_housing(123, 87, 36));
+    let r = check_unit_consistency(&a, &sample_pages());
     assert_eq!(r.status, Status::Review);
-    assert!(r.detail.contains("total units: 250"), "{}", r.detail);
-    assert!(r.detail.contains("market units: 174"), "{}", r.detail);
+    assert!(r.detail.contains("total units: 123"), "{}", r.detail);
+    assert!(r.detail.contains("market units: 87"), "{}", r.detail);
 }
 
 #[test]
 fn true_values_pass() {
-    let a = agreement(unit_housing(253, 177, 76));
-    let r = check_unit_consistency(&a, &southwark_pages());
+    let a = agreement(unit_housing(120, 84, 36));
+    let r = check_unit_consistency(&a, &sample_pages());
     assert_eq!(r.status, Status::Pass, "{}", r.detail);
-    assert_eq!(r.actual.as_deref(), Some("177 + 76 = 253"));
-    assert_eq!(r.expected.as_deref(), Some("253"));
+    assert_eq!(r.actual.as_deref(), Some("84 + 36 = 120"));
+    assert_eq!(r.expected.as_deref(), Some("120"));
 }
 
 // --------------------------------------------------------------------------- PercentageBasisTest
 
 fn pct_base(basis: Option<AffordableBasis>) -> Agreement {
     agreement(Housing {
-        total_units: Some(253),
+        total_units: Some(120),
         total_units_evidence: Some(total()),
-        affordable_units: Some(76),
+        affordable_units: Some(36),
         affordable_units_evidence: Some(affordable()),
-        claimed_affordable_pct: observe("30.04", quantity::decimal),
+        claimed_affordable_pct: observe("30.00", quantity::decimal),
         claimed_affordable_basis: basis,
-        claimed_affordable_evidence: Some(ev(14, "35.75%affordable")),
+        claimed_affordable_evidence: Some(ev(14, "31.5%affordable")),
         ..Housing::default()
     })
 }
 
 #[test]
 fn floorspace_basis_skips() {
-    // 76/253 = 30.04%, so a silent units fallback would wrongly PASS this.
+    // 36/120 = 30.00%, so a silent units fallback would wrongly PASS this.
     let r = check_claimed_pct(
         &pct_base(Some(AffordableBasis::Floorspace)),
-        &southwark_pages(),
+        &sample_pages(),
     );
     assert_eq!(r.status, Status::Skip);
     assert!(r.detail.contains("floorspace"));
@@ -227,29 +219,28 @@ fn floorspace_basis_skips() {
 
 #[test]
 fn unstated_basis_skips() {
-    let r = check_claimed_pct(&pct_base(None), &southwark_pages());
+    let r = check_claimed_pct(&pct_base(None), &sample_pages());
     assert_eq!(r.status, Status::Skip);
     assert!(r.detail.contains("basis"));
 }
 
 #[test]
 fn units_basis_still_computes() {
-    let r = check_claimed_pct(&pct_base(Some(AffordableBasis::Units)), &southwark_pages());
-    assert_eq!(r.actual.as_deref(), Some("76/253 = 30.04%"));
-    // The cited snippet says 35.75, not 30.04, so the match is unproven rather than passed.
+    let r = check_claimed_pct(&pct_base(Some(AffordableBasis::Units)), &sample_pages());
+    assert_eq!(r.actual.as_deref(), Some("36/120 = 30.00%"));
+    // The cited snippet says 31.5, not 30.00, so the match is unproven rather than passed.
     assert_eq!(r.status, Status::Review);
 }
 
 #[test]
 fn habitable_rooms_without_total_skips_with_implied_denominator() {
     let mut a = pct_base(Some(AffordableBasis::HabitableRooms));
-    a.housing.affordable_habitable_rooms = Some(271);
-    a.housing.claimed_affordable_pct = observe("35.75", quantity::decimal);
-    let r = check_claimed_pct(&a, &southwark_pages());
+    a.housing.affordable_habitable_rooms = Some(126);
+    a.housing.claimed_affordable_pct = observe("31.5", quantity::decimal);
+    let r = check_claimed_pct(&a, &sample_pages());
     assert_eq!(r.status, Status::Skip);
     assert!(
-        r.detail
-            .contains("implied total = 271/35.75% = 758.0 rooms"),
+        r.detail.contains("implied total = 126/31.5% = 400.0 rooms"),
         "{}",
         r.detail
     );
@@ -260,23 +251,23 @@ fn habitable_rooms_without_total_skips_with_implied_denominator() {
 fn mix_agreement(rows: &[(&str, u32, u32)]) -> Agreement {
     use Tenure::{Intermediate, SocialRent};
     agreement(Housing {
-        affordable_units: Some(76),
+        affordable_units: Some(36),
         affordable_units_evidence: Some(affordable()),
-        affordable_habitable_rooms: Some(271),
+        affordable_habitable_rooms: Some(126),
         tenures: vec![
             TenureAllocation {
                 tenure: SocialRent,
                 label: None,
-                units: Some(58),
+                units: Some(24),
                 habitable_rooms: None,
-                evidence: Some(ev(5, "the 76")),
+                evidence: Some(ev(5, "the 36")),
             },
             TenureAllocation {
                 tenure: Intermediate,
                 label: None,
-                units: Some(18),
+                units: Some(12),
                 habitable_rooms: None,
-                evidence: Some(ev(5, "the 76")),
+                evidence: Some(ev(5, "the 36")),
             },
         ],
         mix_table: Some(MixTable {
@@ -287,10 +278,10 @@ fn mix_agreement(rows: &[(&str, u32, u32)]) -> Agreement {
                     units_by_tenure: vec![(SocialRent, *s), (Intermediate, *i)],
                 })
                 .collect(),
-            subtotals: vec![(SocialRent, 58), (Intermediate, 18)],
-            total_units: Some(76),
-            total_habitable_rooms: Some(271),
-            evidence: Some(ev(91, "Total 76 (271 habitable rooms)")),
+            subtotals: vec![(SocialRent, 24), (Intermediate, 12)],
+            total_units: Some(36),
+            total_habitable_rooms: Some(126),
+            evidence: Some(ev(91, "Total 36 (126 habitable rooms)")),
         }),
         ..Housing::default()
     })
@@ -302,8 +293,8 @@ fn h5(results: &[CheckResult]) -> Vec<&CheckResult> {
 
 #[test]
 fn mix_rows_on_page_pass() {
-    let a = mix_agreement(&[("1 bed", 10, 7), ("2 bed", 24, 5), ("3 bed", 24, 6)]);
-    let res = check_mix_table(&a, &southwark_pages());
+    let a = mix_agreement(&[("1 bed", 6, 4), ("2 bed", 10, 5), ("3 bed", 8, 3)]);
+    let res = check_mix_table(&a, &sample_pages());
     let h5 = h5(&res);
     assert_eq!(h5.len(), 3);
     assert!(
@@ -311,14 +302,14 @@ fn mix_rows_on_page_pass() {
         "{:?}",
         h5.iter().map(|r| &r.detail).collect::<Vec<_>>()
     );
-    assert_eq!(h5[0].actual.as_deref(), Some("10 + 24 + 24 = 58"));
+    assert_eq!(h5[0].actual.as_deref(), Some("6 + 10 + 8 = 24"));
 }
 
 #[test]
 fn mix_invented_row_that_still_sums_needs_review() {
-    // 10+24+24 and 7+5+6 both still sum correctly with the cells moved between rows
-    let a = mix_agreement(&[("1 bed", 24, 7), ("2 bed", 10, 5), ("3 bed", 24, 6)]);
-    let res = check_mix_table(&a, &southwark_pages());
+    // 6+10+8 and 4+5+3 both still sum correctly with the cells moved between rows
+    let a = mix_agreement(&[("1 bed", 10, 4), ("2 bed", 6, 5), ("3 bed", 8, 3)]);
+    let res = check_mix_table(&a, &sample_pages());
     let r = res
         .iter()
         .find(|r| r.description.starts_with("Mix table: Σ Social"))
@@ -329,17 +320,17 @@ fn mix_invented_row_that_still_sums_needs_review() {
 
 #[test]
 fn mix_repeated_counts_need_repeats_on_the_line() {
-    let mut pg = southwark_pages();
-    let t = pg[&91].replace("3bed 24 6", "3bed 24 24");
+    let mut pg = sample_pages();
+    let t = pg[&91].replace("3bed 8 3", "3bed 8 8");
     pg.insert(91, t);
-    let a = mix_agreement(&[("1 bed", 10, 7), ("2 bed", 24, 5), ("3 bed", 24, 24)]);
+    let a = mix_agreement(&[("1 bed", 10, 7), ("2 bed", 24, 5), ("3 bed", 8, 8)]);
     let ok: String = check_mix_table(&a, &pg)
         .iter()
         .map(|r| r.detail.clone())
         .collect::<Vec<_>>()
         .join(" ");
     assert!(!ok.contains("row '3 bed'"), "{ok}");
-    let bad: String = check_mix_table(&a, &southwark_pages())
+    let bad: String = check_mix_table(&a, &sample_pages())
         .iter()
         .map(|r| r.detail.clone())
         .collect::<Vec<_>>()
@@ -349,7 +340,7 @@ fn mix_repeated_counts_need_repeats_on_the_line() {
 
 #[test]
 fn no_mix_table_skips() {
-    let r = check_mix_table(&agreement(Housing::default()), &southwark_pages());
+    let r = check_mix_table(&agreement(Housing::default()), &sample_pages());
     assert_eq!(r.len(), 1);
     assert_eq!(r[0].status, Status::Skip);
 }
@@ -358,16 +349,16 @@ fn no_mix_table_skips() {
 
 use TriggerEvent as E;
 
-/// Verbatim RapidOCR output for Schedule 11 para 3 (p89 of the sample): "50%" reads as "5o%".
-const PAGE_89: &str = "3. CarbonGreenFund Contribution
+/// Invented RapidOCR-style output for Schedule 5 para 3 (p89): "50%" reads as "5o%".
+const PAGE_89: &str = "3. CarbonOffsetFund Contribution
 3.1 Prior to the Occupation of 5o%of theDevelopment(or upon such other dateas may be
 agreed between the Council and the Owner) the Council and the Owner shall compare the
 environmental performance of the Development against the Agreed Carbon Targets and
-3.5 The Carbon GreenFundContribution(as agreed between the Council and the Owner or
+3.5 The Carbon OffsetFundContribution(as agreed between the Council and the Owner or
 determined in accordance withclause 19of this Agreement) shall be payable within 20
 WorkingDaysofsuchagreementordetermination.";
 
-const CLAUSE_3_5: &str = "The Carbon Green Fund Contribution (as agreed between the Council and the Owner or determined in \
+const CLAUSE_3_5: &str = "The Carbon Offset Fund Contribution (as agreed between the Council and the Owner or determined in \
 accordance with clause 19 of this Agreement) shall be payable within 20 Working Days of such \
 agreement or determination.";
 const CLAUSE_3_1: &str = "Prior to the Occupation of 50% of the Development (or upon such other date as may be agreed between \
@@ -391,12 +382,12 @@ fn amount(
 
 fn contribution(phrase: &str, clause: &str, event: E, model: Option<E>) -> Contribution {
     Contribution {
-        name: "Carbon Green Fund Contribution".to_string(),
+        name: "Carbon Offset Fund Contribution".to_string(),
         amount: amount(
             AmountStructure::Fixed,
-            Some("475991.00"),
+            Some("21450.00"),
             None,
-            Some(ev(8, "£475,991.00")),
+            Some(ev(8, "£21,450.00")),
         ),
         conditionality: Conditionality {
             kind: ConditionalityKind::Unconditional,
@@ -464,7 +455,7 @@ fn invented_payment_clause_fails() {
     // Review repro: a real timing phrase wrapped in a payment covenant the deed doesn't contain.
     let c = contribution(
         "Prior to the Occupation of 50% of the Development",
-        "Prior to the Occupation of 50% of the Development the Owner shall pay the Carbon Green Fund Contribution to the Council",
+        "Prior to the Occupation of 50% of the Development the Owner shall pay the Carbon Offset Fund Contribution to the Council",
         E::PreOccupation,
         None,
     );
@@ -481,7 +472,7 @@ fn invented_payment_clause_fails() {
 fn question_clause_present_in_source_fails() {
     // Re-review repros: the clause is verbatim in the deed, but it asks whether a sum is payable.
     for clause in [
-        "Prior to Occupation the Council shall assess whether the Carbon Green Fund Contribution is payable.",
+        "Prior to Occupation the Council shall assess whether the Carbon Offset Fund Contribution is payable.",
         "Prior to Occupation the Council shall assess if the Contribution is payable",
         "PriortoOccupationtheCouncilshallassessiftheContributionispayable",
     ] {
@@ -560,17 +551,17 @@ fn missing_trigger_is_parser_error() {
 fn amount_and_words_checks() {
     let pg = pages(&[(
         4,
-        "the sum of £16,913.26 (sixteen thousand nine hundred and thirteen pounds and twenty six pence)",
+        "the sum of £3,284.57 (three thousand two hundred and eighty four pounds and fifty seven pence)",
     )]);
     let mut c = contribution("x", "y", E::OnDemand, None);
     c.name = "Administration Cost".to_string();
     c.amount = amount(
         AmountStructure::Fixed,
-        Some("16913.26"),
-        Some("sixteen thousand nine hundred and thirteen pounds and twenty six pence"),
+        Some("3284.57"),
+        Some("three thousand two hundred and eighty four pounds and fifty seven pence"),
         Some(ev(
             4,
-            "the sum of £16,913.26 (sixteen thousand nine hundred and thirteen pounds and twenty six pence)",
+            "the sum of £3,284.57 (three thousand two hundred and eighty four pounds and fifty seven pence)",
         )),
     );
     c.payment = Payment::default();
@@ -581,7 +572,7 @@ fn amount_and_words_checks() {
         "Administration Cost: amount stated in cited evidence"
     );
     assert_eq!(r[0].status, Status::Pass, "{}", r[0].detail);
-    assert_eq!(r[0].actual.as_deref(), Some("£16,913.26"));
+    assert_eq!(r[0].actual.as_deref(), Some("£3,284.57"));
     assert_eq!(r[1].check_id, "F3.words");
     assert_eq!(r[1].status, Status::Pass, "{}", r[1].detail);
 }
@@ -609,8 +600,8 @@ fn formula_without_figure_skips_and_fixed_without_figure_fails() {
 
 #[test]
 fn variation_skips_whole_scheme_checks() {
-    let a = agreement_with(InstrumentKind::DeedOfVariation, unit_housing(250, 174, 76));
-    let pg = southwark_pages();
+    let a = agreement_with(InstrumentKind::DeedOfVariation, unit_housing(123, 87, 36));
+    let pg = sample_pages();
     for r in [
         check_unit_consistency(&a, &pg),
         check_tenure_units(&a, &pg),
@@ -633,7 +624,7 @@ fn variation_skips_whole_scheme_checks() {
 #[test]
 fn v1_missing_parent_fails() {
     let a = agreement_with(InstrumentKind::DeedOfVariation, Housing::default());
-    let r = check_instrument(&a, &southwark_pages());
+    let r = check_instrument(&a, &sample_pages());
     assert_eq!(r.check_id, "V1");
     assert_eq!(r.status, Status::Fail);
     assert_eq!(r.error_class, Some(ErrorClass::ParserError));
@@ -643,13 +634,13 @@ fn v1_missing_parent_fails() {
 fn v1_parent_grounded_passes_ungrounded_reviews_and_other_kinds_skip() {
     let pg = pages(&[(
         1,
-        "THIS DEED OF VARIATION is made to the Agreement dated 14 September 2020",
+        "THIS DEED OF VARIATION is made to the Agreement dated 3 March 2021",
     )]);
     let mut a = agreement_with(InstrumentKind::Supplemental, Housing::default());
     a.instrument.parent = Some(ParentRef {
-        description: "Agreement dated 14 September 2020".to_string(),
-        date: Some("2020-09-14".to_string()),
-        evidence: Some(ev(1, "the Agreement dated 14 September 2020")),
+        description: "Agreement dated 3 March 2021".to_string(),
+        date: Some("2021-03-03".to_string()),
+        evidence: Some(ev(1, "the Agreement dated 3 March 2021")),
     });
     assert_eq!(check_instrument(&a, &pg).status, Status::Pass);
     a.instrument.parent.as_mut().unwrap().evidence =
@@ -667,7 +658,7 @@ fn v1_parent_grounded_passes_ungrounded_reviews_and_other_kinds_skip() {
 fn v2_variation_grounding() {
     let pg = pages(&[(
         3,
-        "by deleting the definition of \"Qualifying Person\" and replacing it with the sum of £115,200",
+        "by deleting the definition of \"Qualifying Person\" and replacing it with the sum of £42,000",
     )]);
     let mut v = Variation {
         op: VariationOp::Delete,
@@ -695,7 +686,7 @@ fn cond_contribution(
     evidence: Option<Evidence>,
 ) -> Contribution {
     let mut c = contribution("x", "y", E::OnDemand, None);
-    c.name = "Default Employment Contribution".to_string();
+    c.name = "Local Skills Contribution".to_string();
     c.amount = amount(AmountStructure::None, None, None, None);
     c.conditionality = Conditionality {
         kind,
@@ -710,9 +701,9 @@ fn cond_contribution(
 fn cond_conditional_with_grounded_condition_passes() {
     let pg = pages(&[(
         12,
-        "the sum of £73,100 which may be payable in accordance with paragraph 3.4 of Part 1 of Schedule 9",
+        "the sum of £18,500 which may be payable in accordance with paragraph 2.6 of Part 2 of Schedule 5",
     )]);
-    let cond = "which may be payable in accordance with paragraph 3.4 of Part 1 of Schedule 9";
+    let cond = "which may be payable in accordance with paragraph 2.6 of Part 2 of Schedule 5";
     let c = cond_contribution(
         ConditionalityKind::Conditional,
         Some(cond),
@@ -780,9 +771,9 @@ fn instalment_contribution(shares: [&str; 2], events: [E; 2]) -> Contribution {
     c.name = "Highways Contribution".to_string();
     c.amount = amount(
         AmountStructure::Fixed,
-        Some("12650.00"),
+        Some("7800.00"),
         None,
-        Some(ev(30, "£12,650.00")),
+        Some(ev(30, "£7,800.00")),
     );
     c.payment = Payment {
         covenant: Some(Quoted {
@@ -984,15 +975,15 @@ fn unparseable_amount_does_not_suppress_instalment_checks() {
 
 #[test]
 fn h6_grounding_findings_carry_canonical_field_paths() {
-    let mut a = mix_agreement(&[("1 bed", 10, 7), ("2 bed", 24, 5), ("3 bed", 24, 6)]);
+    let mut a = mix_agreement(&[("1 bed", 6, 4), ("2 bed", 10, 5), ("3 bed", 8, 3)]);
     // values the cited snippets do not state, so every definition-side input yields findings
-    a.housing.tenures[0].units = Some(59);
-    a.housing.affordable_units = Some(77);
-    a.housing.affordable_habitable_rooms = Some(272);
+    a.housing.tenures[0].units = Some(25);
+    a.housing.affordable_units = Some(37);
+    a.housing.affordable_habitable_rooms = Some(127);
     let t = a.housing.mix_table.as_mut().unwrap();
-    t.total_units = Some(75);
-    t.total_habitable_rooms = Some(270);
-    let res = check_mix_table(&a, &southwark_pages());
+    t.total_units = Some(35);
+    t.total_habitable_rooms = Some(125);
+    let res = check_mix_table(&a, &sample_pages());
     let fields: std::collections::BTreeSet<String> = res
         .iter()
         .filter(|r| r.check_id == "H6")

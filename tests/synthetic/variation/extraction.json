@@ -1,0 +1,139 @@
+{
+ "instrument": {
+  "kind": "deed_of_variation",
+  "evidence": {
+   "page": 1,
+   "snippet": "DEED OF VARIATION"
+  },
+  "parent_description": "An agreement pursuant to Section 106 of the Town and Country Planning Act 1990 (the Original Agreement)",
+  "parent_date": "4 March 2019",
+  "parent_evidence": {
+   "page": 2,
+   "snippet": "An agreement pursuant to Section 106 of the Town and Country Planning Act 1990 dated 4 March 2019"
+  },
+  "scope": "",
+  "scope_evidence": {
+   "page": 0,
+   "snippet": ""
+  }
+ },
+ "metadata": {
+  "council": "",
+  "planning_references": [],
+  "legal_reference": "",
+  "agreement_date": "",
+  "site_address": "Orchard Farm, Example Lane, Sampleford",
+  "parties": []
+ },
+ "variations": [
+  {
+   "op": "amend",
+   "target": "definition \"Affordable Housing Units\" in clause 1.1",
+   "new_text": "18",
+   "evidence": {
+    "page": 3,
+    "snippet": "The definition of \"Affordable Housing Units\" in clause 1.1 shall be varied by deleting the number \"12\" and replacing it with the number \"18\""
+   }
+  },
+  {
+   "op": "delete",
+   "target": "Schedule 2 paragraph 3.2",
+   "new_text": "",
+   "evidence": {
+    "page": 3,
+    "snippet": "Paragraph 3.2 of Schedule 2 shall be deleted"
+   }
+  },
+  {
+   "op": "insert",
+   "target": "definition \"First Homes\" in clause 1.1",
+   "new_text": "\"First Homes\" means dwellings sold at a discount of not less than 30% of market value",
+   "evidence": {
+    "page": 3,
+    "snippet": "A new definition of \"First Homes\" shall be inserted into clause 1.1"
+   }
+  },
+  {
+   "op": "replace",
+   "target": "definition \"Open Space Contribution\" in clause 1.1",
+   "new_text": "means the sum of £30,000 (thirty thousand pounds)",
+   "evidence": {
+    "page": 3,
+    "snippet": "The definition of \"Open Space Contribution\" in clause 1.1 shall be replaced with"
+   }
+  },
+  {
+   "op": "delete",
+   "target": "Schedule 5 paragraph 9.1",
+   "new_text": "",
+   "evidence": {
+    "page": 3,
+    "snippet": "Paragraph 9.1 of Schedule 5 shall be deleted"
+   }
+  }
+ ],
+ "housing": {
+  "total_units": null,
+  "total_units_evidence": {
+   "page": 0,
+   "snippet": ""
+  },
+  "market_units": null,
+  "market_units_evidence": {
+   "page": 0,
+   "snippet": ""
+  },
+  "affordable_units": 18,
+  "affordable_units_evidence": {
+   "page": 3,
+   "snippet": "replacing it with the number \"18\""
+  },
+  "affordable_habitable_rooms": null,
+  "total_habitable_rooms": null,
+  "tenures": [],
+  "mix_table": {
+   "rows": [],
+   "subtotals": [],
+   "total_units": null,
+   "total_habitable_rooms": null,
+   "evidence": {
+    "page": 0,
+    "snippet": ""
+   }
+  },
+  "claimed_affordable_pct": "",
+  "claimed_affordable_basis": null,
+  "claimed_affordable_evidence": {
+   "page": 0,
+   "snippet": ""
+  }
+ },
+ "contributions": [
+  {
+   "name": "Open Space Contribution",
+   "amount_structure": "fixed",
+   "amount_gbp": "30000",
+   "amount_in_words": "thirty thousand pounds",
+   "index_linked": false,
+   "amount_evidence": {
+    "page": 3,
+    "snippet": "means the sum of £30,000 (thirty thousand pounds)"
+   },
+   "conditionality": "unconditional",
+   "condition_evidence": {
+    "page": 0,
+    "snippet": ""
+   },
+   "covenant": "The Owner shall pay the Open Space Contribution prior to Occupation of the 10th Dwelling",
+   "covenant_evidence": {
+    "page": 4,
+    "snippet": "The Owner shall pay the Open Space Contribution prior to Occupation of the 10th Dwelling"
+   },
+   "trigger_phrase": {
+    "page": 4,
+    "snippet": "prior to Occupation of the 10th Dwelling"
+   },
+   "instalments": []
+  }
+ ]
+}

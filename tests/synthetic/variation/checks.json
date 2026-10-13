@@ -1,0 +1,17 @@
+[
+  {"check":"H1","description":"Market units + affordable units == total residential units","status":"SKIP","error_class":null},
+  {"check":"H2","description":"Sum of tenure units == affordable units","status":"SKIP","error_class":null},
+  {"check":"H3","description":"Sum of tenure habitable rooms == affordable habitable rooms","status":"SKIP","error_class":null},
+  {"check":"H4","description":"Claimed affordable % vs calculated % (basis: not stated)","status":"SKIP","error_class":null},
+  {"check":"H5","description":"Approved mix table: rows sum to subtotals","status":"SKIP","error_class":null},
+  {"check":"V1","description":"Variation/supplemental deed identifies its parent instrument","status":"PASS","error_class":null},
+  {"check":"V2.1","description":"Variation 1: Amend of definition \"Affordable Housing Units\" in clause 1.1 is cited in the deed","status":"PASS","error_class":null},
+  {"check":"V2.2","description":"Variation 2: Delete of Schedule 2 paragraph 3.2 is cited in the deed","status":"PASS","error_class":null},
+  {"check":"V2.3","description":"Variation 3: Insert of definition \"First Homes\" in clause 1.1 is cited in the deed","status":"PASS","error_class":null},
+  {"check":"V2.4","description":"Variation 4: Replace of definition \"Open Space Contribution\" in clause 1.1 is cited in the deed","status":"PASS","error_class":null},
+  {"check":"V2.5","description":"Variation 5: Delete of Schedule 5 paragraph 9.1 is cited in the deed","status":"REVIEW","error_class":null},
+  {"check":"F1.amt","description":"Open Space Contribution: amount stated in cited evidence","status":"PASS","error_class":null},
+  {"check":"F1.words","description":"Open Space Contribution: figures == words","status":"PASS","error_class":null},
+  {"check":"F1.trig","description":"Open Space Contribution: payment trigger located","status":"PASS","error_class":null},
+  {"check":"F1.tlabel","description":"Open Space Contribution: trigger label follows from cited phrase","status":"PASS","error_class":null}
+]
