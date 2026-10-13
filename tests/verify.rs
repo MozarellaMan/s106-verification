@@ -77,6 +77,7 @@ fn agreement(housing: Housing) -> Agreement {
 fn inp(label: &str, value: Option<Value>, evidence: Option<Evidence>) -> Input {
     Input {
         label: label.to_string(),
+        field: None,
         value,
         evidence,
     }
