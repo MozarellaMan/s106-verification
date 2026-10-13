@@ -51,18 +51,20 @@ _OBLIGATIONS = [(re.compile(p), bare) for p, bare in OBLIGATIONS]
 _COVENANT_ITEM = re.compile(r"(?:^|[,;:])\s*(?:\d[\d.]*\s*)?(?:\([a-z0-9]+\)\s*)?to\s*pay", re.I | re.M)
 # Sentence or sub-clause breaks; a full stop inside a number ("1.3", "£10,058.60") is not one.
 _SEGMENT = re.compile(r"(?<!\d)\.(?!\d)|;")
-# A conditional "if" (not "if any") before a bare "is payable" makes it a condition, not an obligation.
-_IF = re.compile(r"(?<![a-z])if(?![a-z])(?!\s*any)", re.I)
+# Question/assessment wording before a payment phrase ("assess whether ... is payable",
+# "determine if ... is payable"). Squashed, so it holds whether or not OCR kept the spaces;
+# "if" only counts straight after an assessment verb, since squashed "if" also sits inside
+# words ("specified").
+_QUESTION = re.compile(r"whether|(?:assess|determin|consider|decid|review|confirm|establish|calculat|verif"
+                       r"|check|ascertain)\w{0,3}?if")
+# A segment opening with a conditional "If ..." (after any "3.1" / "(a)" numbering) makes a bare
+# "is payable" a condition, not an obligation. Anchored at the start, so "Ifthe" still counts.
+_CONDITIONAL = re.compile(r"\s*(?:\d[\d.]*\s*)?(?:\([a-z0-9]+\)\s*)?if(?!\s*any)", re.I)
 
 
-def _asked(seg: str, sq: str, sq_pos: int, bare: bool) -> bool:
-    """Is the match at squashed position sq_pos inside a question ("assess whether ... is payable")?"""
-    if "whether" in sq[:sq_pos]:
-        return True
-    if bare:
-        raw = [i for i, ch in enumerate(seg.lower()) if ch in "0123456789abcdefghijklmnopqrstuvwxyz"]
-        return bool(_IF.search(seg[:raw[sq_pos]]))
-    return False
+def _asked(seg: str, pos: int, bare: bool) -> bool:
+    """Is the payment phrase at `pos` of squash(seg) asked about rather than imposed?"""
+    return bool(_QUESTION.search(squash(seg)[:pos]) or (bare and _CONDITIONAL.match(seg)))
 
 
 def imposes_payment(clause: str | None) -> bool:
@@ -70,10 +72,10 @@ def imposes_payment(clause: str | None) -> bool:
     for seg in _SEGMENT.split(clause or ""):
         sq = squash(seg)
         for rx, bare in _OBLIGATIONS:
-            if any(not _asked(seg, sq, m.start(), bare) for m in rx.finditer(sq)):
+            if any(not _asked(seg, m.start(), bare) for m in rx.finditer(sq)):
                 return True
         for m in _COVENANT_ITEM.finditer(seg):
-            if "whether" not in squash(seg[:m.start()]):
+            if not _QUESTION.search(squash(seg[:m.start()])):
                 return True
     return False
 

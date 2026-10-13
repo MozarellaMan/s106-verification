@@ -104,14 +104,17 @@ class CheckTriggerTest(unittest.TestCase):
         self.assertIn("payment clause not re-locatable", r["trig"].detail)
 
     def test_question_clause_present_in_source_fails(self):
-        # Re-review repro: the clause is verbatim in the deed, but it asks whether a sum is payable.
-        clause = ("Prior to Occupation the Council shall assess whether the Carbon Green Fund Contribution is "
-                  "payable.")
-        c = contribution("Prior to Occupation", clause, E.PRE_OCCUPATION)
-        r = {x.check_id.split(".")[1]: x for x in check_trigger(c, {89: PAGE_89 + "\n" + clause}, "F1", [8])}
-        self.assertEqual(r["trig"].status, Status.FAIL)
-        self.assertIn("does not impose a payment", r["trig"].detail)
-        self.assertNotIn("tlabel", r)
+        # Re-review repros: the clause is verbatim in the deed, but it asks whether a sum is payable.
+        for clause in ("Prior to Occupation the Council shall assess whether the Carbon Green Fund Contribution "
+                       "is payable.",
+                       "Prior to Occupation the Council shall assess if the Contribution is payable",
+                       "PriortoOccupationtheCouncilshallassessiftheContributionispayable"):
+            with self.subTest(clause=clause):
+                c = contribution("Prior to Occupation", clause, E.PRE_OCCUPATION)
+                r = {x.check_id.split(".")[1]: x for x in check_trigger(c, {89: PAGE_89 + "\n" + clause}, "F1", [8])}
+                self.assertEqual(r["trig"].status, Status.FAIL)
+                self.assertIn("does not impose a payment", r["trig"].detail)
+                self.assertNotIn("tlabel", r)
 
     def test_phrase_must_sit_in_the_clause(self):
         c = contribution("Prior to the Occupation of 50% of the Development", CLAUSE_3_5, E.PRE_OCCUPATION)
@@ -143,7 +146,10 @@ class ImposesPaymentTest(unittest.TestCase):
                        "paid to the Council in full.",
                        "The Council shall assess the Contribution. The Contribution is payable within 28 days of "
                        "demand.",
-                       "The sum (if any) is payable within 28 days of the Assessment."):
+                       "The sum (if any) is payable within 28 days of the Assessment.",
+                       # "if" inside words is not a condition
+                       "The specified sum is payable within 28 days of the date notified to the Owner",
+                       "Lift Contribution is payable on or before Occupation"):
             with self.subTest(clause=clause):
                 self.assertTrue(imposes_payment(clause))
 
@@ -154,6 +160,12 @@ class ImposesPaymentTest(unittest.TestCase):
                        "Prior to Occupation the Council shall assess whether the Carbon Green Fund Contribution "
                        "is payable.",
                        "PriortoOccupationtheCouncilshalldeterminewhethertheContributionispayable",
+                       # Re-review repro: the same "assess if" question, with and without OCR spacing.
+                       "Prior to Occupation the Council shall assess if the Contribution is payable",
+                       "PriortoOccupationtheCouncilshallassessiftheContributionispayable",
+                       "the Council will check if the Contribution shall be payable",
+                       "3.2 IftheViabilityReviewshowsasurplustheContributionispayable",
+                       "(a) If the Viability Review shows a surplus the Contribution is payable",
                        "If the Viability Review shows a surplus the Affordable Housing Contribution is payable",
                        "the Council shall calculate the sum to be paid by the Owner",
                        CLAUSE_3_1):
