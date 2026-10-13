@@ -128,8 +128,9 @@ The principles behind it:
 ## 4. Milestones
 
 Each milestone is one or two PRs and has to pass its acceptance criteria before the next starts.
+The research objectives and acceptance criteria are independent of implementation language.
 
-**M1: Evidence integrity** (this PR)
+**M1: Evidence integrity** (PR #5, Python)
 - **Changes:**
   - Content-addressed OCR cache (hash plus OCR version, with a manifest).
   - Field-level grounding: a value must appear in its cited snippet *and* the snippet must
@@ -140,7 +141,35 @@ Each milestone is one or two PRs and has to pass its acceptance criteria before 
 - **Acceptance:** regression tests for each review repro; the Southwark rules and replay workflow
   still runs; changes in outcome explained.
 
-**M2: Schema v2 and provenance**
+**M1.5: Rust feasibility spike** (before any schema work)
+- **Why:** the maintainer works in Rust and Java. A long-term research codebase has to be one they
+  can read, maintain and critically review. Migrating *before* Schema v2 avoids writing the new
+  schema twice.
+- **Changes:** a standalone experiment in `spikes/rust-pdf/`, not a port. It evaluates the
+  current Rust options for PDF text extraction (layout-aware), rendering and OCR. Each is verified
+  by building and running it, not from documentation. The experiment runs on the Southwark deed
+  (a scan) plus one text-layer deed, against **manually verified evidence** (hand-transcribed lines
+  and facts with page references), with the Python pipeline as a baseline, not as ground truth.
+- **Criteria compared:**
+  - text quality on two-column definitions
+  - OCR accuracy on scanned pages
+  - word coordinates and provenance
+  - correct page identification and references
+  - implementation complexity and maintenance burden
+  - runtime dependencies and reproducibility
+- **Acceptance:** a written recommendation (migrate / don't / partially) with measurements. If the
+  recommendation is to migrate, a migration plan where the Python implementation stays the
+  regression baseline until the Rust harness reproduces its verified outputs.
+
+**M1.6: Inspect real variations and conditional obligations** (input to M2)
+- Read a small set of actual deeds of variation and conditional obligations before designing the
+  schema. Candidates: Dover DOV/18/00681 and DOV/19/00403 (variations), Bolton 01373/17
+  (supplemental), T&M 24/00842 (variation), Southwark's Default Employment and Carbon Green Fund
+  (conditional or capped), and North Tyneside and Sunderland instalments.
+- Record how each one states what it amends, its conditions and its triggers, with page
+  references. M2's schema follows from these examples, not from assumptions.
+
+**M2: Schema v2 and provenance** (in the language M1.5 recommends)
 - **Changes:**
   - `schema_version`.
   - Document provenance: URL, SHA-256, retrieval date and document type (agreement, deed of
@@ -163,6 +192,10 @@ Each milestone is one or two PRs and has to pass its acceptance criteria before 
   - Fix or remove excerpt mode, which causes the page-citation offset.
 - **Acceptance:** an omission-injection test (delete one contribution from a fixture) reports
   incomplete; Southwark coverage is 100% or every gap is explained.
+- **Limits:** agreement between a heuristic inventory and an extractor does not prove completeness.
+  Both can miss the same obligation, such as one stated without a `£` figure or a defined term.
+  Completeness is only measured against **independently labelled obligations** (M4's gold set).
+  Until then, M3 reports *inventory coverage*, not completeness.
 
 **M4: Southwark gold set**
 - **Changes:**
@@ -173,6 +206,16 @@ Each milestone is one or two PRs and has to pass its acceptance criteria before 
     agreement, and the PLD unit/tenure cross-check.
   - Deeds aren't redistributed (licence unclear). The repo holds the manifest, hashes, fetch
     script and golden outputs.
+  - **Labelling covers obligations, not only fields:** every obligation a reader finds in the deed,
+    so M3's completeness can be measured against it.
+- **Three things reported separately:**
+  1. **Retrieval:** of the sampled applications, how many deeds and variations were found and
+     fetched, and why the rest weren't (no document, wrong document, redacted, unreachable).
+  2. **Selection:** how the fetched set differs from the sampled frame (decision year, scheme size,
+     status, tenure mix from PLD).
+  3. **Extraction accuracy:** on the fetched deeds only.
+- **Scope of claims:** these 5–10 deeds are a development and evaluation sample, not a
+  statistically representative validation of London agreements. Results describe these deeds.
 - **Acceptance:** the eval report is reproducible from a clean checkout plus the fetch script.
   Missing-corpus tests report "corpus missing", not a silent skip.
 
