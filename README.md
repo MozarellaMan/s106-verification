@@ -16,6 +16,8 @@ Nine of the ten deeds the prompts were tuned on are from outside London.
 
 Architecture and contributor reading path: [docs/architecture.md](docs/architecture.md).
 
+OCR speed, the default model set (PP-OCRv6 tiny) and choosing another with `S106_OCR_MODELS`: [docs/ocr-speed.md](docs/ocr-speed.md).
+
 This repository holds code and invented test deeds only; it describes no real planning
 application. The data, and the research notes about specific deeds (the roadmap, the deeds behind
 schema v2, how the Rust harness was accepted against the former Python one), are in the private
