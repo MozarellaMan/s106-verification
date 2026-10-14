@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 
 use s106::document::{self, Document, OcrModels, Snapshot};
 use s106::extract::{self, Mode};
-use s106::{eval, labels, llm, ocrbench, pld, reconcile, report, verify};
+use s106::{eval, explore, labels, llm, ocrbench, pld, reconcile, report, verify};
 
 #[derive(Parser)]
 #[command(
@@ -124,6 +124,30 @@ enum Cmd {
         /// the recorded extractions to score
         #[arg(long, default_value = llm::DEFAULT_MODEL)]
         model: String,
+    },
+    /// Bake the results explorer's data (Datahub-derived only) into <out>/sites.json and
+    /// <out>/boroughs.geojson. Paths are relative to the data root.
+    Explore {
+        /// a Datahub baseline run's applications table
+        #[arg(
+            long,
+            default_value = "runs/2026-10-14-datahub-baseline/tables/applications.csv"
+        )]
+        applications: PathBuf,
+        /// the Datahub search snapshot that table was built from (for site centroids)
+        #[arg(
+            long,
+            default_value = "snapshots/pld/applications/_search/london-ge10/2026-10-14T00_14_09Z"
+        )]
+        snapshot: PathBuf,
+        /// borough boundaries as GeoJSON
+        #[arg(
+            long,
+            default_value = "snapshots/ons/lad-2023-bgc-london/2026-10-14T14_06_00Z.geojson"
+        )]
+        boundaries: PathBuf,
+        #[arg(long, default_value = "explorer/data")]
+        out: PathBuf,
     },
 }
 
@@ -512,6 +536,31 @@ fn main() -> Result<()> {
                 serde_json::to_string_pretty(&r)?,
             )?;
             std::fs::write(dir.join(format!("{name}.reconcile.md")), md)?;
+            Ok(())
+        }
+        Cmd::Explore {
+            applications,
+            snapshot,
+            boundaries,
+            out,
+        } => {
+            let root = s106::data::root();
+            let inputs = explore::Inputs {
+                applications,
+                snapshot,
+                boundaries,
+            };
+            let bundle = explore::bake(&root, &inputs)?;
+            std::fs::create_dir_all(&out)?;
+            std::fs::write(out.join("sites.json"), serde_json::to_string(&bundle)?)?;
+            std::fs::copy(root.join(&inputs.boundaries), out.join("boroughs.geojson"))
+                .with_context(|| format!("copying {}", inputs.boundaries.display()))?;
+            eprintln!(
+                "wrote {} sites ({} without a centroid left out) to {}",
+                bundle.sites.len(),
+                bundle.sources.without_centroid,
+                out.display()
+            );
             Ok(())
         }
         Cmd::Labels { model } => {

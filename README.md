@@ -127,6 +127,7 @@ s106 bench-ocr data/gold/<gold>.json data/raw/<id>.pdf --models ppocrv6-tiny,ppo
 s106 pld get applications <borough>-<reference>                    # save a Datahub record under <data>/snapshots/pld/
 s106 reconcile <deed>... --development <borough>-<reference> --pld snapshots/pld/applications/<id>/<time>.json
 s106 labels                                                        # score everything against the human labels
+s106 explore                                                       # bake the results explorer's data (explorer/README.md)
 ```
 
 (`cargo run --release --` instead of `s106` without installing.)

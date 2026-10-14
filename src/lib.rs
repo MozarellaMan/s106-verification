@@ -11,6 +11,7 @@ pub mod data;
 pub mod document;
 pub mod eval;
 pub mod evidence;
+pub mod explore;
 pub mod extract;
 pub mod labels;
 pub mod llm;
