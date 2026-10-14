@@ -241,7 +241,12 @@ pub fn ledger(
                         e.value = format!("sent to a person ({}): {}", r.reasons, r.readings);
                         e
                     }
-                    (Some(r), Some(p)) if gated.contains(&r.group) => shown(p, Check::Sampled),
+                    (Some(r), Some(p))
+                        if matches!(r.route.as_str(), "agreed" | "sample")
+                            && gated.contains(&r.group) =>
+                    {
+                        shown(p, Check::Sampled)
+                    }
                     (_, Some(p)) => shown(p, Check::Proposed),
                     (_, None) => blank(Check::Unread),
                 },
