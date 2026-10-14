@@ -139,7 +139,8 @@ enum Cmd {
     /// Bake the results explorer's data (Datahub-derived only) into <out>/sites.json and
     /// <out>/boroughs.geojson. Paths are relative to the data root. With --results it is a private
     /// build that also carries a results ledger's unreviewed readings: view it locally, never
-    /// publish it.
+    /// publish it. With --deed-cells it adds only the deed cells a person has checked, which the
+    /// public site may carry.
     Explore {
         /// a Datahub baseline run's applications table
         #[arg(
@@ -160,8 +161,11 @@ enum Cmd {
         )]
         boundaries: PathBuf,
         /// a results folder (e.g. results/2026-10-14-batch1) whose ledger readings to add
-        #[arg(long)]
+        #[arg(long, conflicts_with = "deed_cells")]
         results: Option<PathBuf>,
+        /// a results folder whose checked deed cells (only) to add, for the public site
+        #[arg(long)]
+        deed_cells: Option<PathBuf>,
         #[arg(long, default_value = "explorer/data")]
         out: PathBuf,
     },
@@ -559,6 +563,7 @@ fn main() -> Result<()> {
             snapshot,
             boundaries,
             results,
+            deed_cells,
             out,
         } => {
             let root = s106::data::root();
@@ -567,6 +572,7 @@ fn main() -> Result<()> {
                 snapshot,
                 boundaries,
                 results,
+                deed_cells,
             };
             let bundle = explore::bake(&root, &inputs)?;
             std::fs::create_dir_all(&out)?;
@@ -588,6 +594,15 @@ fn main() -> Result<()> {
                     results,
                     bundle.sources.data_commit.as_deref().unwrap_or("unknown"),
                     bundle.sources.unmatched
+                );
+            }
+            if let Some(from) = &bundle.sources.deed_cells {
+                let cells: usize = bundle.sites.iter().map(|s| s.readings.len()).sum();
+                let read = bundle.sites.iter().filter(|s| !s.readings.is_empty());
+                eprintln!(
+                    "{cells} checked deed cells on {} schemes from {from} at data commit {}",
+                    read.count(),
+                    bundle.sources.data_commit.as_deref().unwrap_or("unknown"),
                 );
             }
             Ok(())

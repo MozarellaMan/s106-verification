@@ -138,16 +138,17 @@ pub fn check_tag(check: Check) -> Option<&'static str> {
 }
 
 /// Counts of a scheme's cells by how far they were checked, e.g.
-/// "41 cells: 0 read by a person, 3 checked, 38 unchecked".
+/// "41 cells: 0 read by a person, 3 checked, 30 agent only, 8 not read".
 pub fn check_counts(readings: &[Reading]) -> String {
     let count = |f: &dyn Fn(Check) -> bool| readings.iter().filter(|r| f(r.check)).count();
     let disagree = count(&|c| c == Check::Unsettled);
     format!(
-        "{} cells: {} read by a person, {} checked, {} unchecked{}",
+        "{} cells: {} read by a person, {} checked, {} agent only, {} not read{}",
         readings.len(),
         count(&|c| c == Check::Independent),
         count(&|c| c == Check::Anchored),
-        count(&|c| c < Check::Unsettled),
+        count(&|c| c == Check::Proposed),
+        count(&|c| c == Check::Unread),
         if disagree > 0 {
             format!(", {disagree} where readers disagree")
         } else {
@@ -207,11 +208,22 @@ pub fn basis_note(value: &str, basis: Option<&str>) -> Option<String> {
 
 /// V3 holds the policy target and the applicant's first offer in one cell; the target belongs
 /// to the Target stage and the rest to Offer. Returns (target part, the rest), each if present.
+/// An ambiguous cell's alternatives ("… OR …") are split one by one and kept in order.
 pub fn split_target(value: &str) -> (Option<String>, Option<String>) {
-    let (target, rest): (Vec<&str>, Vec<&str>) =
-        value.split("; ").partition(|p| p.starts_with("target="));
-    let join = |v: Vec<&str>| (!v.is_empty()).then(|| v.join("; "));
-    (join(target), join(rest))
+    let (mut targets, mut rests) = (Vec::new(), Vec::new());
+    for alternative in value.split(" OR ") {
+        let (target, rest): (Vec<&str>, Vec<&str>) = alternative
+            .split("; ")
+            .partition(|p| p.starts_with("target="));
+        if !target.is_empty() {
+            targets.push(target.join("; "));
+        }
+        if !rest.is_empty() {
+            rests.push(rest.join("; "));
+        }
+    }
+    let join = |v: Vec<String>| (!v.is_empty()).then(|| v.join(" OR "));
+    (join(targets), join(rests))
 }
 
 /// The lineage stage whose documents a retrieval source is; None for the Datahub record.
@@ -400,7 +412,7 @@ mod tests {
         r[1].check = Check::Unread;
         assert_eq!(
             check_counts(&r),
-            "3 cells: 0 read by a person, 1 checked, 2 unchecked"
+            "3 cells: 0 read by a person, 1 checked, 1 agent only, 1 not read"
         );
     }
 
@@ -441,6 +453,13 @@ mod tests {
         assert_eq!(
             split_target("first_offer=30%"),
             (None, Some("first_offer=30%".into()))
+        );
+        assert_eq!(
+            split_target("target=35%; first_offer=a OR target=30%; first_offer=b"),
+            (
+                Some("target=35% OR target=30%".into()),
+                Some("first_offer=a OR first_offer=b".into())
+            )
         );
     }
 

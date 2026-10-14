@@ -55,12 +55,15 @@ struct RetrievalRow {
 }
 
 /// Paths are relative to the data root, so the footer names them as the data repository does.
+#[derive(Clone)]
 pub struct Inputs {
     pub applications: PathBuf,
     pub snapshot: PathBuf,
     pub boundaries: PathBuf,
     /// a results folder (`results/<batch>`) whose `ledger.csv` to add: private builds only
     pub results: Option<PathBuf>,
+    /// a results folder whose checked deed cells (and nothing else) to add: fit to publish
+    pub deed_cells: Option<PathBuf>,
 }
 
 /// One row of a results folder's `ledger.csv` (only the columns used here).
@@ -126,10 +129,13 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
     if sites.is_empty() {
         bail!("no permitted sites with a centroid in {}", path.display());
     }
-    let unmatched = match &inputs.results {
-        Some(dir) => add_results(&root.join(dir), &mut sites)?,
-        None => Vec::new(),
+    let unmatched = match (&inputs.results, &inputs.deed_cells) {
+        (Some(_), Some(_)) => bail!("a build takes either --results or --deed-cells, not both"),
+        (Some(dir), None) => add_results(&root.join(dir), &mut sites, Keep::All)?,
+        (None, Some(dir)) => add_results(&root.join(dir), &mut sites, Keep::CheckedDeedCells)?,
+        (None, None) => Vec::new(),
     };
+    let from = inputs.results.as_ref().or(inputs.deed_cells.as_ref());
     let name = |p: &Path| p.display().to_string();
     Ok(Bundle {
         sources: Sources {
@@ -143,16 +149,37 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
             wholly_superseded,
             without_centroid,
             results: inputs.results.as_deref().map(name),
+            deed_cells: inputs.deed_cells.as_deref().map(name),
             unmatched,
-            data_commit: inputs.results.as_ref().and_then(|_| commit(root)),
+            data_commit: from.and_then(|_| commit(root)),
         },
         sites,
     })
 }
 
+/// Which of a results folder's rows a build takes.
+#[derive(Clone, Copy, PartialEq)]
+enum Keep {
+    /// every ledger cell and retrieval row: a private build
+    All,
+    /// only cells read from the deed that a person has checked, and no retrieval rows: the
+    /// public build's whitelist
+    CheckedDeedCells,
+}
+
+impl Keep {
+    fn reading(self, r: &Reading) -> bool {
+        match self {
+            Keep::All => true,
+            Keep::CheckedDeedCells => r.source == "deed" && r.check >= Check::Anchored,
+        }
+    }
+}
+
 /// Attach each scheme's ledger cells, and its retrieval rows if the folder has them, to the one
-/// site with that reference; returns the schemes that matched no site, or more than one.
-fn add_results(dir: &Path, sites: &mut [Site]) -> Result<Vec<String>> {
+/// site with that reference; returns the schemes that matched no site, or more than one. Schemes
+/// left with nothing to show are skipped.
+fn add_results(dir: &Path, sites: &mut [Site], keep: Keep) -> Result<Vec<String>> {
     let mut by_scheme: HashMap<String, (Vec<Reading>, Vec<Retrieval>)> = HashMap::new();
     let ledger = dir.join("ledger.csv");
     let mut reader =
@@ -167,7 +194,7 @@ fn add_results(dir: &Path, sites: &mut [Site]) -> Result<Vec<String>> {
                 r.scheme
             )
         })?;
-        by_scheme.entry(r.scheme).or_default().0.push(Reading {
+        let reading = Reading {
             stage: r.stage,
             variable: r.variable_id,
             name: r.variable,
@@ -177,10 +204,13 @@ fn add_results(dir: &Path, sites: &mut [Site]) -> Result<Vec<String>> {
             basis: non_empty(r.basis),
             pages: non_empty(r.pages),
             check: r.check,
-        });
+        };
+        if keep.reading(&reading) {
+            by_scheme.entry(r.scheme).or_default().0.push(reading);
+        }
     }
     let retrieval = dir.join("retrieval.csv");
-    if retrieval.exists() {
+    if keep == Keep::All && retrieval.exists() {
         let mut reader = csv::Reader::from_path(&retrieval)
             .with_context(|| format!("reading {}", retrieval.display()))?;
         for row in reader.deserialize() {
@@ -312,6 +342,7 @@ mod tests {
             snapshot: snap.into(),
             boundaries: "boroughs.geojson".into(),
             results: None,
+            deed_cells: None,
         };
         let bundle = bake(root, &inputs).unwrap();
         assert!(bundle.sources.results.is_none());
@@ -363,7 +394,7 @@ mod tests {
         .unwrap();
         let private = Inputs {
             results: Some("results".into()),
-            ..inputs
+            ..inputs.clone()
         };
         let bundle = bake(root, &private).unwrap();
         assert_eq!(bundle.sources.results.as_deref(), Some("results"));
@@ -382,5 +413,37 @@ mod tests {
         assert_eq!(got[0].not_in_hand.as_deref(), Some("listed_not_fetched x3"));
         assert_eq!(got[1].not_in_hand, None);
         assert!(bundle.sites[1].readings.is_empty());
+
+        // A public build keeps only deed cells a person has checked, and no retrieval rows.
+        std::fs::write(
+            root.join("results/ledger.csv"),
+            "scheme,stage,variable_id,variable,source,status,value,basis,doc_ids,pages,check,reader,origin\n\
+             1,obligation,V1,Total homes,deed,found,total=40; SR=10,units,D-1,D-1:3,anchored,human:AB,l.csv:2\n\
+             1,obligation,V2,Share,deed,found,share=25%,units,D-1,D-1:4,proposed,machine:x,p.csv:3\n\
+             1,decision,V1,Total homes,committee_report,found,total=40,units,C-1,C-1:2,anchored,human:AB,l.csv:4\n\
+             9,obligation,V1,Total homes,deed,found,total=9,units,D-9,D-9:1,proposed,machine:x,p.csv:5\n",
+        )
+        .unwrap();
+        let public = Inputs {
+            deed_cells: Some("results".into()),
+            ..inputs.clone()
+        };
+        let bundle = bake(root, &public).unwrap();
+        assert_eq!(bundle.sources.results, None);
+        assert_eq!(bundle.sources.deed_cells.as_deref(), Some("results"));
+        assert!(bundle.sources.unmatched.is_empty(), "9 has nothing to show");
+        let r = &bundle.sites[0].readings;
+        assert_eq!(r.len(), 1);
+        assert_eq!(
+            (r[0].source.as_str(), r[0].check),
+            ("deed", Check::Anchored)
+        );
+        assert!(bundle.sites[0].retrieval.is_empty());
+
+        let both = Inputs {
+            results: Some("results".into()),
+            ..public
+        };
+        assert!(bake(root, &both).is_err());
     }
 }

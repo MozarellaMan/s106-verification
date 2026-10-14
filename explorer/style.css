@@ -51,6 +51,7 @@ aside { background: var(--panel); border: 1px solid var(--line); padding: 14px; 
 .by-source caption { text-align: left; font-weight: 600; padding-bottom: 4px; }
 .by-source th, .by-source td { text-align: left; vertical-align: top; padding: 4px 6px; border-top: 1px solid var(--line); font-weight: normal; }
 .by-source th { width: 34%; }
+.by-source caption .src { font-weight: normal; }
 .by-source .src { display: block; font-family: var(--mono); font-size: .7rem; color: var(--muted); }
 .others.missing { color: var(--ink); }
 .cells { display: grid; gap: 4px; min-width: 0; }

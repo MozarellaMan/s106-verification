@@ -1,10 +1,18 @@
 # Builds the results explorer (explorer/) and publishes it to GitHub Pages. Only when started by
 # hand: the site is public, so a merge never publishes it. The data is baked by `s106 explore`
 # from the private s106-data repository (read with the S106_DATA_DEPLOY_KEY deploy key) and holds
-# Datahub-derived figures and ONS boundaries only; see explorer/README.md.
+# Datahub-derived figures and ONS boundaries, plus checked deed figures when the deed_cells input
+# names a results folder; see explorer/README.md.
 name: explorer
 on:
   workflow_dispatch:
+    inputs:
+      deed_cells:
+        description: >-
+          Results folder whose checked deed figures to publish (e.g. results/2026-10-14-batch1).
+          Leave empty for Datahub figures only.
+        required: false
+        default: ""
 permissions:
   contents: read
   pages: write
@@ -35,14 +43,24 @@ jobs:
         run: |
           curl -sSL https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-gnu.tar.gz \
             | tar xz -C "$HOME/.cargo/bin"
-      - run: cargo run --release -- explore --out explorer/data
-      # Never publish a private build: it carries unreviewed ledger readings.
-      - name: Check the data is public-only
+      - name: Bake the data
+        env:
+          DEED_CELLS: ${{ inputs.deed_cells }}
+        run: cargo run --release -- explore --out explorer/data ${DEED_CELLS:+--deed-cells "$DEED_CELLS"}
+      # Never publish a private build. The only ledger cells allowed out are deed figures a person
+      # has checked; no retrieval rows, and no private results folder.
+      - name: Check the data is fit to publish
         run: |
-          if grep -qE '"(results|readings)":' explorer/data/sites.json; then
-            echo "::error::sites.json carries ledger readings; a private build must not be published"
+          jq -e '
+            (.sources.results == null)
+            and ([.sites[].retrieval // [] | .[]] | length == 0)
+            and ([.sites[].readings // [] | .[]
+                  | select(.source != "deed" or (.check != "anchored" and .check != "independent"))]
+                 | length == 0)
+          ' explorer/data/sites.json > /dev/null || {
+            echo "::error::sites.json carries ledger readings beyond checked deed figures; not publishing"
             exit 1
-          fi
+          }
       - run: trunk build --release --public-url "/${{ github.event.repository.name }}/"
         working-directory: explorer
       - uses: actions/upload-pages-artifact@v3
