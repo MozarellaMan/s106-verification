@@ -333,8 +333,14 @@ fn affordable(fields: &BTreeMap<String, String>) -> Option<BTreeMap<String, Stri
     (!tenures.is_empty() || all_market).then_some(tenures)
 }
 
-/// Intermediate products a deed or report can name.
+/// Intermediate products a deed or report can name, with their names in words.
 const INTERMEDIATE: [&str; 4] = ["so", "lso", "llr", "dmr"];
+const INTERMEDIATE_NAMES: [&str; 4] = [
+    "shared ownership",
+    "London Shared Ownership",
+    "London Living Rent",
+    "discount market rent",
+];
 
 /// Whether two tenure maps agree. Besides equality, an unnamed `int` on one side matches the
 /// named intermediate products on the other when their total is the same and every other tenure
@@ -349,18 +355,26 @@ fn tenures_agree(a: &BTreeMap<String, String>, b: &BTreeMap<String, String>) -> 
         if y.contains_key("int") || INTERMEDIATE.iter().any(|k| x.contains_key(*k)) {
             return None;
         }
-        let named: Vec<&str> = INTERMEDIATE
-            .into_iter()
-            .filter(|k| y.contains_key(*k))
+        let named: Vec<usize> = (0..INTERMEDIATE.len())
+            .filter(|i| y.contains_key(INTERMEDIATE[*i]))
             .collect();
-        let total: f64 = named.iter().map(|k| number(&y[*k])).sum::<Option<f64>>()?;
+        let total: f64 = named
+            .iter()
+            .map(|i| number(&y[INTERMEDIATE[*i]]))
+            .sum::<Option<f64>>()?;
         let rest = |m: &BTreeMap<String, String>| {
             m.iter()
                 .filter(|(k, _)| *k != "int" && !INTERMEDIATE.contains(&k.as_str()))
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect::<BTreeMap<_, _>>()
         };
-        (!named.is_empty() && total == int && rest(x) == rest(y)).then(|| named.join("+"))
+        (!named.is_empty() && total == int && rest(x) == rest(y)).then(|| {
+            named
+                .iter()
+                .map(|i| INTERMEDIATE_NAMES[*i])
+                .collect::<Vec<_>>()
+                .join(" and ")
+        })
     };
     if let Some(named) = one_way(a, b) {
         return Some(format!(

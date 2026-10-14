@@ -605,7 +605,7 @@ fn an_unnamed_intermediate_matches_the_named_product() {
     assert!(
         o("EX/1")
             .reason
-            .contains("unnamed intermediate taken as the deed's so")
+            .contains("unnamed intermediate taken as the deed's shared ownership")
     );
     assert_eq!(o("EX/2").outcome, Outcome::DoesNotCount);
 }
