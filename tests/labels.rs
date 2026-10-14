@@ -29,6 +29,8 @@ fn machine(scheme: &str, variable_id: &str, source: &str, value: &str, basis: &s
         labeller: "machine:test".into(),
         labelled_on: String::new(),
         minutes: None,
+        doc_ids: String::new(),
+        pages: String::new(),
         method: String::new(),
         origin: "test".into(),
     }
@@ -97,6 +99,20 @@ fn fields_compare_numbers_as_numbers() {
     assert_eq!(a.fields()["basis"], "units");
     let c = machine("EX/1", "V5", "deed", "AR:  80% of  market rent", "");
     assert_eq!(c.fields()["value"], "ar: 80% of market rent");
+}
+
+#[test]
+fn repeated_other_tenures_are_kept_apart() {
+    let a = machine(
+        "EX/1",
+        "V1",
+        "deed",
+        "total=20; other=Off-site rented:8; other=off-site intermediate:8",
+        "units",
+    );
+    let f = a.fields();
+    assert_eq!(f["other:off-site rented"], "8");
+    assert_eq!(f["other:off-site intermediate"], "8");
 }
 
 #[test]
