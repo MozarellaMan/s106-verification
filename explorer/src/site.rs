@@ -114,6 +114,10 @@ pub enum Finding {
     Inconsistent,
     NotStated,
     SourceMissing,
+    /// the source does not exist for this scheme (e.g. no delivery record kept)
+    NoSource,
+    /// the document is in hand but cannot be read
+    Unreadable,
     NotApplicable,
     Unread,
 }
@@ -126,6 +130,8 @@ impl Finding {
             "inconsistent" => Finding::Inconsistent,
             "not_stated" => Finding::NotStated,
             "source_missing" => Finding::SourceMissing,
+            "no_source" => Finding::NoSource,
+            "unreadable" => Finding::Unreadable,
             "not_applicable" => Finding::NotApplicable,
             "" => Finding::Unread,
             _ => return None,
