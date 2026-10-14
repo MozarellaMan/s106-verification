@@ -141,11 +141,14 @@ pub struct Config {
     pub models_dir: PathBuf,
     pub cache_root: PathBuf,
     pub ocr: OcrModels,
+    /// Pages OCR'd at the same time, each on its own engine (`S106_OCR_WORKERS`, default 1).
+    /// Opt-in: each engine holds its own ONNX Runtime session, so memory grows with it.
+    pub ocr_workers: usize,
 }
 
 impl Config {
     /// Defaults: `models/` in the repository and `interim/ocr/` in the data checkout.
-    /// `S106_MODELS` and `S106_OCR_CACHE` override them.
+    /// `S106_MODELS` and `S106_OCR_CACHE` override them; `S106_OCR_WORKERS` sets `ocr_workers`.
     pub fn from_env(repo_root: &Path) -> Config {
         let models_dir = std::env::var_os("S106_MODELS")
             .map(PathBuf::from)
@@ -154,10 +157,16 @@ impl Config {
             .map(PathBuf::from)
             .unwrap_or(crate::data::root().join("interim/ocr"));
         let ocr = OcrModels::default_in(&models_dir);
+        let ocr_workers = std::env::var("S106_OCR_WORKERS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(1)
+            .max(1);
         Config {
             models_dir,
             cache_root,
             ocr,
+            ocr_workers,
         }
     }
 
@@ -188,6 +197,27 @@ impl Config {
 
     pub fn ocr_version(&self) -> String {
         self.producer().ocr_version()
+    }
+
+    /// ONNX Runtime threads per OCR engine when `ocr_workers` > 1: the cores split between them.
+    fn ocr_threads_per_worker(&self) -> usize {
+        let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
+        (cores / self.ocr_workers).max(1)
+    }
+
+    /// Cache directory name for `sha256`. Parallel OCR keeps its own cache, keyed by the worker
+    /// count and thread cap, until `cargo test-pdf` shows it reads pages identically.
+    fn cache_dir_name(&self, sha256: &str) -> String {
+        let name = format!("{}-{}", &sha256[..16], self.ocr_version());
+        if self.ocr_workers > 1 {
+            format!(
+                "{name}-{}w{}t",
+                self.ocr_workers,
+                self.ocr_threads_per_worker()
+            )
+        } else {
+            name
+        }
     }
 
     /// PDFium can be bound once per process, so the binding is shared. It is also not
@@ -379,9 +409,7 @@ struct Manifest {
 fn open_cache(pdf: &Path, sha256: &str, cfg: &Config) -> Result<(PathBuf, Manifest)> {
     let ocr_version = cfg.ocr_version();
     let producer = cfg.producer();
-    let dir = cfg
-        .cache_root
-        .join(format!("{}-{}", &sha256[..16], ocr_version));
+    let dir = cfg.cache_root.join(cfg.cache_dir_name(sha256));
     std::fs::create_dir_all(&dir)?;
     let path = dir.join("manifest.json");
     if let Ok(s) = std::fs::read_to_string(&path) {
@@ -519,32 +547,37 @@ pub fn load_pages(
                 cfg.ocr.name
             );
         }
-        let engine = ocr_engine(&cfg.ocr)?;
+        let render = |n: usize| -> Result<image::RgbImage> {
+            let page = doc.pages().get((n - 1) as i32)?;
+            // PDFium applies the page's /Rotate, so the bitmap is upright as displayed.
+            let cfg_r = PdfRenderConfig::new().scale_page_by_factor(OCR_DPI / 72.0);
+            Ok(page.render_with_config(&cfg_r)?.as_image()?.into_rgb8())
+        };
+        let save = |text: &PageText| -> Result<()> {
+            write_atomic(&page_file(text.page), &serde_json::to_string(text)?)?;
+            if verbose {
+                eprintln!("  page {}/{count}: {} lines", text.page, text.lines.len());
+            }
+            Ok(())
+        };
         // One page per call. oar-ocr pads a batch's images and text crops to a common size, so a
         // page recognised alongside others can read differently (measured: 5 of 9 pages of one
         // scanned deed changed between batches of 6 and of 1). Alone, a page's text depends only on that page,
         // whatever else is cached or requested. oar-ocr still parallelises within the page.
-        for &n in &need_ocr {
-            let page = doc.pages().get((n - 1) as i32)?;
-            // PDFium applies the page's /Rotate, so the bitmap is upright as displayed.
-            let cfg_r = PdfRenderConfig::new().scale_page_by_factor(OCR_DPI / 72.0);
-            let image = page.render_with_config(&cfg_r)?.as_image()?.into_rgb8();
-            let (w, h) = image.dimensions();
-            let res = engine
-                .predict(vec![image])?
-                .pop()
-                .context("OCR returned no result")?;
-            let text = PageText {
-                page: n,
-                source: TextSource::Ocr,
-                width: w as f32,
-                height: h as f32,
-                lines: ocr_lines(&res),
-            };
-            write_atomic(&page_file(n), &serde_json::to_string(&text)?)?;
-            if verbose {
-                eprintln!("  page {n}/{count}: {} lines", text.lines.len());
+        let done = if cfg.ocr_workers == 1 {
+            let engine = ocr_engine(&cfg.ocr, None)?;
+            let mut done = vec![];
+            for &n in &need_ocr {
+                let text = ocr_page(&engine, n, render(n)?)?;
+                save(&text)?;
+                done.push(text);
             }
+            done
+        } else {
+            ocr_pages_parallel(cfg, &need_ocr, render, save)?
+        };
+        for text in done {
+            let n = text.page;
             pages[n - 1] = Some(text);
         }
     }
@@ -725,7 +758,88 @@ fn page_diff(a: &PageText, b: &PageText) -> String {
     }
 }
 
-fn ocr_engine(m: &OcrModels) -> Result<oar_ocr::prelude::OAROCR> {
+/// OCR one rendered page on its own (never batched with other pages).
+fn ocr_page(
+    engine: &oar_ocr::prelude::OAROCR,
+    n: usize,
+    image: image::RgbImage,
+) -> Result<PageText> {
+    let (w, h) = image.dimensions();
+    let res = engine
+        .predict(vec![image])?
+        .pop()
+        .context("OCR returned no result")?;
+    Ok(PageText {
+        page: n,
+        source: TextSource::Ocr,
+        width: w as f32,
+        height: h as f32,
+        lines: ocr_lines(&res),
+    })
+}
+
+/// `ocr_workers` pages at a time. PDFium is not thread-safe, so this thread renders and hands
+/// pages to the workers; each worker has its own engine (oar-ocr runs one session at a time) with
+/// ONNX Runtime's threads split between them, and still OCRs one page per call.
+fn ocr_pages_parallel(
+    cfg: &Config,
+    need_ocr: &[usize],
+    render: impl Fn(usize) -> Result<image::RgbImage>,
+    save: impl Fn(&PageText) -> Result<()> + Sync,
+) -> Result<Vec<PageText>> {
+    let intra = cfg.ocr_threads_per_worker();
+    let engines = (0..cfg.ocr_workers)
+        .map(|_| ocr_engine(&cfg.ocr, Some(intra)))
+        .collect::<Result<Vec<_>>>()?;
+    let (tx, rx) = std::sync::mpsc::sync_channel::<(usize, image::RgbImage)>(cfg.ocr_workers);
+    // shared by the workers only, so it is dropped (and a send fails) once they have all stopped
+    let rx = std::sync::Arc::new(std::sync::Mutex::new(rx));
+    std::thread::scope(|s| {
+        let workers: Vec<_> = engines
+            .iter()
+            .map(|engine| {
+                let (rx, save) = (rx.clone(), &save);
+                s.spawn(move || -> Result<Vec<PageText>> {
+                    let mut done = vec![];
+                    loop {
+                        // its own statement, so the lock is released before the page is OCR'd
+                        let next = rx.lock().unwrap().recv();
+                        let Ok((n, image)) = next else { break };
+                        let text = ocr_page(engine, n, image)?;
+                        save(&text)?;
+                        done.push(text);
+                    }
+                    Ok(done)
+                })
+            })
+            .collect();
+        drop(rx);
+        let mut rendered = Ok(());
+        for &n in need_ocr {
+            match render(n) {
+                Ok(image) => {
+                    // fails only when every worker has stopped on an error, reported below
+                    if tx.send((n, image)).is_err() {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    rendered = Err(e);
+                    break;
+                }
+            }
+        }
+        drop(tx);
+        let mut done = vec![];
+        for w in workers {
+            done.extend(w.join().expect("OCR worker panicked")?);
+        }
+        rendered?;
+        Ok(done)
+    })
+}
+
+fn ocr_engine(m: &OcrModels, intra_threads: Option<usize>) -> Result<oar_ocr::prelude::OAROCR> {
     for p in [&m.det, &m.rec, &m.dict] {
         check_pinned(p)?;
     }
@@ -746,10 +860,14 @@ fn ocr_engine(m: &OcrModels) -> Result<oar_ocr::prelude::OAROCR> {
     })
     .clone()
     .map_err(anyhow::Error::msg)?;
-    Ok(
-        oar_ocr::prelude::OAROCRBuilder::new(m.det.clone(), m.rec.clone(), m.dict.clone())
-            .build()?,
-    )
+    Ok({
+        let mut b =
+            oar_ocr::prelude::OAROCRBuilder::new(m.det.clone(), m.rec.clone(), m.dict.clone());
+        if let Some(t) = intra_threads {
+            b = b.ort_session(oar_ocr::core::config::OrtSessionConfig::new().with_intra_threads(t));
+        }
+        b.build()?
+    })
 }
 
 /// OCR regions -> lines in reading order. Regions whose vertical centres align form a row; rows
