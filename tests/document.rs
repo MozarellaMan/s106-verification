@@ -1,11 +1,9 @@
-//! The page text the evidence matcher sees: OCR boxes joined per visual row, side-margin specks
+//! The page text a reader sees: OCR boxes joined per visual row, side-margin specks
 //! (binding marks read as digits) left out, folios and text-layer lines untouched.
 
 use std::path::PathBuf;
 
 use s106::document::{Document, Line, PageText, TextSource};
-use s106::evidence::evidence_found;
-use s106::schema::Evidence;
 
 fn line(text: &str, bbox: [f32; 4]) -> Line {
     Line {
@@ -58,11 +56,6 @@ fn margin_speck_is_not_joined_into_a_sentence() {
         text.ends_with('5'),
         "the folio in the bottom margin is not a speck: {text:?}"
     );
-    let ev = Evidence {
-        page: 5,
-        snippet: "means: £84,500.00 (Eighty four thousand five hundred pounds)".into(),
-    };
-    assert!(evidence_found(Some(&ev), &pages));
 }
 
 #[test]
@@ -90,9 +83,6 @@ fn same_row_boxes_join_and_rows_stay_separate() {
             .unwrap()
             .starts_with("\"Affordable Housing means the sum")
     );
-    // the snippet runs across the wrapped right column, with the term's second half in between
-    let ev = Evidence { page: 5, snippet: "means the sum of £6,042.30 (six thousand and forty two pounds and thirty pence) Index Linked".into() };
-    assert!(evidence_found(Some(&ev), &d.pages()));
 }
 
 #[test]

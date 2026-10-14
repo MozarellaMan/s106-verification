@@ -1,54 +1,37 @@
 # s106-verification
 
-A verification harness for UK Section 106 planning obligations, written in Rust.
+Research tools for UK Section 106 planning obligations, written in Rust.
 
-Claude reads an executed deed (agreement, unilateral undertaking, deed of variation or
-supplemental deed) into a typed schema. A deterministic gate then checks every number against
-the other numbers **and** against the deed's own text: each value must appear in the passage the
-model cites, and that passage must be found on the cited page. The gate makes no model judgement.
+The pipeline is automated. `s106 pages` turns an executed deed (agreement, unilateral
+undertaking, deed of variation or supplemental deed) into page text, from the PDF's text layer or
+by OCR. LLM readers, run as agent sessions, read that text and the other sources (committee
+reports, GLA reports, the Planning London Datahub, EPC certificates) into proposals under
+`proposals/` in the data repository. `s106 results` builds each batch's scheme ledger from those
+proposals and any labels, and the results explorer (`explorer/`) shows it on a map.
 
-**Status.** Extraction and the gate have no measured error rate yet. PASS means a value matches
-the model's own citation on the cited page, not that it matches independent evidence. The data
-repository's `docs/verification-rule.md` says how the error rate is to be measured: independent LLM
-readers and external sources (Datahub, EPC, Price Paid, Infrastructure Funding Statements) read the
-same cells, and their agreement bounds the error. That estimate is not built. An AI agent
-transcribed the OCR gold pages, and the pinned expected outcomes were blessed from the pipeline's
-own output, so the test tiers show repeatability, not correctness ([docs/testing.md](docs/testing.md)).
-Nine of the ten deeds the prompts were tuned on are from outside London.
+**Status.** The readings have no measured error rate yet. The data repository's
+`docs/verification-rule.md` says how it is to be measured: independent LLM readers and external
+sources (Datahub, EPC, Price Paid, Infrastructure Funding Statements) read the same cells, and their
+agreement bounds the error. That estimate is not built. An AI agent transcribed the OCR gold pages,
+so the OCR tests show repeatability, not correctness ([docs/testing.md](docs/testing.md)).
 
 Architecture and contributor reading path: [docs/architecture.md](docs/architecture.md).
 
 OCR speed, the default model set (PP-OCRv6 tiny) and choosing another with `S106_OCR_MODELS`: [docs/ocr-speed.md](docs/ocr-speed.md).
 
-This repository holds code and invented test deeds only; it describes no real planning
-application. The data and the notes about real deeds (the roadmap, the deeds behind schema v2,
-the acceptance of the Rust harness against the former Python one) are in the private
-[s106-data](https://github.com/MozarellaMan/s106-data) repository's `docs/`.
-
-Obligations against delivery: [docs/reconciliation.md](docs/reconciliation.md).
+This repository holds code only; it describes no real planning application. The data and the
+notes about real deeds are in the private [s106-data](https://github.com/MozarellaMan/s106-data)
+repository.
 
 What the outputs must not be read as saying: [docs/claims.md](docs/claims.md).
 
 ```
 src/
   document.rs   PDF pages -> text with boxes: PDFium text layer, or PP-OCRv6 tiny OCR; cached by content hash
-  wire.rs       structured-output types the model fills in, and their conversion to schema v2
-  llm.rs        the Anthropic API (rust-claude-sdk, pinned): strict JSON schemas, PDF input, retries
-  extract.rs    prompts, recorded fixtures and offline replay, escalation to a stronger model
-  schema.rs     schema v2: instrument, housing, contributions (amount / conditionality / payment), variations
-  verify.rs     the gate: arithmetic + grounding -> PASS / REVIEW / FAIL / SKIP
-  audit.rs      typed audit findings: one value per numeric problem
-  evidence.rs   re-locating a cited snippet in OCR text (dropped spaces, two-column wraps, OCR digits)
-  triggers.rs   fixed vocabulary that labels payment triggers from the cited phrase
-  text.rs       number and words-to-amount reading
-  quantity.rs   one tokenizer and grammar for quantities in prose and wire fields
-  report.rs     terminal report and JSON
-  eval.rs       evaluation against the national S106 register (planning.data.gov.uk)
+  ocrbench.rs   OCR scored against gold transcriptions (`gold/*.json` in the data repository)
   data.rs       where the research data lives (the s106-data checkout at `data/`)
   pld.rs        read-only Planning London Datahub client; saves raw snapshots under <data>/snapshots/pld/
-  reconcile.rs  obligation events vs PLD delivery, one row per measure, with a status per row
-  ocrbench.rs   OCR scored against gold transcriptions (`gold/*.json` in the data repository)
-  labels.rs     scored against human labels (`labels/` in the data repository)
+  labels.rs     agent proposals scored against human labels (`labels/` in the data repository)
   results.rs    a batch's scheme ledger, decision rules and claims, each with its check level
   explore.rs    data for the results explorer (`explorer/`): Datahub, plus deed cells or a private ledger
   figures.rs    `s106 check-figures`: each cited figure must still be in its cited file
@@ -68,13 +51,9 @@ scripts/fetch-models.sh
 cargo build --release
 ```
 
-Live extraction needs an Anthropic API key in `~/.config/s106/anthropic_key` (or
-`ANTHROPIC_API_KEY`). Replaying recorded fixtures needs nothing but the data checkout.
-
 ### The data
 
-The deeds' recorded outputs (page text, model responses, expected outcomes, gold, register rows)
-live in the private repository `MozarellaMan/s106-data`, which needs granted access. Clone it
+The deeds' page text, OCR gold pages, proposals, labels and results live in the private repository `MozarellaMan/s106-data`, which needs granted access. Clone it
 into `data/` (ignored by git), or point the `S106_DATA` environment variable or the global
 `--data <dir>` flag at a checkout elsewhere. Then fetch the PDFs. They come from public planning
 registers and are not committed anywhere:
@@ -85,9 +64,7 @@ scripts/fetch-corpus.sh
 ```
 
 `scripts/fetch-corpus.sh` reads `corpus/manifest.tsv` from the data checkout, downloads every
-deed into `data/raw/<id>.pdf`, and refuses a file whose SHA-256 differs from the manifest. The
-recorded responses (`data/extractions/<id>/`) refuse such a file too. The evaluation's candidate
-list and the register rows for those deeds are in the data repository's `eval/`.
+deed into `data/raw/<id>.pdf`, and refuses a file whose SHA-256 differs from the manifest.
 
 ### Starting without the data repository
 
@@ -98,12 +75,8 @@ start one, find the executed deed for a planning application on the council's re
    run `scripts/fetch-corpus.sh <id>`.
 2. Write its page text with `s106 pages data/raw/<id>.pdf --write data/pages` (needs
    `scripts/fetch-models.sh`).
-3. Record one extraction with `s106 audit data/raw/<id>.pdf --llm-mode record` (costs money; see
-   below). From then on, `s106 audit data/pages/<id>.pages.json` replays it offline.
-4. To compare with the national register, list it in `eval/candidates.tsv`, download the register
-   files (see the `eval/` README in s106-data) and run `s106 eval --replay --register <dir>`.
 
-The current corpus was built from these applications, a mix of agreements, a unilateral
+The OCR test corpus was built from these applications, a mix of agreements, a unilateral
 undertaking and deeds of variation:
 
 | Council | Planning reference | Instrument |
@@ -122,33 +95,16 @@ undertaking and deeds of variation:
 ## Run
 
 ```bash
-s106 audit data/raw/<id>.pdf                                       # replay if no credentials, else live
-s106 audit data/raw/<id>.pdf --llm-mode record                     # call the API and save the fixture
-s106 audit <pdf> --escalate                                        # re-read Parser-Error fields with Opus 5.5
-s106 audit data/pages/<id>.pages.json                             # replay from committed page text, no PDF
-s106 audit data/raw/a.pdf data/raw/b.pdf --llm-mode record          # several deeds: OCR one while others wait on the model
-s106 eval --replay                                                 # all candidate deeds vs the register, offline
-s106 eval --replay --pages data/pages                              # the same from committed page text, no PDFs
+s106 pages <pdf>... --write data/pages                             # page text snapshots for the readers
 s106 pages <pdf>... --check data/pages                             # read PDFs afresh and compare with the snapshots
-s106 eval --runs 3                                                 # live, three runs per deed (run-to-run agreement)
 s106 pld get applications <borough>-<reference>                    # save a Datahub record under <data>/snapshots/pld/
-s106 reconcile <deed>... --development <borough>-<reference> --pld snapshots/pld/applications/<id>/<time>.json
-s106 labels                                                        # score everything against the human labels
+s106 labels                                                        # score the proposals against the human labels
 s106 results --sheet runs/<batch>/labels.csv --out results/<batch>  # a batch's ledger, rules and claims
 s106 explore                                                       # bake the results explorer's data (explorer/README.md)
 s106 check-figures                                                 # every 29.8%<!-- src: path --> still in its cited file
 ```
 
 (`cargo run --release --` instead of `s106` without installing.)
-
-`audit` prints a report and writes JSON to `data/processed/<stem>.audit.json`. Exit codes are `0`
-clean, `1` Parser Errors or REVIEW flags, `2` Document Discrepancies (the worst over all deeds), and
-`3` if any deed could not be audited.
-
-**What a run costs.** Extraction is three structured-output calls over the whole PDF, made at the
-same time: one schema for everything compiles to a grammar the API rejects, and the API cannot
-cache the PDF across calls whose schemas differ. With Haiku 5.5 a 30-page deed costs a few cents
-and a 109-page scan about $0.30. Escalation to Opus 5.5 costs more and runs only with `--escalate`.
 
 ## Human labels
 
@@ -195,40 +151,6 @@ that, a reader that is not an LLM agrees and the cell's own estimated chance of 
 A rule or claim stands at the weakest level of the cells it rests on. Like `s106 labels`,
 `s106 results` never waits for labels.
 
-## Outcomes
-
-An input is *grounded* when its value appears in its cited snippet (as digits, as number words,
-or with the OCR repairs `£`→`f` and `5o`→`50`) and the snippet is found again on the cited page of
-the page text, ignoring whitespace. Mix-table cells have no snippets of their own, so a row is
-grounded when one line on the table's page states all of its counts.
-
-| outcome | meaning |
-|---|---|
-| PASS | the assertion holds and every input is grounded |
-| REVIEW | the assertion holds, but some input isn't grounded, so correctness is unproven |
-| FAIL, Parser Error | an input is missing or ungrounded, and the assertion fails |
-| FAIL, Document Discrepancy | the assertion fails although every input is grounded: what the deed *appears* to say through OCR, to be confirmed against the original page |
-| SKIP | the deed doesn't state what the check needs; whole-scheme checks on a variation; a floorspace or unstated % basis (never recomputed by units) |
-
-## Checks
-
-| ID | Assertion |
-|----|-----------|
-| H1 | market units + affordable units == total residential units (SKIP for variations) |
-| H2 | Σ tenure units == affordable units |
-| H3 | Σ tenure habitable rooms == affordable habitable rooms |
-| H4 | claimed affordable % == calculated % on the deed's stated basis (±0.05pp) |
-| H5 | approved mix table: rows sum to each tenure's sub-total, sub-totals to the total |
-| H6 | mix table agrees with the definitions |
-| V1 | a variation or supplemental deed identifies its parent, and the citation is grounded |
-| V2.n | an identifying token from each variation's target is grounded; operation and new wording remain unverified |
-| F*.amt | a fixed or capped sum was extracted and is stated in its citation (SKIP for formula/rate/no figure) |
-| F*.words | the figure equals its words form ("£10,058.60 (ten thousand and fifty eight pounds and sixty pence)") |
-| F*.cond | a conditional sum's condition is the deed's own wording, found on its page |
-| F*.trig | the payment covenant and its trigger phrase are both in the deed, the phrase lies inside the covenant, and the covenant imposes a payment |
-| F*.tlabel | the trigger label follows from the cited phrase (fixed vocabulary in `triggers.rs`) |
-| F*.inst… | instalments: grounded shares sum to 100%; the lead-in imposes payment; each instalment's phrase is in the deed and decides its label |
-
 ## Reproducibility
 
 - **Page text** is cached under `data/interim/ocr/<sha256[:16]>-<ocr version>/` and kept in the data
@@ -238,27 +160,19 @@ grounded when one line on the table's page states all of its counts.
   gives a new key. Artifact files that differ from their pins are refused, and the cache manifest
   is validated on read. Each image-only page is OCR'd on its own, so its text does not depend on
   other pages.
-- **Model responses** are recorded in `data/extractions/<stem>/<model>.extract.v2.json`, tied to the
-  PDF's SHA-256 and to a hash of the prompts and schemas. A fixture refuses to replay against a
-  different deed or a changed prompt. v1 fixtures from the former Python harness
-  (`data/extractions-v1/`) still replay.
 - **Runtime artifacts** (PDFium, ONNX Runtime, OCR models) are pinned by SHA-256 in
   `scripts/runtime-artifacts.tsv`.
-- **Determinism:** trigger labels come from the cited phrase, not the model. Plural group terms
-  are dropped. Truncated structured output is retried.
 
 ## Tests
 
-Five tiers, from always-on to on-request. Details, timings and how to update the snapshots:
+Four tiers, from always-on to on-request. Details, timings and how to update the snapshots:
 [docs/testing.md](docs/testing.md).
 
 ```bash
-cargo test                      # 1 unit tests and invented deeds (tests/synthetic/): no data, PDFs, models or network
-cargo test-data                 # 2 replay of the real corpus from the data checkout (S106_BLESS=1 to bless)
+cargo test                      # 1 unit tests: no data, PDFs, models or network
+cargo test-data                 # 2 the real corpus's page-text snapshots, from the data checkout
 cargo test-pdf                  # 3 difficult pages read afresh from the PDFs, OCR gold thresholds
 cargo test-corpus               # 4 every deed read through PDFium/OCR, compared with its snapshot
-s106 eval --replay              # 4 register evaluation on the PDFs
-s106 eval --runs 3              # 5 live model calls (costs money; manual only)
 ```
 
 Tier 2 (`cargo test-data`) needs the data checkout and fails with "data missing" without it.
@@ -266,6 +180,5 @@ Tiers 3 and 4 also need `scripts/fetch-models.sh` and `scripts/fetch-corpus.sh`,
 "corpus missing" when deeds are absent; neither tier skips silently. CI (`.github/workflows/`) runs
 `cargo test` on every push, plus a second job that checks out the data repository (secret
 `S106_DATA_DEPLOY_KEY`) and runs `cargo test-data`. Tiers 3-4 run weekly on a cold cache, also
-with the data checkout, and tier 5 only when started by hand. Only tiers 1-2 gate pull requests.
-The weekly job skips the PDF tiers with a warning when the council sites it downloads from are
-unreachable.
+with the data checkout. Only tiers 1-2 gate pull requests. The weekly job skips the PDF tiers with
+a warning when the council sites it downloads from are unreachable.
