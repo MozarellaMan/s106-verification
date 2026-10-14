@@ -25,7 +25,8 @@ use pdfium_render::prelude::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::evidence::Pages;
+/// Page text by page number (1-based).
+pub type Pages = std::collections::BTreeMap<usize, String>;
 
 /// A page needs OCR when its text layer has fewer non-whitespace characters than this.
 const MIN_TEXT_CHARS: usize = 50;

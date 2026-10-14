@@ -1,5 +1,5 @@
 //! Human labels (`s106::labels`): loading submissions, supersession, and the three figures, on
-//! invented labels and the invented Datahub record in `tests/synthetic/pld/`.
+//! invented labels and invented machine readings.
 
 use std::path::Path;
 

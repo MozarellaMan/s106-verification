@@ -1,8 +1,6 @@
 //! Shared by the tiered tests: the corpus list and page-text snapshots from the data repository
-//! (`s106::data`), the invented deeds, and OCR thresholds.
+//! (`s106::data`) and OCR thresholds.
 #![allow(dead_code)]
-
-pub mod synthetic;
 
 use std::path::{Path, PathBuf};
 
@@ -107,9 +105,4 @@ pub fn assert_gold(results: &[(PathBuf, Vec<String>)]) {
         "OCR below the gold thresholds:\n{}",
         failed.join("\n")
     );
-}
-
-/// `S106_BLESS=1` rewrites expected-output files instead of comparing against them.
-pub fn bless() -> bool {
-    std::env::var_os("S106_BLESS").is_some()
 }
