@@ -6,8 +6,10 @@ working rules and apply to every report, table and note built from this code.
 - **No finding that an obligation was unmet.** A difference between what a deed agreed and what a
   dataset records is a discrepancy to check, never a breach. "Differs: review" means a person
   must read the borough's records.
-- **No developer- or council-specific claim without human review.** Nothing names a developer or
-  a council as having done or failed to do something until a person has checked the evidence.
+- **No developer- or council-specific claim without its check level and evidence.** Since 14 Oct
+  2026 no person reviews a claim before it names a developer or council; the automated checks
+  stand in for that review, so every such claim carries the check level of the weakest cell it
+  cites and the cells themselves.
 - **Caution with causal claims.** Descriptive patterns are not causal evidence. That some
   approved developments were never built does not show that their obligations stopped them being built.
   Causal studies remain a later goal, if a defensible research design is possible.
