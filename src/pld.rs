@@ -1,9 +1,10 @@
 //! A thin, read-only client for the Planning London Datahub (PLD) and its raw snapshots.
 //!
 //! PLD is an Elasticsearch API (`planningdata.london.gov.uk/api-guest/`, guest header from the
-//! GLA's API document; data under OGL v3). It is not quality-checked on receipt, so analyses never
-//! read it live: every response is saved verbatim with its request and retrieval time, and the
-//! reconciliation cites the snapshot file and its SHA-256. Field meanings are not interpreted here.
+//! GLA's API document; data under OGL v3). PLD data is not quality-checked on receipt, so
+//! analyses never read it live: every response is saved verbatim with its request and retrieval
+//! time, and the reconciliation cites the snapshot file and its SHA-256. Field meanings are not
+//! interpreted here.
 
 use std::path::{Path, PathBuf};
 
@@ -14,8 +15,8 @@ use sha2::{Digest, Sha256};
 
 pub const BASE_URL: &str = "https://planningdata.london.gov.uk/api-guest";
 /// The guest access header the GLA publishes for anyone to use, in its "Planning London Datahub
-/// API" connection document (v1, linked from the PLD pages on the London Datastore). It is a public
-/// guest credential, not a leaked secret: leave it as it is.
+/// API" connection document (v1, linked from the PLD pages on the London Datastore). The header
+/// is a public guest credential, not a leaked secret: leave it as it is.
 const GUEST_HEADER: (&str, &str) = ("X-API-AllowRequest", "be2rmRnt&");
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,6 +1,6 @@
 //! Human labels: what a person read off each source, and the figures that follow from them.
 //!
-//! This is a layer on its own. Nothing else in the crate reads labels, and nothing waits for
+//! Labels are a layer on their own. Nothing else in the crate reads them, and nothing waits for
 //! them: `s106 labels` picks up whatever submissions exist under `<data>/labels/`, and with none
 //! it says so and writes the same (empty) report. Each submission is a CSV in the source-audit
 //! codebook's columns (`runs/2026-10-14-source-audit-batch1/codebook.md` in s106-data), one row
@@ -637,8 +637,9 @@ pub struct SourceAgreement {
 }
 
 /// The pipeline against the labels for one producer, variable and source. A field the label
-/// states and the pipeline gets right is a true positive; one it gets wrong or misses lowers
-/// recall; one it states that the label doesn't (or gets wrong) lowers precision.
+/// states and the pipeline gets right is a true positive; a field the pipeline gets wrong or
+/// misses lowers recall; a field the pipeline states that the label doesn't (or gets wrong)
+/// lowers precision.
 #[derive(Debug, Serialize)]
 pub struct Accuracy {
     pub producer: String,

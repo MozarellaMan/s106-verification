@@ -1,7 +1,7 @@
 //! The one place that talks to the Anthropic API (through `rust-claude-sdk`, pinned).
 //!
 //! Callers send a PDF, a prompt and a JSON schema, and get back the model's JSON text with usage.
-//! SDK calls stay here; orchestration also names the concrete client type.
+//! SDK calls stay in this module; orchestration code also names the concrete client type.
 
 use std::path::PathBuf;
 

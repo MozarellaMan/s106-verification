@@ -1,8 +1,8 @@
 //! Tier 3: targeted real-PDF regression. Difficult pages are read afresh (PDFium text layer or
 //! OCR, into an empty cache) and must match their committed snapshots, and the hand-transcribed
-//! gold pages (`gold/` in the data repository) must meet the OCR thresholds. A few dozen pages rather than whole deeds, so this
-//! runs in under a minute; it needs the corpus (scripts/fetch-corpus.sh) and runtime artifacts
-//! (scripts/fetch-models.sh):
+//! gold pages (`gold/` in the data repository) must meet the OCR thresholds. A few dozen pages
+//! rather than whole deeds, so this tier runs in under a minute; it needs the corpus
+//! (scripts/fetch-corpus.sh) and runtime artifacts (scripts/fetch-models.sh):
 //!     cargo test --release --test pdf_regression -- --ignored
 
 mod common;

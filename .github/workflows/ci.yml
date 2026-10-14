@@ -1,6 +1,7 @@
 # Tiers 1-2 on every push and pull request: unit tests and the invented deeds (`cargo test`), then
 # offline replay of the real corpus from the private s106-data repository (`cargo test-data`, read
-# with the read-only deploy key in the S106_DATA_DEPLOY_KEY secret). No PDFs, runtime artifacts, credentials or network at test time.
+# with the read-only deploy key in the S106_DATA_DEPLOY_KEY secret). No PDFs, runtime artifacts,
+# credentials or network at test time.
 name: ci
 on:
   push:

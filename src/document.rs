@@ -2,7 +2,8 @@
 //!
 //! Every line keeps its bounding box, so evidence can later be tied to a position on the page.
 //!
-//! This is the expensive stage (a 109-page scan takes minutes), so its output is kept twice:
+//! Producing page text is the expensive stage (a 109-page scan takes minutes), so the output is
+//! kept twice:
 //!
 //! * a working cache, `<cache root>/<sha256[:16]>-<ocr_version>/`, one JSON file per page plus a
 //!   `manifest.json` that records the full [`Producer`]. A warm cache is read without opening the
@@ -239,7 +240,7 @@ impl Config {
         }
     }
 
-    /// PDFium can be bound once per process, so the binding is shared. It is also not
+    /// PDFium can be bound once per process, so the binding is shared. PDFium is also not
     /// thread-safe: every use goes through this lock.
     fn pdfium(&self) -> Result<std::sync::MutexGuard<'static, Pdfium>> {
         // `get_or_init` runs the binding once even when tests load documents in parallel.
@@ -303,10 +304,10 @@ impl Document {
     /// Page text for evidence matching: one text line per visual row, rows joined by newlines.
     ///
     /// OCR keeps each column's text as its own box (and `lines` keeps them apart for provenance),
-    /// but for matching, boxes on the same row are joined with a space. A definition that wraps
-    /// then reads "...and one" / "Officer Contribution\" hundred and twenty pounds)", which the
-    /// evidence matcher tolerates (a short left-column fragment at a line start), rather than
-    /// three separate lines, which it rightly does not.
+    /// but for matching, boxes on the same row are joined with a space. A wrapped definition then
+    /// reads "...and one" / "Officer Contribution\" hundred and twenty pounds)": a short
+    /// left-column fragment at a line start, which the evidence matcher tolerates. As three
+    /// separate lines it would (rightly) not match.
     pub fn pages(&self) -> Pages {
         self.pages.iter().map(|p| (p.page, page_text(p))).collect()
     }
@@ -341,7 +342,8 @@ fn page_text(p: &PageText) -> String {
     let margin_speck = |l: &Line| {
         l.text.chars().count() <= 2 && (l.bbox[2] < 0.06 * p.width || l.bbox[0] > 0.94 * p.width)
     };
-    // `lines` are already in row order (see ocr_lines); start a new row when the vertical centre moves
+    // `lines` are already in row order (see ocr_lines); a new row starts when the vertical centre
+    // moves
     let mut rows: Vec<Vec<&Line>> = vec![];
     for l in p.lines.iter().filter(|l| !margin_speck(l)) {
         let c = (l.bbox[1] + l.bbox[3]) / 2.0;
@@ -581,8 +583,9 @@ pub fn load_pages(
         };
         // One page per call. oar-ocr pads a batch's images and text crops to a common size, so a
         // page recognised alongside others can read differently (measured: 5 of 9 pages of one
-        // scanned deed changed between batches of 6 and of 1). Alone, a page's text depends only on that page,
-        // whatever else is cached or requested. oar-ocr still parallelises within the page.
+        // scanned deed changed between batches of 6 and of 1). OCR'd alone, a page's text depends
+        // only on that page, whatever else is cached or requested. oar-ocr still parallelises
+        // within the page.
         let done = if cfg.ocr_workers == 1 {
             let engine = ocr_engine(&cfg.ocr, None)?;
             let mut done = vec![];
@@ -614,8 +617,8 @@ pub fn load_pages(
 // ------------------------------------------------------------------------------- snapshots
 
 /// A whole document's page text with its provenance: the committed, reviewable form of the
-/// page-text stage (`pages/<stem>.pages.json` in the data repository). Replaying from a snapshot needs no PDF,
-/// PDFium or OCR models.
+/// page-text stage (`pages/<stem>.pages.json` in the data repository). Replaying from a snapshot
+/// needs no PDF, PDFium or OCR models.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
     pub format: String,
@@ -811,7 +814,8 @@ fn ocr_pages_parallel(
         .map(|_| ocr_engine(&cfg.ocr, Some(intra)))
         .collect::<Result<Vec<_>>>()?;
     let (tx, rx) = std::sync::mpsc::sync_channel::<(usize, image::RgbImage)>(cfg.ocr_workers);
-    // shared by the workers only, so it is dropped (and a send fails) once they have all stopped
+    // shared by the workers only, so the receiver drops (and a send fails) once every worker has
+    // stopped
     let rx = std::sync::Arc::new(std::sync::Mutex::new(rx));
     std::thread::scope(|s| {
         let workers: Vec<_> = engines
@@ -821,7 +825,8 @@ fn ocr_pages_parallel(
                 s.spawn(move || -> Result<Vec<PageText>> {
                     let mut done = vec![];
                     loop {
-                        // its own statement, so the lock is released before the page is OCR'd
+                        // a separate statement, so the receiver's lock is released before the
+                        // page is OCR'd
                         let next = rx.lock().unwrap().recv();
                         let Ok((n, image)) = next else { break };
                         let text = ocr_page(engine, n, image)?;
@@ -837,7 +842,8 @@ fn ocr_pages_parallel(
         for &n in need_ocr {
             match render(n) {
                 Ok(image) => {
-                    // fails only when every worker has stopped on an error, reported below
+                    // the send fails only when every worker has stopped on an error (reported
+                    // below)
                     if tx.send((n, image)).is_err() {
                         break;
                     }

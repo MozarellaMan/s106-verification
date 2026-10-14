@@ -1,4 +1,5 @@
-//! Results: what a batch's sources say, scheme by scheme, and how far a person has checked it.
+//! Results: what a batch's sources say, scheme by scheme, and how far a person has checked each
+//! reading.
 //!
 //! `s106 results` reads a batch's blank labelling sheet (which cells exist), the human labels in
 //! `labels/` and the agents' proposals in `proposals/`, and writes one folder:
@@ -14,9 +15,10 @@
 //! - `README.md`: the note, including the written claims from the folder's hand-kept `claims.csv`,
 //!   grouped by the check level of the cells each one cites.
 //!
-//! Like `s106 labels`, nothing waits on this: with no labels every cell is `proposed` or
-//! `unread`, and the note says so. A rule outcome or a claim at the `proposed` level is not a
-//! result. A difference between two sources is a cell for a person to check, never a breach.
+//! Like `s106 labels`, `s106 results` does not wait for labels: with none, every cell is
+//! `proposed` or `unread`, and the note says so. A rule outcome or a claim at the `proposed`
+//! level is not a result. A difference between two sources is a cell for a person to check, never
+//! a breach.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -233,7 +235,7 @@ pub fn ledger(
 pub enum Outcome {
     /// the scheme meets the rule's condition
     Counts,
-    /// it doesn't
+    /// the scheme doesn't
     DoesNotCount,
     /// the cells can't decide it (a reading is ambiguous, or a source states nothing usable);
     /// counted against the rule, since the rule needs a positive finding
@@ -754,7 +756,7 @@ pub struct Claim {
     pub claim: String,
     /// `<scheme>/<variable_id>/<source>` ids, as the proposals and audit app use
     pub cells: Vec<String>,
-    /// it is about an identifiable scheme, developer or council
+    /// the claim is about an identifiable scheme, developer or council
     pub specific: bool,
     /// who signed it off for use outside the private repo, if anyone
     pub signed_off: String,
