@@ -155,8 +155,8 @@ pub fn request(
 }
 
 /// One structured-output call over a PDF. Retries truncated output; the SDK retries transport
-/// errors, 408/409/429 and 5xx itself.
-pub fn extract(
+/// errors, 408/409/429 and 5xx itself. Dropping the future cancels the request.
+pub async fn extract(
     client: &Client,
     model: &str,
     pdf: &[u8],
@@ -165,14 +165,10 @@ pub fn extract(
     effort: Effort,
 ) -> Result<Response> {
     let request = request(model, pdf, prompt, schema, effort);
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()?;
     let mut last_err = String::new();
     for attempt in 1..=PARSE_ATTEMPTS {
         // Streamed and accumulated: a long structured output on a non-streaming call risks HTTP timeouts.
-        let message =
-            runtime.block_on(async { client.stream(&request).await?.final_message().await })?;
+        let message = client.stream(&request).await?.final_message().await?;
         if message.is_refusal() {
             bail!(
                 "{model} declined the extraction (stop_details: {})",

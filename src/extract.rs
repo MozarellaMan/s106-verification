@@ -176,25 +176,26 @@ fn answer(
         let pdf = std::fs::read(&doc.path)?;
         // Three calls over the same PDF: one schema for everything compiles to a grammar
         // the API rejects as too large (see wire.rs). They are independent, so they run at
-        // the same time; each result is still taken from its own call.
+        // the same time; the first to fail cancels the other two rather than letting them finish.
         let call = |prompt: String, schema: Value| {
-            llm::extract(client, model, &pdf, &prompt, &schema, ExtractEffort::Medium)
+            let pdf = &pdf;
+            async move {
+                llm::extract(client, model, pdf, &prompt, &schema, ExtractEffort::Medium).await
+            }
         };
-        let (i, h, c) = std::thread::scope(|s| {
-            let i = s.spawn(|| call(prompt_instrument(), llm::schema_for::<WireInstrumentPart>()));
-            let h = s.spawn(|| call(prompt_housing(), llm::schema_for::<WireHousingPart>()));
-            let c = s.spawn(|| {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        let (i, mut h, mut c) = runtime.block_on(async {
+            tokio::try_join!(
+                call(prompt_instrument(), llm::schema_for::<WireInstrumentPart>()),
+                call(prompt_housing(), llm::schema_for::<WireHousingPart>()),
                 call(
                     prompt_contributions(),
-                    llm::schema_for::<WireContributionsPart>(),
-                )
-            });
-            let join = |t: std::thread::ScopedJoinHandle<'_, _>| {
-                t.join().expect("extraction call panicked")
-            };
-            (join(i), join(h), join(c))
-        });
-        let (i, mut h, mut c) = (i?, h?, c?);
+                    llm::schema_for::<WireContributionsPart>()
+                ),
+            )
+        })?;
         let mut output = i.output;
         output["housing"] = h.output["housing"].take();
         output["contributions"] = c.output["contributions"].take();

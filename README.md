@@ -116,6 +116,7 @@ s106 audit data/raw/<id>.pdf                                       # replay if n
 s106 audit data/raw/<id>.pdf --llm-mode record                     # call the API and save the fixture
 s106 audit <pdf> --escalate                                        # re-read Parser-Error fields with Opus 5.5
 s106 audit data/pages/<id>.pages.json                             # replay from committed page text, no PDF
+s106 audit data/raw/a.pdf data/raw/b.pdf --llm-mode record          # several deeds: OCR one while others wait on the model
 s106 eval --replay                                                 # all candidate deeds vs the register, offline
 s106 eval --replay --pages data/pages                              # the same from committed page text, no PDFs
 s106 pages <pdf>... --check data/pages                             # read PDFs afresh and compare with the snapshots
