@@ -125,6 +125,11 @@ impl OcrModels {
                 "pp-ocrv6_small_rec.onnx",
                 "ppocrv6_dict.txt",
             ),
+            "ppocrv6-tiny" => (
+                "pp-ocrv6_tiny_det.onnx",
+                "pp-ocrv6_tiny_rec.onnx",
+                "ppocrv6_tiny_dict.txt",
+            ),
             _ => return None,
         };
         Some(OcrModels {
@@ -148,7 +153,8 @@ pub struct Config {
 
 impl Config {
     /// Defaults: `models/` in the repository and `interim/ocr/` in the data checkout.
-    /// `S106_MODELS` and `S106_OCR_CACHE` override them; `S106_OCR_WORKERS` sets `ocr_workers`.
+    /// `S106_MODELS` and `S106_OCR_CACHE` override them; `S106_OCR_WORKERS` sets `ocr_workers`;
+    /// `S106_OCR_MODELS` names another model set (opt-in; its page text has its own cache key).
     pub fn from_env(repo_root: &Path) -> Config {
         let models_dir = std::env::var_os("S106_MODELS")
             .map(PathBuf::from)
@@ -156,7 +162,11 @@ impl Config {
         let cache_root = std::env::var_os("S106_OCR_CACHE")
             .map(PathBuf::from)
             .unwrap_or(crate::data::root().join("interim/ocr"));
-        let ocr = OcrModels::default_in(&models_dir);
+        let ocr = match std::env::var("S106_OCR_MODELS") {
+            Ok(name) => OcrModels::named(&name, &models_dir)
+                .unwrap_or_else(|| panic!("S106_OCR_MODELS={name} is not a known model set")),
+            Err(_) => OcrModels::default_in(&models_dir),
+        };
         let ocr_workers = std::env::var("S106_OCR_WORKERS")
             .ok()
             .and_then(|v| v.parse().ok())
