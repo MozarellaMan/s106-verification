@@ -104,7 +104,8 @@ enum Cmd {
     /// Set a development's deeds (oldest first, replayed from recorded extractions) against PLD
     /// delivery. Writes <data>/processed/<development>.reconcile.{json,md}.
     Reconcile {
-        /// the executed deeds, original first, then any variations in date order
+        /// the executed deeds (PDFs or committed `.pages.json` snapshots), original first, then
+        /// any variations in date order
         #[arg(required = true)]
         pdfs: Vec<PathBuf>,
         /// PLD record id (`<borough>-<reference>`); must match the snapshot's record
@@ -459,7 +460,12 @@ fn main() -> Result<()> {
             let cfg = document::Config::from_env(&repo_root());
             let mut instruments = vec![];
             for pdf in &pdfs {
-                let doc = document::load(pdf, &cfg, true)?;
+                // a committed page snapshot replays with no PDF, as in `audit`
+                let doc = if pdf.to_string_lossy().ends_with(".pages.json") {
+                    Snapshot::read(pdf)?.document()
+                } else {
+                    document::load(pdf, &cfg, true)?
+                };
                 let (agreement, _) = extract::extract(&doc, &model, Mode::Replay, None)?;
                 instruments.push(reconcile::instrument_obligations(
                     &agreement,

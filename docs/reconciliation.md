@@ -142,6 +142,12 @@ A deed tenure covers a delivered tenure when they're equal, or the deed uses an 
   Discount Market Rent.
 - **Shared Ownership** covers London Shared Ownership.
 
+PLD's "Intermediate Other" (Southwark records most intermediate homes this way) is an
+intermediate home whose product isn't recorded. It counts towards affordable totals and towards a
+deed's "Intermediate". A deed's named intermediate product (Shared Ownership, say) can't be counted
+while such units exist, so its row is indeterminate (`unknown_tenure`), and they get no
+"(not in deed)" row.
+
 Social Rent does **not** cover London Affordable Rent or Affordable Rent. Their rents differ, so a
 swap is a difference to review. Discount Market Sale and First Homes are not treated as
 intermediate unless the deed says so. This matters in practice: deeds often say "Intermediate"
@@ -163,7 +169,7 @@ committed to the data repository, not this one (PLD is OGL v3). Analyses read sn
 live API. `--pld` paths are relative to `<data>`, and each reconciliation cites its snapshot by that
 path and its SHA-256.
 
-## PLD → `Delivery` mapping (v1)
+## PLD → `Delivery` mapping (v2)
 
 `reconcile::delivery_from_pld` reads one saved `applications/_source/<id>` snapshot
 (`s106 reconcile … --pld <snapshot>`; there is no way to pass hand-written delivery JSON). It
@@ -180,14 +186,14 @@ retrieval time: a later snapshot is a new data point, not a correction.
 
 | `Delivery` field | PLD field |
 |---|---|
-| `status`, `scheme_complete` | `status`; complete only when "Completed", not yet for "Started"/"Not started" (any case), otherwise unknown |
+| `status`, `scheme_complete` | `status`; complete only when "Completed", not yet for "Started"/"Commenced"/"Not started" (any case), otherwise unknown (including "Lapsed") |
 | `started_on`, `completed_on` | `actual_commencement_date`, `actual_completion_date` (dd/mm/yyyy) |
 | `permitted.total_units` | `residential_details.total_no_proposed_residential_units` |
 | `permitted.market_units` | `…_units_market_for_sale` + `…_units_market_for_rent` |
 | `permitted.affordable_units` | `residential_details.total_no_proposed_residential_affordable_units` |
 | `permitted.tenure_units` | `…_units_<tenure>` for social rent, London affordable rent, affordable rent, London living rent, London shared ownership, intermediate, discount market rent and discount market sale |
 | `units[]` | `residential_units[]` with `change_type` "Gain" (a "Loss" is an existing home, not delivery) |
-| unit tenure | `tenure`: "Market for sale"/"Market for rent" are market; an affordable tenure only when spelled as a deed tenure (any case); null or empty is missing; anything else is unrecognised and kept verbatim |
+| unit tenure | `tenure`: "Market for sale"/"Market for rent" are market; an affordable tenure when spelled as a deed tenure (any case), and PLD's "Affordable Rent (not at LAR benchmark rents)" is Affordable Rent and "Intermediate Other" is Intermediate (below); null or empty is missing; anything else is unrecognised and kept verbatim |
 | unit completion | `actual_completion_date` |
 | unit id | `unit_no` when set, else `residential_units[<index>]` (records often have no `unit_no`) |
 | habitable rooms | none: PLD unit records give `no_bedrooms`, not habitable rooms, so room-based rows stay indeterminate |
