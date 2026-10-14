@@ -266,15 +266,43 @@ fn parser_behaviour_on_recorded_strings() {
     );
 }
 
+/// Recorded amounts whose words the deed itself states differently from its figure, each checked
+/// against the scan: `corpus/deed-words-differ.csv` in the data repository, keyed by deed, figure
+/// and words, with the amount the words do say. The recording keeps both as written.
+fn deed_words_differ() -> BTreeMap<(String, String, String), rust_decimal::Decimal> {
+    let path = s106::data::root().join("corpus/deed-words-differ.csv");
+    let Ok(mut rows) = csv::Reader::from_path(&path) else {
+        return BTreeMap::new();
+    };
+    rows.deserialize::<BTreeMap<String, String>>()
+        .map(|row| {
+            let row = row.unwrap();
+            let key = (
+                row["deed"].clone(),
+                row["figure"].clone(),
+                row["words"].clone(),
+            );
+            (
+                key,
+                rust_decimal::Decimal::from_str_exact(&row["words_amount"]).unwrap(),
+            )
+        })
+        .collect()
+}
+
 #[test]
 #[ignore = "data tier: needs the s106-data checkout; cargo test-data"]
 fn recorded_words_replay_with_negative_twins() {
     // Recorded figures are compatibility references, not independently verified legal truth.
     data();
+    let differ = deed_words_differ();
+    let mut seen = BTreeSet::new();
     let mut checked = 0;
     for dir in [s106::data::extractions(), s106::data::extractions_v1()] {
         for deed in std::fs::read_dir(dir).unwrap() {
-            for fixture in std::fs::read_dir(deed.unwrap().path()).unwrap() {
+            let deed = deed.unwrap();
+            let id = deed.file_name().to_string_lossy().into_owned();
+            for fixture in std::fs::read_dir(deed.path()).unwrap() {
                 let path = fixture.unwrap().path();
                 let raw: serde_json::Value =
                     serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
@@ -286,12 +314,14 @@ fn recorded_words_replay_with_negative_twins() {
                     let figure =
                         rust_decimal::Decimal::from_str_exact(c["amount_gbp"].as_str().unwrap())
                             .unwrap();
-                    assert_eq!(
-                        s106::quantity::amount(words).unwrap(),
-                        figure,
-                        "{}: {words}",
-                        path.display()
-                    );
+                    let parsed = s106::quantity::amount(words).unwrap();
+                    let key = (id.clone(), figure.to_string(), words.to_string());
+                    if let Some(said) = differ.get(&key) {
+                        assert_eq!(parsed, *said, "{}: {words}", path.display());
+                        seen.insert(key);
+                    } else {
+                        assert_eq!(parsed, figure, "{}: {words}", path.display());
+                    }
                     assert!(
                         s106::quantity::amount(&format!("{words} banana")).is_err(),
                         "{}: corrupted {words}",
@@ -303,5 +333,10 @@ fn recorded_words_replay_with_negative_twins() {
         }
     }
     assert!(checked > 0, "no recorded words fields found");
+    let unmatched: Vec<_> = differ.keys().filter(|k| !seen.contains(*k)).collect();
+    assert!(
+        unmatched.is_empty(),
+        "deed-words-differ.csv rows match no recorded amount: {unmatched:?}"
+    );
     eprintln!("{checked} recorded words fields reparsed; {checked} corrupted twins rejected");
 }
