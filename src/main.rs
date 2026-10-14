@@ -141,7 +141,10 @@ enum Cmd {
         )]
         snapshot: PathBuf,
         /// borough boundaries as GeoJSON
-        #[arg(long, default_value = "snapshots/ons/lad-2023-bgc-london.geojson")]
+        #[arg(
+            long,
+            default_value = "snapshots/ons/lad-2023-bgc-london/2026-10-14T14_06_00Z.geojson"
+        )]
         boundaries: PathBuf,
         #[arg(long, default_value = "explorer/data")]
         out: PathBuf,
