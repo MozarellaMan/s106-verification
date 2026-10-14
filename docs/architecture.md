@@ -180,7 +180,7 @@ cargo test-data               # tier 2, needs the data checkout
 cargo test-pdf && cargo test-corpus
 ```
 
-`S106_DATA` (or the global `--data <dir>` flag), `S106_MODELS` and `S106_OCR_CACHE` override locations. Fixtures live
+`S106_DATA` (or the global `--data <dir>` flag), `S106_MODELS` and `S106_OCR_CACHE` override locations. `S106_OCR_WORKERS=<n>` (default 1, opt-in) OCRs n pages at a time, each on its own engine and still one page per call; it uses about 0.3 GB more memory per extra worker, and `cargo test-pdf` on the real PDFs should pass with it before it becomes a default. Fixtures live
 at `data/extractions/<stem>/<model>.extract.v2.json` and check PDF and prompt/schema
 hashes. When no v2 fixture exists, `extractions-v1` can replay through an adapter; it does
 not have the same prompt-hash validation. Page positions in old excerpts are mapped
