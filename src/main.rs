@@ -7,7 +7,9 @@ use clap::{Parser, Subcommand};
 
 use s106::document::{self, Document, OcrModels, Snapshot};
 use s106::extract::{self, Mode};
-use s106::{eval, explore, labels, llm, ocrbench, pld, reconcile, report, results, verify};
+use s106::{
+    eval, explore, figures, labels, llm, ocrbench, pld, reconcile, report, results, verify,
+};
 
 #[derive(Parser)]
 #[command(
@@ -135,6 +137,12 @@ enum Cmd {
         /// the results folder, relative to <data>
         #[arg(long)]
         out: PathBuf,
+    },
+    /// Check every figure cited as `29.8%<!-- src: path -->` in the markdown under <dir>: the cited
+    /// file (relative to <dir>) must exist and still contain the figure. Exit 1 if any fails.
+    CheckFigures {
+        /// the folder to check (default: the data root)
+        dir: Option<PathBuf>,
     },
     /// Bake the results explorer's data into <out>/sites.json and <out>/boroughs.geojson: Datahub
     /// figures only, unless a flag below adds ledger cells. Paths are relative to the data root.
@@ -617,6 +625,18 @@ fn main() -> Result<()> {
                 "wrote {}",
                 root.join("reports/labels/labels.{md,json}").display()
             );
+            Ok(())
+        }
+        Cmd::CheckFigures { dir } => {
+            let dir = dir.unwrap_or_else(s106::data::root);
+            let r = figures::check(&dir)?;
+            for p in &r.problems {
+                println!("{p}");
+            }
+            println!("{} cited figures, {} failed", r.cited, r.problems.len());
+            if !r.problems.is_empty() {
+                std::process::exit(1);
+            }
             Ok(())
         }
         Cmd::Results { sheet, out } => {
