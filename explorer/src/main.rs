@@ -174,7 +174,7 @@ fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
             <p class="notice">
                 <b>"Private build, not for publication. "</b>
                 "Schemes with readings carry cells from " <code>{results}</code>
-                " at s106-data commit " <code>{commit}</code> ". Each says how far it has been checked; an AI reading nobody has checked is not a result, "
+                " at s106-data commit " <code>{commit}</code> ". Each says how far it is verified; an unverified reading is not a result, "
                 "and a difference between two sources is a prompt to read them, never a finding."
                 {unmatched}
             </p>
@@ -183,8 +183,9 @@ fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
             <p class="notice">
                 <b>"Deed figures. "</b>
                 "The schemes under \"schemes with deed figures\" show figures transcribed from their S106 "
-                "agreements and any deeds of variation found, with the pages cited. Most were transcribed by an AI model and have not been "
-                "checked by a person: those are marked UNCHECKED AI READING and drawn dashed. A deed figure is the obligation "
+                "agreements and any deeds of variation found, with the pages cited. They were transcribed by AI models, and each carries its check level: a figure is "
+                "confirmed only when readers agree, one of them is not an AI model, and its estimated chance of error is 1% or less. "
+                "Figures not yet verified are marked UNVERIFIED READING and drawn dashed. A deed figure is the obligation "
                 "as first signed, not what is due today or what was built. Only variations in the documents we "
                 "hold are shown: no search of the Local Land Charges register or council records has been made, "
                 "so later variations may exist. Deed and Datahub figures often differ for ordinary reasons (later "
@@ -556,9 +557,9 @@ fn Detail(
             })}
             {read.then(|| view! {
                 <p class="counts">{if deed_only {
-                    let checked = x.readings.iter().filter(|r| r.check >= Check::Anchored).count();
+                    let checked = x.readings.iter().filter(|r| r.check >= Check::Confirmed).count();
                     format!(
-                        "{} items read from the {}: {checked} checked by a person, {} not yet checked.",
+                        "{} items read from the {}: {checked} confirmed, {} not yet confirmed.",
                         x.readings.len(),
                         if varied { "deed and its variation" } else { "deed" },
                         x.readings.len() - checked
@@ -603,7 +604,7 @@ fn Detail(
                     note=changes.map(|checked| if checked {
                         "A variation found in the documents changes these figures. See Variation."
                     } else {
-                        "A variation found in the documents appears to change these figures (AI reading, not yet checked). See Variation."
+                        "A variation found in the documents appears to change these figures (not yet confirmed). See Variation."
                     }) />
                 <Stage name="Variation" known=Known::NotCollected { from: "deeds of variation, section 73" } readings=at(Lineage::Variation) missing=missing(Lineage::Variation)
                     note=(deed_only && read).then_some("Only variations found in the documents held. No search of the Local Land Charges register or council records has been made yet, so later variations may exist.") />

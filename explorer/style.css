@@ -59,7 +59,6 @@ aside { background: var(--panel); border: 1px solid var(--line); padding: 14px; 
 .chip .what { display: block; font-size: .72rem; color: var(--muted); }
 /* A cell's look follows how far it was checked; the words say it too. */
 .reading.unchecked { border-style: dashed; color: var(--muted); }
-.reading.disagree { border: 2px dotted var(--accent); }
 .reading.checked { border-color: var(--border); }
 .reading.independent { border-color: var(--border); box-shadow: inset 3px 0 0 var(--accent); }
 .tag { font-family: var(--mono); font-size: .66rem; text-transform: uppercase; letter-spacing: .04em;

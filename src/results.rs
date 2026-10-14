@@ -1,31 +1,24 @@
-//! Results: what a batch's sources say, scheme by scheme, and how far each reading has been
-//! checked.
+//! Results: what a batch's sources say, scheme by scheme, and how far each reading is verified.
 //!
-//! `s106 results` reads a batch's blank labelling sheet (which cells exist), the human labels in
-//! `labels/` and the agents' proposals in `proposals/`, and writes one folder:
+//! `s106 results` reads a batch's blank labelling sheet (which cells exist), the labels in
+//! `labels/` and the proposals in `proposals/`, and writes one folder:
 //!
 //! - `ledger.csv`: one row per scheme × variable × source, set out along the scheme's lineage
-//!   (offer, decision, obligation, variation, completion), with the best reading of each cell and
-//!   its check level: `independent` (a person read the source), `anchored` (a person confirmed or
-//!   corrected an agent's proposal), `sampled` (two readers agree and the blind sample of their
-//!   variable group passes the audit rule's gate), `proposed` (an agent only), `unsettled`
-//!   (readers disagree, a check failed or an external source differs, and no reading settles it
-//!   yet) or `unread`;
+//!   (offer, decision, obligation, variation, completion), with the reading of each cell, how many
+//!   readers read it and whether they agree, the cell's estimated chance of error, and its check
+//!   level (s106-data `docs/verification-rule.md`, section 6): `confirmed`, `estimated`,
+//!   `proposed` or `unread`;
 //! - `rules.csv`: the batch's pre-registered decision rules worked out on the ledger, scheme by
 //!   scheme, each outcome carrying the lowest check level it rests on;
 //! - `retrieval.csv`: per scheme and source, which documents are in hand and which are not;
-//! - `README.md`: the note, including the written claims from the folder's hand-kept `claims.csv`,
-//!   grouped by the check level of the cells each one cites.
+//! - `README.md`: the note, including each reader's estimated accuracy and the written claims
+//!   from the folder's hand-kept `claims.csv`, grouped by the check level of the cells each one
+//!   cites.
 //!
-//! Cells read under `docs/audit-rule.md` (batch 2 onwards) also have a row in a routing file in
-//! `proposals/` (a CSV with `proposal_id`, `group` and `route` columns): `triage` cells are
-//! `unsettled` until a label settles them, and `agreed` and `sample` cells are `sampled` once
-//! their group passes the gate in section 6 of the rule.
-//!
-//! Like `s106 labels`, `s106 results` does not wait for labels: with none, every cell is
-//! `proposed` or `unread`, and the note says so. A rule outcome or a claim at the `proposed`
-//! level is not a result. A difference between two sources is a discrepancy for another reader to
-//! settle, never a breach.
+//! Every reader is fallible: LLM readers, people's labels and external sources alike
+//! (`accuracy`). With no estimate yet, every cell read is `proposed`, and the note says so. A rule
+//! outcome or a claim at the `proposed` level is not a result. A difference between two sources is
+//! never a breach.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -34,29 +27,32 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
+use crate::accuracy::{self, Estimate, Vote};
 use crate::labels::{self, Reading};
 
-/// Who stands behind a cell, weakest first.
+/// How far a cell is verified, weakest first.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Check {
+    /// nobody has read it
     Unread,
-    Unsettled,
+    /// one reading, or readers disagree, or no estimate of the readers' accuracy passes the gate
     Proposed,
-    Sampled,
-    Anchored,
-    Independent,
+    /// readers agree and the shown reader's variable group has a lower 95% bound of at least 90%
+    /// accuracy: fit for aggregate statements carrying the estimated error rate
+    Estimated,
+    /// estimated, the cell's own chance of error is at most 1%, and a reader that is not an LLM
+    /// agrees: fit for a statement about one scheme, developer or council
+    Confirmed,
 }
 
 impl Check {
     pub fn as_str(self) -> &'static str {
         match self {
             Check::Unread => "unread",
-            Check::Unsettled => "unsettled",
             Check::Proposed => "proposed",
-            Check::Sampled => "sampled",
-            Check::Anchored => "anchored",
-            Check::Independent => "independent",
+            Check::Estimated => "estimated",
+            Check::Confirmed => "confirmed",
         }
     }
 }
@@ -91,6 +87,10 @@ pub struct Entry {
     pub doc_ids: String,
     pub pages: String,
     pub check: Check,
+    /// how many readers read the cell and whether they agree: `2 agree`, `3 differ`
+    pub readers: String,
+    /// the cell's estimated chance of error, e.g. `0.4%`; blank with no estimate
+    pub error: String,
     /// the labeller or producer of the reading shown
     pub reader: String,
     /// `<file>:<line>` of the reading shown
@@ -148,43 +148,49 @@ fn sheet_cells(path: &Path) -> Result<BTreeMap<Key, String>> {
     Ok(out)
 }
 
-/// The best reading of every cell. The sheet's cells all appear; a cell that only labels or
-/// proposals name (a source carrying a variable nobody expected) is added for the sheet's schemes.
-/// Labels outrank proposals; among proposals, the one in the later file (by path) wins, which is
-/// how a newer producer's file supersedes an older one. A cell the audit rule routes to triage is
-/// `unsettled` until a label settles it; an agreed or sampled cell of a group in `gated` is
-/// `sampled`.
+/// The reading of every cell. The sheet's cells all appear; a cell that only labels or proposals
+/// name (a source carrying a variable nobody expected) is added for the sheet's schemes. In
+/// any case, the reading shown is the one in the latest proposals file (by path), or a label where
+/// no proposal exists; where readers differ, the `readers` column lists every reading.
 pub fn ledger(
     sheet: &BTreeMap<Key, String>,
     submitted: &[Reading],
     proposed: &[Reading],
-    routes: &BTreeMap<Key, Route>,
-    gated: &BTreeSet<String>,
+    estimates: &[Estimate],
+    superseded: &BTreeSet<(String, String)>,
 ) -> Vec<Entry> {
     let schemes: BTreeSet<&String> = sheet.keys().map(|k| &k.0).collect();
     let names: BTreeMap<&str, &str> = sheet
         .iter()
         .map(|(k, v)| (k.1.as_str(), v.as_str()))
         .collect();
-    let mut labels: BTreeMap<Key, Vec<Reading>> = BTreeMap::new();
+    let mut best: BTreeMap<Key, Reading> = BTreeMap::new();
     for r in labels::latest(submitted) {
-        labels.entry(key(&r)).or_default().push(r);
+        best.insert(key(&r), r);
     }
-    let mut proposals: BTreeMap<Key, &Reading> = BTreeMap::new();
     for r in proposed {
-        proposals.insert(key(r), r);
+        best.insert(key(r), r.clone());
     }
+    let readings: Vec<Reading> = submitted
+        .iter()
+        .chain(proposed)
+        .filter(|r| !accuracy::is_superseded(r, superseded))
+        .cloned()
+        .collect();
+    let all_votes = accuracy::votes(&labels::latest(&readings));
+    let mut votes: BTreeMap<Key, Vec<&Vote>> = BTreeMap::new();
+    for v in &all_votes {
+        votes.entry(v.cell.clone()).or_default().push(v);
+    }
+    let estimated: BTreeMap<(String, String), &Estimate> = estimates
+        .iter()
+        .map(|e| ((e.group.clone(), e.reader.clone()), e))
+        .collect();
     let mut keys: BTreeSet<Key> = sheet.keys().cloned().collect();
-    keys.extend(
-        labels
-            .keys()
-            .chain(proposals.keys())
-            .filter(|k| schemes.contains(&k.0))
-            .cloned(),
-    );
+    keys.extend(best.keys().filter(|k| schemes.contains(&k.0)).cloned());
     keys.into_iter()
         .map(|k| {
-            let blank = |check: Check| Entry {
+            let mut e = Entry {
                 scheme: k.0.clone(),
                 stage: stage(&k.1, &k.2),
                 variable_id: k.1.clone(),
@@ -195,212 +201,77 @@ pub fn ledger(
                 basis: String::new(),
                 doc_ids: String::new(),
                 pages: String::new(),
-                check,
+                check: Check::Unread,
+                readers: String::new(),
+                error: String::new(),
                 reader: String::new(),
                 origin: String::new(),
                 datahub_status: String::new(),
                 datahub_system: String::new(),
             };
-            let shown = |r: &Reading, check: Check| Entry {
-                status: r.status.clone(),
-                value: r.value.clone(),
-                basis: r.basis.clone(),
-                doc_ids: r.doc_ids.clone(),
-                pages: r.pages.clone(),
-                reader: r.labeller.clone(),
-                origin: r.origin.clone(),
-                ..blank(check)
+            let Some(r) = best.get(&k) else {
+                return e;
             };
-            match (labels.get(&k), proposals.get(&k)) {
-                (Some(ls), _) => {
-                    let agree = ls
-                        .iter()
-                        .all(|r| r.status == ls[0].status && r.fields() == ls[0].fields());
-                    if !agree {
-                        let mut e = blank(Check::Unsettled);
-                        e.value = ls
-                            .iter()
-                            .map(|r| format!("{}: {} `{}`", r.labeller, r.status, r.value))
-                            .collect::<Vec<_>>()
-                            .join(" / ");
-                        return e;
-                    }
-                    // An independent reading, where there is one, is the one shown.
-                    let best = ls
-                        .iter()
-                        .find(|r| labels::label_kind(&r.method) == "independent")
-                        .unwrap_or(&ls[0]);
-                    let check = match labels::label_kind(&best.method) {
-                        "independent" => Check::Independent,
-                        _ => Check::Anchored,
-                    };
-                    shown(best, check)
-                }
-                (None, p) => match (routes.get(&k), p) {
-                    (Some(r), _) if r.route == "triage" => {
-                        let mut e = blank(Check::Unsettled);
-                        e.value = format!("not settled ({}): {}", r.reasons, r.readings);
-                        e
-                    }
-                    (Some(r), Some(p))
-                        if matches!(r.route.as_str(), "agreed" | "sample")
-                            && gated.contains(&r.group) =>
-                    {
-                        shown(p, Check::Sampled)
-                    }
-                    (_, Some(p)) => shown(p, Check::Proposed),
-                    (_, None) => blank(Check::Unread),
-                },
+            e.check = Check::Proposed;
+            let vs = votes.get(&k).cloned().unwrap_or_default();
+            let agreed = vs
+                .iter()
+                .enumerate()
+                .all(|(i, a)| vs[i + 1..].iter().all(|b| accuracy::agree(a, b)));
+            // Where readers differ, the reading shown stays and every reading is listed beside it,
+            // so the rules still read it and the disagreement is on record.
+            e.readers = match (vs.len(), agreed) {
+                (0 | 1, _) => "1 reader".into(),
+                (n, true) => format!("{n} agree"),
+                (n, false) => format!(
+                    "{n} differ: {}",
+                    vs.iter()
+                        .map(|v| match v.partial {
+                            true => format!("{} {}", v.reader, fields(&v.fields)),
+                            false => format!("{} {} `{}`", v.reader, v.status, v.value),
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" / ")
+                ),
+            };
+            e.status = r.status.clone();
+            e.value = r.value.clone();
+            e.basis = r.basis.clone();
+            e.doc_ids = r.doc_ids.clone();
+            e.pages = r.pages.clone();
+            e.reader = r.labeller.clone();
+            e.origin = r.origin.clone();
+            let Some(shown) = vs.iter().find(|v| v.reader == r.labeller && !v.partial) else {
+                return e;
+            };
+            if !agreed {
+                return e;
             }
+            let error = accuracy::error(shown, &vs, &estimated);
+            if let Some(x) = error {
+                e.error = format!("{:.1}%", x * 100.0);
+            }
+            let passes = accuracy::group(&k.1)
+                .and_then(|g| estimated.get(&(g.to_string(), r.labeller.clone())))
+                .is_some_and(|x| x.passes());
+            if vs.len() < 2 || accuracy::unread(&r.status) || !passes {
+                return e;
+            }
+            e.check = Check::Estimated;
+            let not_llm = vs.iter().any(|v| v.kind != accuracy::Kind::Llm);
+            if error.is_some_and(|x| x <= accuracy::CONFIRM) && not_llm {
+                e.check = Check::Confirmed;
+            }
+            e
         })
         .collect()
 }
 
-// ------------------------------------------------------------------------- audit rule routes
-
-/// One cell's route under `docs/audit-rule.md`, from a routing file in `proposals/`.
-#[derive(Debug, Clone)]
-pub struct Route {
-    /// `agreed`, `sample` or `triage`
-    pub route: String,
-    /// the variable group: G1 counts and shares, G2 obligations, G3 lineage
-    pub group: String,
-    /// why a triage cell is not settled
-    pub reasons: String,
-    /// both readers' readings, for a triage cell
-    pub readings: String,
-}
-
-/// The cell a `proposal_id` (`<scheme>/<variable_id>/<source>`) names.
-fn proposal_key(id: &str) -> Option<Key> {
-    let mut parts = id.trim().rsplitn(3, '/');
-    let source = parts.next()?.to_lowercase();
-    let variable_id = parts.next()?.to_uppercase();
-    let scheme = parts.next()?.to_uppercase();
-    Some((scheme, variable_id, source))
-}
-
-/// Every routing file in `proposals/`: a CSV with `proposal_id`, `group` and `route` columns.
-/// Returns the routes by cell and the files read. A cell routed twice keeps the later file's route.
-fn routes(root: &Path) -> Result<(BTreeMap<Key, Route>, Vec<PathBuf>)> {
-    let mut files = vec![];
-    csv_files(&root.join("proposals"), &mut files);
-    files.sort();
-    let mut out = BTreeMap::new();
-    let mut read = vec![];
-    for f in files {
-        let mut r = csv::Reader::from_path(&f)?;
-        let headers = r.headers()?.clone();
-        if !["proposal_id", "group", "route"]
-            .iter()
-            .all(|c| headers.iter().any(|h| h.trim() == *c))
-        {
-            continue;
-        }
-        for row in r.deserialize::<BTreeMap<String, String>>() {
-            let row = row?;
-            let get = |c: &str| row.get(c).map(|v| v.trim().to_string()).unwrap_or_default();
-            let Some(k) = proposal_key(&get("proposal_id")) else {
-                continue;
-            };
-            let reader = |n: &str| {
-                format!(
-                    "{n} {} `{}`",
-                    get(&format!("{}_status", n.to_lowercase())),
-                    get(&format!("{}_value", n.to_lowercase()))
-                )
-            };
-            out.insert(
-                k,
-                Route {
-                    route: get("route"),
-                    group: get("group"),
-                    reasons: get("reasons"),
-                    readings: format!("{} / {}", reader("R1"), reader("R2")),
-                },
-            );
-        }
-        read.push(f);
-    }
-    Ok((out, read))
-}
-
-/// The blind sample of one variable group, pooled over every routing file (section 6 of the
-/// audit rule).
-#[derive(Debug, Clone, Default, Serialize)]
-pub struct Sample {
-    pub group: String,
-    /// the person's typed reading was the readers' value
-    pub same: usize,
-    pub differs: usize,
-    /// sample cells with no label yet; a can't-tell produces no label, so it counts here
-    pub pending: usize,
-    /// the Wilson 95% lower bound of same / (same + differs)
-    pub lower: Option<f64>,
-    /// the lower bound is at least 90%, so the group's agreed cells are `sampled`
-    pub passes: bool,
-}
-
-/// The gate's threshold on the Wilson lower bound (section 6 of the audit rule).
-pub const GATE: f64 = 0.90;
-
-/// The Wilson score interval's lower bound at 95%.
-pub fn wilson_lower(k: usize, n: usize) -> Option<f64> {
-    if n == 0 {
-        return None;
-    }
-    let (k, n, z) = (k as f64, n as f64, 1.96_f64);
-    let p = k / n;
-    let centre = (p + z * z / (2.0 * n)) / (1.0 + z * z / n);
-    let half = z * (p * (1.0 - p) / n + z * z / (4.0 * n * n)).sqrt() / (1.0 + z * z / n);
-    Some((centre - half).max(0.0))
-}
-
-/// Tallies each group's sample cells from the labels. A `blind` label means the typed reading was
-/// the readers' value; `audited` or `corrected` on a sample card means it wasn't (labels/README.md,
-/// "Auditing proposals"); a `read` label is compared with the readers' value field by field.
-/// Labellers who disagree leave the cell pending.
-pub fn samples(
-    routes: &BTreeMap<Key, Route>,
-    submitted: &[Reading],
-    proposed: &[Reading],
-) -> Vec<Sample> {
-    let mut labels: BTreeMap<Key, Vec<Reading>> = BTreeMap::new();
-    for r in labels::latest(submitted) {
-        labels.entry(key(&r)).or_default().push(r);
-    }
-    let mut proposals: BTreeMap<Key, &Reading> = BTreeMap::new();
-    for r in proposed {
-        proposals.insert(key(r), r);
-    }
-    let mut by: BTreeMap<String, Sample> = BTreeMap::new();
-    for (k, r) in routes.iter().filter(|(_, r)| r.route == "sample") {
-        let t = by.entry(r.group.clone()).or_insert_with(|| Sample {
-            group: r.group.clone(),
-            ..Sample::default()
-        });
-        let same = |l: &Reading| match l.method.as_str() {
-            "blind" => Some(true),
-            "audited" | "corrected" => Some(false),
-            _ => proposals
-                .get(k)
-                .map(|p| p.status == l.status && p.fields() == l.fields()),
-        };
-        let verdicts: BTreeSet<Option<bool>> =
-            labels.get(k).into_iter().flatten().map(same).collect();
-        match verdicts.into_iter().collect::<Vec<_>>()[..] {
-            [Some(true)] => t.same += 1,
-            [Some(false)] => t.differs += 1,
-            _ => t.pending += 1,
-        }
-    }
-    by.into_values()
-        .map(|mut t| {
-            t.lower = wilson_lower(t.same, t.same + t.differs);
-            t.passes = t.lower.is_some_and(|l| l >= GATE);
-            t
-        })
-        .collect()
+fn fields(m: &BTreeMap<String, String>) -> String {
+    m.iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 // -------------------------------------------------------------------------------------- rules
@@ -441,17 +312,17 @@ pub struct Rule {
     pub needed: usize,
     pub met: bool,
     /// the weakest check level among all outcomes: the rule's verdict is a result only when this
-    /// is `anchored` or `independent`; `sampled` supports only aggregate statements
+    /// is `confirmed`, since the outcomes name schemes
     pub check: Check,
     pub schemes: Vec<SchemeOutcome>,
 }
 
 impl Rule {
-    /// The verdict as the note states it. The rules were fixed to be applied to labels, so a
-    /// verdict resting on any cell below `anchored` is provisional pipeline output, never a finding.
+    /// The verdict as the note states it. The outcomes name schemes, so a verdict resting on any
+    /// cell below `confirmed` is provisional pipeline output, never a finding.
     pub fn verdict(&self) -> String {
         let count = if self.met { "met" } else { "not met" };
-        if self.check >= Check::Anchored {
+        if self.check >= Check::Confirmed {
             format!("{}{}", count[..1].to_uppercase(), &count[1..])
         } else {
             format!(
@@ -984,19 +855,19 @@ pub struct Results {
     pub rules: Vec<Rule>,
     pub retrieval: Vec<Retrieval>,
     pub claims: Vec<Claim>,
-    /// the blind sample per variable group, for cells read under the audit rule
-    pub samples: Vec<Sample>,
+    /// each reader's estimated accuracy per variable group
+    pub estimates: Vec<Estimate>,
+    /// the sheets whose schemes never count towards an estimate, relative to the data root
+    pub seen: Vec<String>,
     /// every file read, relative to the data root, with its SHA-256
     pub inputs: Vec<(String, String)>,
     pub rejected: Vec<labels::Rejected>,
 }
 
-const CHECKS: [Check; 6] = [
-    Check::Independent,
-    Check::Anchored,
-    Check::Sampled,
+const CHECKS: [Check; 4] = [
+    Check::Confirmed,
+    Check::Estimated,
     Check::Proposed,
-    Check::Unsettled,
     Check::Unread,
 ];
 
@@ -1009,15 +880,18 @@ pub fn markdown(r: &Results) -> String {
         "# Results: {}\n\n\
          Generated by `s106 results`. Do not edit; `claims.csv` is the only hand-kept file here. \
          Rerun to rebuild.\n\n\
-         Every cell below carries its check level. **independent**: a person read the source. \
-         **anchored**: a person confirmed or corrected an agent's proposal. **sampled**: two \
-         readers agree and a blind sample of their variable group passes the audit rule's gate, \
-         which supports an aggregate statement carrying the measured error rate, never one about \
-         a single scheme or developer. **proposed**: an agent only, which is not a result. \
-         **unsettled**: readers disagree, a check failed or an external source differs, and no \
-         reading settles it yet. **unread**: nobody has read it. A difference between two sources \
-         is a discrepancy for another reader to settle, never a breach; a deed figure is the original obligation, not what is due today.\n\n",
-        r.name
+         Every cell below carries its check level (`docs/verification-rule.md`, section 6). \
+         **confirmed**: readers agree, at least one of them is not an LLM, and the cell's \
+         estimated chance of error is at most {:.0}%, which supports a statement about one \
+         scheme, developer or council. **estimated**: readers agree and the shown reader's \
+         variable group has a lower 95% bound of at least {:.0}% accuracy, which supports an \
+         aggregate statement carrying the estimated error rate. **proposed**: one reading, \
+         readers who differ, or no estimate that passes; not a result. **unread**: nobody has \
+         read it. A difference between two sources is never a breach; a deed figure is the \
+         original obligation, not what is due today.\n\n",
+        r.name,
+        accuracy::CONFIRM * 100.0,
+        accuracy::GATE * 100.0
     );
 
     s += "## Check levels\n\n| level | cells | of which found |\n|---|---|---|\n";
@@ -1027,24 +901,45 @@ pub fn markdown(r: &Results) -> String {
         s += &format!("| {} | {} | {found} |\n", c.as_str(), all.len());
     }
 
-    if !r.samples.is_empty() {
+    s += &format!(
+        "\n## Accuracy\n\nEach reader's accuracy per variable group, estimated from how often \
+         three readers from three families agree, over every batch's readings except the schemes \
+         in {}. The lower bound is the 2.5th percentile over resamples of schemes; a reader's \
+         readings can make a cell `estimated` when the lower bound is at least {:.0}% and the \
+         model fits (the lower bound is at most 100%). The rule asks for a latent-class \
+         model per borough; this is its simplest moment estimate (one accuracy per reader, \
+         every borough together), while every scheme is in Southwark. Files listed in \
+         `proposals/superseded.csv` no longer vote.\n\n",
+        if r.seen.is_empty() {
+            "no sheet".to_string()
+        } else {
+            r.seen
+                .iter()
+                .map(|x| format!("`{x}`"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        },
+        accuracy::GATE * 100.0
+    );
+    if r.estimates.is_empty() {
         s += &format!(
-            "\n## Blind sample\n\nPer variable group, pooled over every routing file in \
-             `proposals/` (`docs/audit-rule.md`, section 6). A group's agreed cells are `sampled` \
-             when the Wilson 95% lower bound is at least {:.0}%. Pending cells have no label yet, \
-             including can't-tells.\n\n\
-             | group | same | differs | pending | lower bound | gate |\n|---|---|---|---|---|---|\n",
-            GATE * 100.0
+            "No estimate yet: no reader shares at least {} cells with two readers from two other \
+             families. Until one exists, every cell read is `proposed`.\n",
+            accuracy::MIN_SHARED
         );
-        for t in &r.samples {
+    } else {
+        s += "| group | reader | against | shared cells | accuracy | lower bound | passes |\n\
+              |---|---|---|---|---|---|---|\n";
+        for x in &r.estimates {
             s += &format!(
-                "| {} | {} | {} | {} | {} | {} |\n",
-                t.group,
-                t.same,
-                t.differs,
-                t.pending,
-                t.lower.map_or("-".into(), |l| format!("{:.1}%", l * 100.0)),
-                if t.passes { "passes" } else { "not passed" }
+                "| {} | {} | {} | {} | {:.1}% | {:.1}% | {} |\n",
+                x.group,
+                x.reader,
+                x.against.join(", "),
+                x.shared,
+                x.accuracy * 100.0,
+                x.lower * 100.0,
+                if x.passes() { "yes" } else { "no" }
             );
         }
     }
@@ -1052,10 +947,9 @@ pub fn markdown(r: &Results) -> String {
     s += if r.rules.is_empty() {
         "\n## Decision rules\n\nThis batch has no pre-registered decision rules.\n"
     } else {
-        "\n## Decision rules\n\nFixed before any value was read (the batch README), to be applied \
-          to human labels. Until every deciding cell is anchored or independent the counts below are \
-          provisional pipeline output on agent readings, not a finding about any scheme or about \
-          the rule.\n"
+        "\n## Decision rules\n\nFixed before any value was read (the batch README). The outcomes \
+          name schemes, so until every deciding cell is confirmed the counts below are provisional \
+          pipeline output, not a finding about any scheme or about the rule.\n"
     };
     for rule in &r.rules {
         s += &format!(
@@ -1118,8 +1012,8 @@ pub fn markdown(r: &Results) -> String {
                 e.datahub_status, e.datahub_system
             );
         }
-        s += "| stage | variable | source | status | value | basis | pages | level |\n\
-              |---|---|---|---|---|---|---|---|\n";
+        s += "| stage | variable | source | status | value | basis | pages | readers | error | level |\n\
+              |---|---|---|---|---|---|---|---|---|---|\n";
         rows.sort_by_key(|e| {
             (
                 STAGES.iter().position(|st| *st == e.stage),
@@ -1129,7 +1023,7 @@ pub fn markdown(r: &Results) -> String {
         });
         for e in rows {
             s += &format!(
-                "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
                 e.stage,
                 e.variable_id,
                 e.source,
@@ -1137,6 +1031,8 @@ pub fn markdown(r: &Results) -> String {
                 cell(&e.value),
                 e.basis,
                 cell(&e.pages),
+                e.readers,
+                if e.error.is_empty() { "-" } else { &e.error },
                 e.check.as_str()
             );
         }
@@ -1168,6 +1064,22 @@ pub fn markdown(r: &Results) -> String {
         s += &format!("| `{f}` | `{}` |\n", &h[..16]);
     }
     s
+}
+
+/// A file in `proposals/` that holds no readings: one with a `proposal_id` column and no
+/// `labeller` column (the audit rule's routing and card lists), or `proposals/superseded.csv`.
+fn not_readings(root: &Path, origin: &str) -> bool {
+    if origin == "proposals/superseded.csv" {
+        return true;
+    }
+    let Ok(mut r) = csv::Reader::from_path(root.join(origin)) else {
+        return false;
+    };
+    let Ok(headers) = r.headers() else {
+        return false;
+    };
+    let has = |c: &str| headers.iter().any(|h| h.trim() == c);
+    has("proposal_id") && !has("labeller")
 }
 
 fn sha256(path: &Path) -> Result<String> {
@@ -1249,46 +1161,49 @@ fn datahub_records(
 }
 
 /// Builds the results for `sheet` (a batch's blank labelling sheet, relative to `root`) into
-/// `out` (relative to `root`), reading `<out>/claims.csv` if there is one.
-/// Builds the folder. `with_rules` is false for a batch with no pre-registered decision rules;
-/// the rules worked out here are batch 1's.
-pub fn run(root: &Path, sheet: &Path, out: &Path, with_rules: bool) -> Result<Results> {
+/// `out` (relative to `root`), reading `<out>/claims.csv` if there is one. `with_rules` is false
+/// for a batch with no pre-registered decision rules; the rules worked out here are batch 1's.
+/// The schemes on the `seen` sheets (relative to `root`) never count towards an accuracy estimate.
+pub fn run(
+    root: &Path,
+    sheet: &Path,
+    out: &Path,
+    with_rules: bool,
+    seen: &[PathBuf],
+) -> Result<Results> {
     let sheet_path = root.join(sheet);
     let out_dir = root.join(out);
     let cells = sheet_cells(&sheet_path)?;
     let (submitted, mut rejected) = labels::load(&root.join("labels"))?;
     let (proposed, bad) = labels::proposals(root)?;
     rejected.extend(bad);
+    // the audit rule's routing and card lists, and `proposals/superseded.csv`, are not readings
+    rejected.retain(|x| !not_readings(root, &x.origin));
 
-    let (routed, routing_files) = routes(root)?;
-    // a routing file has no labeller column, so `labels::proposals` refuses it as a proposals file
-    rejected.retain(|x| {
-        !routing_files.iter().any(|f| {
-            f.strip_prefix(root)
-                .is_ok_and(|f| x.origin == f.display().to_string())
-        })
-    });
-    let mut samples = samples(&routed, &submitted, &proposed);
-    let gated: BTreeSet<String> = samples
+    let mut seen_schemes = BTreeSet::new();
+    for s in seen {
+        seen_schemes.extend(sheet_cells(&root.join(s))?.into_keys().map(|k| k.0));
+    }
+    let superseded = accuracy::superseded(root)?;
+    let readings: Vec<Reading> = submitted
         .iter()
-        .filter(|t| t.passes)
-        .map(|t| t.group.clone())
+        .chain(&proposed)
+        .filter(|r| !accuracy::is_superseded(r, &superseded))
+        .cloned()
         .collect();
+    let estimates =
+        accuracy::estimates(&accuracy::votes(&labels::latest(&readings)), &seen_schemes);
 
-    let mut ledger = ledger(&cells, &submitted, &proposed, &routed, &gated);
+    let mut ledger = ledger(&cells, &submitted, &proposed, &estimates, &superseded);
     let snapshots = datahub_records(root, &mut ledger, &mut rejected);
     let rules = if with_rules { rules(&ledger) } else { vec![] };
-    // the sample table belongs to batches read under the audit rule; batch 1's cells are never
-    // routed and never count towards it
-    if !cells.keys().any(|k| routed.contains_key(k)) {
-        samples.clear();
-    }
     let sources = sheet_path.with_file_name("sources.csv");
     let retrieval = retrieval(&sources)?;
     let claims_path = out_dir.join("claims.csv");
     let claims = claims(&claims_path, &ledger)?;
 
     let mut read = vec![sheet_path.clone(), sources, claims_path];
+    read.extend(seen.iter().map(|s| root.join(s)));
     csv_files(&root.join("labels"), &mut read);
     csv_files(&root.join("proposals"), &mut read);
     read.extend(snapshots);
@@ -1310,7 +1225,8 @@ pub fn run(root: &Path, sheet: &Path, out: &Path, with_rules: bool) -> Result<Re
         rules,
         retrieval,
         claims,
-        samples,
+        estimates,
+        seen: seen.iter().map(|s| s.display().to_string()).collect(),
         inputs,
         rejected,
     };

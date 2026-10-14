@@ -493,12 +493,12 @@ mod tests {
         std::fs::write(
             root.join("results/ledger.csv"),
             "scheme,stage,variable_id,variable,source,status,value,basis,doc_ids,pages,check,reader,origin\n\
-             1,obligation,V1,Total homes,deed,found,total=40; SR=10,units,D-1,D-1:3,anchored,human:AB,l.csv:2\n\
+             1,obligation,V1,Total homes,deed,found,total=40; SR=10,units,D-1,D-1:3,confirmed,human:AB,l.csv:2\n\
              1,obligation,V2,Share,deed,found,share=25%,units,D-1,D-1:4,proposed,machine:x,p.csv:3\n\
              1,offer,V3,Target,deed,found,target=35%,,D-1,D-1:2,proposed,machine:x,p.csv:6\n\
              1,variation,V1,Total homes,variation,found,total=40; SR=8,units,V-1,V-1:2,proposed,machine:x,p.csv:7\n\
              1,offer,V3,Target,variation,not_stated,,,V-1,,proposed,machine:x,p.csv:8\n\
-             1,decision,V1,Total homes,committee_report,found,total=40,units,C-1,C-1:2,anchored,human:AB,l.csv:4\n\
+             1,decision,V1,Total homes,committee_report,found,total=40,units,C-1,C-1:2,confirmed,human:AB,l.csv:4\n\
              9,obligation,V1,Total homes,deed,found,total=9,units,D-9,D-9:1,proposed,machine:x,p.csv:5\n",
         )
         .unwrap();
@@ -527,7 +527,7 @@ mod tests {
         assert_eq!(r[1].check, Check::Proposed);
         assert_eq!(
             (r[0].source.as_str(), r[0].check),
-            ("deed", Check::Anchored)
+            ("deed", Check::Confirmed)
         );
         assert!(bundle.sites[0].retrieval.is_empty());
 

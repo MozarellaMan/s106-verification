@@ -110,53 +110,46 @@ pub fn percent(part: u64, whole: u64) -> String {
 /// A check level in words.
 pub fn check_label(check: Check) -> &'static str {
     match check {
-        Check::Independent => "read by a person",
-        Check::Anchored => "AI reading, checked by a person",
-        Check::Proposed => "AI reading, not checked",
-        Check::Unsettled => {
-            "not settled: readers disagree, a check failed or another source differs"
+        Check::Confirmed => {
+            "readers agree, one of them not an AI model; estimated chance of error 1% or less"
         }
-        Check::Sampled => {
-            "AI reading, not checked itself; two readers agreed and a blind sample of its group was \
-             at least 90% right"
+        Check::Estimated => {
+            "readers agree, and readings like it are estimated at least 90% accurate; fit for \
+             totals, not for this scheme alone"
         }
+        Check::Proposed => "not verified: one reading, readers who differ, or no error rate yet",
         Check::Unread => "not read",
     }
 }
 
-/// The style class of a cell at this check level, so the whole cell shows how far it was checked.
+/// The style class of a cell at this check level, so the whole cell shows how far it is verified.
 pub fn check_class(check: Check) -> &'static str {
     match check {
-        Check::Independent => "independent",
-        Check::Anchored => "checked",
-        Check::Unsettled => "disagree",
-        Check::Sampled | Check::Proposed | Check::Unread => "unchecked",
+        Check::Confirmed => "independent",
+        Check::Estimated => "checked",
+        Check::Proposed | Check::Unread => "unchecked",
     }
 }
 
-/// A short tag shown before a value: whether a person has settled it.
+/// A short tag shown before a value: how far it is verified.
 pub fn check_tag(check: Check) -> &'static str {
     match check {
         Check::Unread => "not read",
-        Check::Proposed => "unchecked AI reading",
-        Check::Unsettled => "not settled",
-        Check::Sampled => "unchecked · two AI readings agree",
-        Check::Anchored => "checked by a person",
-        Check::Independent => "read by a person",
+        Check::Proposed => "unverified reading",
+        Check::Estimated => "estimated",
+        Check::Confirmed => "confirmed",
     }
 }
 
-/// Counts of a scheme's cells by how far they were checked, leaving out empty levels, e.g.
-/// "41 cells: 3 checked by a person, 30 AI reading only, 8 not read".
+/// Counts of a scheme's cells by how far they are verified, leaving out empty levels, e.g.
+/// "41 cells: 3 confirmed, 30 unverified, 8 not read".
 pub fn check_counts(readings: &[Reading]) -> String {
     let count = |c: Check| readings.iter().filter(|r| r.check == c).count();
     let parts: Vec<String> = [
-        (Check::Independent, "read by a person"),
-        (Check::Anchored, "checked by a person"),
-        (Check::Sampled, "two AI readings agree"),
-        (Check::Proposed, "AI reading only"),
+        (Check::Confirmed, "confirmed"),
+        (Check::Estimated, "estimated"),
+        (Check::Proposed, "unverified"),
         (Check::Unread, "not read"),
-        (Check::Unsettled, "not settled"),
     ]
     .into_iter()
     .filter(|&(c, _)| count(c) > 0)
@@ -382,8 +375,7 @@ pub fn not_in_hand(r: &Retrieval) -> Option<String> {
 /// homes (V1) or affordable share (V2) with a `key=value` part (total, SR, share, …) that the
 /// deed's cell also has, with a different value. Keys only one side states, and free text, are
 /// not read as a change. Some(true) when every
-/// cell deciding that has been checked by a person, Some(false) when it rests on an unchecked
-/// reading, None when no figure changed (a variation that only lists dates, or repeats the deed).
+/// cell deciding that is `confirmed`, Some(false) when it rests on a reading that isn't, None when no figure changed (a variation that only lists dates, or repeats the deed).
 pub fn variation_changes(readings: &[Reading]) -> Option<bool> {
     let parts = |r: &Reading| -> Vec<(String, String)> {
         r.value
@@ -413,7 +405,7 @@ pub fn variation_changes(readings: &[Reading]) -> Option<bool> {
         if !differs {
             continue;
         }
-        let checked = v.check >= Check::Anchored && deed.check >= Check::Anchored;
+        let checked = v.check >= Check::Confirmed && deed.check >= Check::Confirmed;
         changed = Some(changed.unwrap_or(true) && checked);
     }
     changed
@@ -561,7 +553,7 @@ mod tests {
                 "Not read: V2 name (datahub)"
             ]
         );
-        assert_eq!(check_label(Check::Proposed), "AI reading, not checked");
+        assert_eq!(check_label(Check::Unread), "not read");
         // Every status in the codebook (labels.rs STATUSES) reads.
         for s in ["no_source", "unreadable", "source_missing", ""] {
             assert!(Finding::from_ledger(s).is_some(), "{s}");
@@ -577,7 +569,7 @@ mod tests {
         };
         // 09/AP/1870's shape: the variation repeats the deed's total and lists dates.
         let same = [
-            cell("deed", "V1", "total=668; SR=123; SO=47", Check::Anchored),
+            cell("deed", "V1", "total=668; SR=123; SO=47", Check::Confirmed),
             cell("variation", "V1", "total=668", Check::Proposed),
             cell(
                 "variation",
@@ -590,7 +582,7 @@ mod tests {
         assert_eq!(variation_changes(&same), None);
         // 19/AP/1710's shape: intermediate homes go to 0.
         let mut changed = vec![
-            cell("deed", "V1", "total=262; SR=64; INT=28", Check::Anchored),
+            cell("deed", "V1", "total=262; SR=64; INT=28", Check::Confirmed),
             cell(
                 "variation",
                 "V1",
@@ -601,9 +593,9 @@ mod tests {
         assert_eq!(
             variation_changes(&changed),
             Some(false),
-            "rests on an unchecked reading"
+            "rests on an unverified reading"
         );
-        changed[1].check = Check::Anchored;
+        changed[1].check = Check::Confirmed;
         assert_eq!(variation_changes(&changed), Some(true));
     }
 
@@ -611,18 +603,17 @@ mod tests {
     fn checked_cells_look_checked() {
         assert_eq!(check_class(Check::Unread), "unchecked");
         assert_eq!(check_class(Check::Proposed), "unchecked");
-        assert_eq!(check_class(Check::Unsettled), "disagree");
-        assert_eq!(check_class(Check::Anchored), "checked");
-        assert_eq!(check_class(Check::Independent), "independent");
-        assert_eq!(check_tag(Check::Proposed), "unchecked AI reading");
-        assert_eq!(check_tag(Check::Anchored), "checked by a person");
-        assert!(Check::Proposed < Check::Anchored && Check::Unsettled < Check::Anchored);
+        assert_eq!(check_class(Check::Estimated), "checked");
+        assert_eq!(check_class(Check::Confirmed), "independent");
+        assert_eq!(check_tag(Check::Proposed), "unverified reading");
+        assert_eq!(check_tag(Check::Confirmed), "confirmed");
+        assert!(Check::Proposed < Check::Estimated && Check::Estimated < Check::Confirmed);
         let mut r = vec![reading("deed", "V1", Finding::Found); 3];
-        r[0].check = Check::Anchored;
+        r[0].check = Check::Confirmed;
         r[1].check = Check::Unread;
         assert_eq!(
             check_counts(&r),
-            "3 cells: 1 checked by a person, 1 AI reading only, 1 not read"
+            "3 cells: 1 confirmed, 1 unverified, 1 not read"
         );
     }
 

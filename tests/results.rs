@@ -1,5 +1,5 @@
-//! Results (`s106::results`): the ledger's choice of reading per cell, the batch-1 decision rules
-//! and the claims register, on invented schemes.
+//! Results (`s106::results`): the ledger's choice of reading per cell, the accuracy estimate and
+//! check levels, the batch-1 decision rules and the claims register, on invented schemes.
 
 use std::path::Path;
 
@@ -60,6 +60,7 @@ fn run(root: &Path) -> results::Results {
         Path::new("runs/b/labels.csv"),
         Path::new("results/b"),
         true,
+        &[],
     )
     .unwrap()
 }
@@ -84,7 +85,7 @@ fn nothing_read_is_a_report_not_an_error() {
 }
 
 #[test]
-fn labels_outrank_proposals_and_later_proposal_files_win() {
+fn later_proposal_files_win_and_readers_who_differ_are_listed() {
     let root = tempfile::tempdir().unwrap();
     let p = root.path();
     sheet(p, &["EX/1"]);
@@ -125,21 +126,42 @@ fn labels_outrank_proposals_and_later_proposal_files_win() {
         ),
     );
     let r = run(p);
+    // a person's label is one more reader, not the truth: the proposal stays shown, so the rules
+    // still read it, and both readings are listed beside it
     let deed = entry(&r, "EX/1", "V1", "deed");
     assert_eq!(
         (deed.check, deed.value.as_str()),
-        (Check::Anchored, "total=12")
+        (Check::Proposed, "total=10")
     );
-    assert_eq!(deed.pages, "p2");
+    assert!(deed.readers.starts_with("2 differ: "), "{}", deed.readers);
+    assert!(
+        deed.readers.contains("AB found `total=12`"),
+        "{}",
+        deed.readers
+    );
+    assert!(
+        deed.readers
+            .contains("machine:proposal/test found `total=10`")
+    );
+    // one reader's later file supersedes its earlier one
     let gla = entry(&r, "EX/1", "V1", "gla");
     assert_eq!(
-        (gla.check, gla.value.as_str()),
-        (Check::Proposed, "total=11")
+        (gla.check, gla.value.as_str(), gla.readers.as_str()),
+        (Check::Proposed, "total=11", "1 reader")
     );
     assert_eq!(gla.stage, "decision");
-    // one blind and one audited label that agree: the independent one stands
-    assert_eq!(entry(&r, "EX/1", "V2", "deed").check, Check::Independent);
-    assert_eq!(entry(&r, "EX/1", "V4", "deed").check, Check::Unsettled);
+    // two readers agree, but nobody's accuracy is estimated yet
+    let v2 = entry(&r, "EX/1", "V2", "deed");
+    assert_eq!(
+        (v2.check, v2.readers.as_str()),
+        (Check::Proposed, "2 agree")
+    );
+    assert_eq!(v2.error, "");
+    assert!(
+        entry(&r, "EX/1", "V4", "deed")
+            .readers
+            .starts_with("2 differ")
+    );
     assert_eq!(entry(&r, "EX/1", "V8", "epc").check, Check::Unread);
 }
 
@@ -462,7 +484,7 @@ fn a_claim_stands_at_its_weakest_cell() {
     );
     let r = run(p);
     let checks: Vec<Check> = r.claims.iter().map(|c| c.check).collect();
-    assert_eq!(checks, [Check::Independent, Check::Proposed, Check::Unread]);
+    assert_eq!(checks, [Check::Proposed, Check::Proposed, Check::Unread]);
     assert_eq!(r.claims[2].unknown, ["EX/1/V9/deed"]);
     let md = std::fs::read_to_string(p.join("results/b/README.md")).unwrap();
     assert!(md.contains("(cells: EX/1/V8/datahub, EX/1/V8/epc)"), "{md}");
@@ -564,109 +586,136 @@ fn variation_sources_sit_in_the_variation_stage() {
     assert_eq!(results::stage("V8", "variation"), "completion");
 }
 
-const ROUTING: &str = "proposal_id,scheme,variable_id,group,route,reasons,sha1,r1_status,r1_value,r2_status,r2_value,external\n";
-
-fn route(id: &str, group: &str, route: &str, reasons: &str) -> String {
-    format!("{id},,,{group},{route},{reasons},,found,total=10,found,total=12,\n")
+fn reading(scheme: &str, v: &str, src: &str, value: &str, who: &str) -> String {
+    format!("{scheme},{v},x,{src},,\"{value}\",units,p1,found,,,{who},2026-10-14,\n")
 }
 
-#[test]
-fn a_triage_cell_is_unsettled_until_a_label_settles_it() {
-    let root = tempfile::tempdir().unwrap();
-    sheet(root.path(), &["EX/1"]);
-    write(
-        root.path(),
-        "proposals/p.csv",
-        &format!(
-            "{}{}{}",
-            HEADER,
-            proposal("EX/1", "V1", "deed", "total=12", "units", "found"),
-            proposal("EX/1", "V2", "deed", "share=35%", "units", "found"),
-        ),
-    );
-    write(
-        root.path(),
-        "proposals/routing.csv",
-        &format!(
-            "{ROUTING}{}{}",
-            route("EX/1/V1/deed", "G1", "triage", "compared fields differ"),
-            route("EX/1/V2/deed", "G1", "agreed", ""),
-        ),
-    );
-    let r = run(root.path());
-    let v1 = entry(&r, "EX/1", "V1", "deed");
-    assert_eq!(v1.check, Check::Unsettled);
-    assert!(v1.value.contains("compared fields differ"), "{}", v1.value);
-    assert!(v1.value.contains("R1 found `total=10`"), "{}", v1.value);
-    // no sample labels yet, so the agreed cell stays proposed
-    assert_eq!(entry(&r, "EX/1", "V2", "deed").check, Check::Proposed);
-    // the routing file is read as routes, not reported as a bad proposals file
-    assert!(r.rejected.iter().all(|x| !x.origin.contains("routing")));
+const LLM: &str = "machine:proposal/claude-x";
+const DATAHUB: &str = "machine:proposal/datahub-mapping";
 
-    write(
-        root.path(),
-        "labels/l.csv",
-        &format!(
-            "{HEADER}{}",
-            label("EX/1", "V1", "deed", "total=12", "found", "AB", "blind")
-        ),
-    );
-    let r = run(root.path());
-    assert_eq!(entry(&r, "EX/1", "V1", "deed").check, Check::Independent);
-}
-
-#[test]
-fn agreed_cells_are_sampled_once_their_group_passes_the_gate() {
-    let root = tempfile::tempdir().unwrap();
-    sheet(root.path(), &["EX/1"]);
+/// 30 schemes (S/0 to S/29) whose deed V1 an LLM reader, a person and the Datahub read; the LLM
+/// reader is wrong on the first `wrong` of them. EX/1's cells are added by the caller.
+fn readers(p: &Path, wrong: usize, extra: &str) {
     let mut props = HEADER.to_string();
-    let mut routes = String::from(ROUTING);
-    let mut labels = String::from(HEADER);
-    props += &proposal("EX/1", "V2", "deed", "share=35%", "units", "found");
-    props += &proposal("EX/1", "V4", "deed", "route=fixed", "", "found");
-    routes += &route("EX/1/V2/deed", "G1", "agreed", "");
-    routes += &route("EX/1/V4/deed", "G2", "agreed", "");
-    // a route that is neither agreed nor sample (a typo here) never raises a cell
-    props += &proposal("EX/1", "V8", "datahub", "completed=10", "units", "found");
-    routes += &route("EX/1/V8/datahub", "G1", "agred", "");
-    // 35 blind G1 sample cards, all the same: the lower bound is just over 90%
-    for i in 0..35 {
+    let mut labels = HEADER.to_string();
+    let mut seen = String::from("scheme,variable_id,variable,source\n");
+    for i in 0..30 {
         let s = format!("S/{i}");
-        props += &proposal(&s, "V1", "deed", "total=10", "units", "found");
-        routes += &route(&format!("{s}/V1/deed"), "G1", "sample", "");
-        labels += &label(&s, "V1", "deed", "total=10", "found", "AB", "blind");
+        let llm = if i < wrong {
+            "total=10; SR=4"
+        } else {
+            "total=10; SR=3"
+        };
+        props += &reading(&s, "V1", "deed", llm, LLM);
+        props += &reading(&s, "V1", "datahub", "total=10; market=7", DATAHUB);
+        labels += &label(&s, "V1", "deed", "total=10; SR=3", "found", "AB", "read");
+        seen += &format!("{s},V1,x,deed\n");
     }
-    write(root.path(), "proposals/p.csv", &props);
-    write(root.path(), "proposals/routing.csv", &routes);
-    write(root.path(), "labels/l.csv", &labels);
-    let r = run(root.path());
-    let g1 = r.samples.iter().find(|t| t.group == "G1").unwrap();
-    assert_eq!((g1.same, g1.differs, g1.pending), (35, 0, 0));
-    assert!(g1.passes);
-    assert_eq!(entry(&r, "EX/1", "V2", "deed").check, Check::Sampled);
-    assert_eq!(entry(&r, "EX/1", "V8", "datahub").check, Check::Proposed);
-    // G2 has no sample, so its agreed cell stays proposed
-    assert_eq!(entry(&r, "EX/1", "V4", "deed").check, Check::Proposed);
+    write(p, "proposals/2026-10-14-p.csv", &(props + extra));
+    write(p, "labels/2026-10-20-ab.csv", &labels);
+    write(p, "runs/seen/labels.csv", &seen);
+}
 
-    // one card where the typed reading differed and the person corrected it: below the gate
-    labels += &label("S/0", "V1", "deed", "total=11", "found", "AB", "corrected")
-        .replace("2026-10-20", "2026-10-21");
-    write(root.path(), "labels/l.csv", &labels);
-    let r = run(root.path());
-    let g1 = r.samples.iter().find(|t| t.group == "G1").unwrap();
-    assert_eq!((g1.same, g1.differs), (34, 1));
-    assert!(!g1.passes);
-    assert_eq!(entry(&r, "EX/1", "V2", "deed").check, Check::Proposed);
+fn run_seen(root: &Path, seen: &[&str]) -> results::Results {
+    let seen: Vec<std::path::PathBuf> = seen.iter().map(|s| s.into()).collect();
+    results::run(
+        root,
+        Path::new("runs/b/labels.csv"),
+        Path::new("results/b"),
+        false,
+        &seen,
+    )
+    .unwrap()
 }
 
 #[test]
-fn the_gate_matches_the_audit_rule() {
-    // section 6: 55 cells with at most 1 error, or 35 with none
-    assert!(results::wilson_lower(35, 35).unwrap() >= results::GATE);
-    assert!(results::wilson_lower(34, 35).unwrap() < results::GATE);
-    assert!(results::wilson_lower(54, 55).unwrap() >= results::GATE);
-    assert!(results::wilson_lower(53, 55).unwrap() < results::GATE);
-    assert!(results::wilson_lower(0, 0).is_none());
+fn three_families_that_agree_give_estimated_and_confirmed_cells() {
+    let root = tempfile::tempdir().unwrap();
+    let p = root.path();
+    sheet(p, &["EX/1"]);
+    let extra = [
+        // the Datahub agrees with the deed's total and affordable count
+        reading("EX/1", "V1", "deed", "total=40; SR=10", LLM),
+        reading("EX/1", "V1", "datahub", "total=40; market=30", DATAHUB),
+        // two LLM readers from two families agree, and no other reader read it
+        reading("EX/1", "V2", "deed", "share=25%", "machine:proposal/gpt-y"),
+        reading("EX/1", "V2", "deed", "share=25%", LLM),
+        // one reading only
+        reading("EX/1", "V4", "deed", "route=fixed", LLM),
+    ]
+    .concat();
+    readers(p, 0, &extra);
+    let r = run_seen(p, &[]);
+    let g1: Vec<_> = r.estimates.iter().filter(|e| e.group == "G1").collect();
+    assert_eq!(g1.len(), 3, "{g1:?}");
+    assert!(g1.iter().all(|e| e.passes() && e.shared == 30), "{g1:?}");
+
+    let v1 = entry(&r, "EX/1", "V1", "deed");
+    assert_eq!(
+        (v1.check, v1.readers.as_str()),
+        (Check::Confirmed, "2 agree")
+    );
+    assert_eq!(v1.error, "0.0%");
+    // estimated, not confirmed: no reader that isn't an LLM agrees
+    assert_eq!(entry(&r, "EX/1", "V2", "deed").check, Check::Estimated);
+    assert_eq!(entry(&r, "EX/1", "V4", "deed").check, Check::Proposed);
+    let md = std::fs::read_to_string(p.join("results/b/README.md")).unwrap();
+    assert!(md.contains("| G1 | machine:proposal/claude-x |"), "{md}");
+
+    // the same readings on schemes seen while the method was built give no estimate
+    let r = run_seen(p, &["runs/seen/labels.csv"]);
+    assert!(r.estimates.is_empty());
+    assert_eq!(entry(&r, "EX/1", "V1", "deed").check, Check::Proposed);
+    let md = std::fs::read_to_string(p.join("results/b/README.md")).unwrap();
+    assert!(md.contains("No estimate yet"), "{md}");
+}
+
+#[test]
+fn a_reader_wrong_on_a_tenth_of_cells_fails_the_gate() {
+    let root = tempfile::tempdir().unwrap();
+    let p = root.path();
+    sheet(p, &["EX/1"]);
+    readers(p, 3, &reading("EX/1", "V1", "deed", "total=40; SR=10", LLM));
+    let r = run_seen(p, &[]);
+    let est = |who: &str| r.estimates.iter().find(|e| e.reader == who).unwrap();
+    // agreement 27 of 30 with each of two readers that always agree: sqrt(0.9 x 0.9 / 1)
+    assert!((est(LLM).accuracy - 0.9).abs() < 1e-9, "{:?}", est(LLM));
+    assert!(est(LLM).lower < 0.9 && !est(LLM).passes());
+    assert!((est("AB").accuracy - 1.0).abs() < 1e-9);
+    // the cell's only reader is the LLM, whose estimate doesn't pass
+    assert_eq!(entry(&r, "EX/1", "V1", "deed").check, Check::Proposed);
+}
+
+#[test]
+fn the_datahub_is_no_reader_of_a_varied_deed() {
+    let root = tempfile::tempdir().unwrap();
+    let p = root.path();
+    sheet(p, &["EX/1"]);
+    let extra = [
+        reading("EX/1", "V1", "deed", "total=40; SR=10", LLM),
+        reading("EX/1", "V1", "datahub", "total=40; market=20", DATAHUB),
+    ]
+    .concat();
+    readers(p, 0, &extra);
+    let r = run_seen(p, &[]);
+    let v1 = entry(&r, "EX/1", "V1", "deed");
+    // the difference is recorded beside the deed's reading, which stays shown
+    assert_eq!(
+        (v1.check, v1.value.as_str()),
+        (Check::Proposed, "total=40; SR=10")
+    );
+    assert!(
+        v1.readers
+            .contains("datahub-mapping affordable=20 total=40"),
+        "{}",
+        v1.readers
+    );
+
+    // once a variation document is read, the Datahub may hold the varied figures
+    let varied = reading("EX/1", "V1", "variation", "total=40; SR=20", LLM);
+    readers(p, 0, &(extra + &varied));
+    let r = run_seen(p, &[]);
+    assert_eq!(entry(&r, "EX/1", "V1", "deed").readers, "1 reader");
 }
 
 #[test]
@@ -678,14 +727,14 @@ fn a_batch_without_rules_says_so() {
         Path::new("runs/b/labels.csv"),
         Path::new("results/b"),
         false,
+        &[],
     )
     .unwrap();
     assert!(r.rules.is_empty());
     let note = std::fs::read_to_string(root.path().join("results/b/README.md")).unwrap();
     assert!(note.contains("no pre-registered decision rules"));
     assert!(note.contains("Retrieval is not recorded for this batch yet"));
-    // no routed cells, so no blind-sample table
-    assert!(!note.contains("## Blind sample"));
+    assert!(note.contains("No estimate yet"));
     for (f, header) in [
         ("rules.csv", "rule,scheme,outcome,reason,check"),
         (
@@ -696,4 +745,64 @@ fn a_batch_without_rules_says_so() {
         let body = std::fs::read_to_string(root.path().join("results/b").join(f)).unwrap();
         assert_eq!(body.trim(), header, "{f}");
     }
+}
+
+#[test]
+fn superseded_files_do_not_vote_and_non_reading_files_are_skipped() {
+    let root = tempfile::tempdir().unwrap();
+    let p = root.path();
+    sheet(p, &["EX/1"]);
+    write(
+        p,
+        "proposals/2026-10-14-a.csv",
+        &format!(
+            "{HEADER}{}",
+            reading(
+                "EX/1",
+                "V1",
+                "deed",
+                "total=40; AR=10",
+                "machine:proposal/old"
+            )
+        ),
+    );
+    write(
+        p,
+        "proposals/2026-10-14-b.csv",
+        &format!(
+            "{HEADER}{}{}{}{}",
+            reading("EX/1", "V1", "deed", "total=40; SR=10", LLM),
+            // a total with no tenure states no affordable homes, as the Datahub's 0 does
+            reading("EX/1", "V1", "gla", "total=12", LLM),
+            reading("EX/2", "V1", "deed", "total=12", LLM),
+            reading("EX/2", "V1", "datahub", "total=12; market=12", DATAHUB),
+        ),
+    );
+    write(
+        p,
+        "proposals/routing.csv",
+        "proposal_id,scheme,variable_id,group,route\nEX/1/V1/deed,EX/1,V1,G1,agreed\n",
+    );
+    sheet(p, &["EX/1", "EX/2"]);
+    let r = run_seen(p, &[]);
+    assert!(
+        entry(&r, "EX/1", "V1", "deed")
+            .readers
+            .starts_with("2 differ")
+    );
+    assert_eq!(entry(&r, "EX/2", "V1", "deed").readers, "2 agree");
+    assert!(r.rejected.is_empty(), "{:?}", r.rejected);
+
+    write(
+        p,
+        "proposals/superseded.csv",
+        "file,labeller,reason\nproposals/2026-10-14-a.csv,machine:proposal/old,replaced by b\n",
+    );
+    let r = run_seen(p, &[]);
+    let deed = entry(&r, "EX/1", "V1", "deed");
+    assert_eq!(
+        (deed.value.as_str(), deed.readers.as_str()),
+        ("total=40; SR=10", "1 reader")
+    );
+    assert!(r.rejected.is_empty(), "{:?}", r.rejected);
 }
