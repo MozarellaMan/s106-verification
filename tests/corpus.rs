@@ -1,13 +1,11 @@
 //! Tier 4: full documents. Every deed in the data repository's corpus/manifest.tsv is read through
 //! the real pipeline (PDFium and OCR, via the page-text cache) and must reproduce its committed
-//! snapshot exactly: every page, with the same source, dimensions, lines and boxes. Everything
-//! downstream of page text is deterministic, so this tier is what licenses the replay tiers to
-//! stand in for the PDFs.
+//! snapshot exactly: every page, with the same source, dimensions, lines and boxes. This tier is
+//! what licenses the snapshots to stand in for the PDFs.
 //!
 //! With an empty cache this tier OCRs every image-only page (the longest scan dominates);
 //! with a warm cache it re-checks the cache against the snapshots in seconds. For a cold run:
 //!     S106_OCR_CACHE=$(mktemp -d) cargo test --release --test corpus -- --ignored --nocapture
-//! The register evaluation on the PDFs is a command, not a test: `s106 eval --replay`.
 
 mod common;
 
