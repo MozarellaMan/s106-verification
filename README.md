@@ -7,6 +7,13 @@ supplemental deed) into a typed schema. A deterministic gate then checks every n
 the others **and** against the deed's own text: each value must appear in the passage the model
 cites, and that passage must be found on the cited page. Nothing in the gate is a model judgement.
 
+**Status.** No person has yet labelled the obligations in any deed, so there is no measured
+accuracy for extraction or for the gate. PASS means a value matches the model's own citation on
+the cited page; it is not a check against independent evidence. The OCR gold pages were
+transcribed by an AI agent and the pinned expected outcomes were blessed from the pipeline's own
+output, so the test tiers show repeatability, not correctness ([docs/testing.md](docs/testing.md)).
+Nine of the ten deeds the prompts were tuned on are from outside London.
+
 Architecture and contributor reading path: [docs/architecture.md](docs/architecture.md).
 
 This repository holds code and invented test deeds only; it describes no real planning
@@ -31,7 +38,7 @@ src/
   eval.rs       evaluation against the national S106 register (planning.data.gov.uk)
   pld.rs        read-only Planning London Datahub client; saves raw snapshots under <data>/snapshots/pld/
   reconcile.rs  obligation events vs PLD delivery, one row per measure, with a status per row
-  ocrbench.rs   OCR scored against hand-transcribed gold (`gold/*.json` in the data repository)
+  ocrbench.rs   OCR scored against gold transcriptions (`gold/*.json` in the data repository)
 ```
 
 ## Setup

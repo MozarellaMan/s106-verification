@@ -50,7 +50,7 @@ and from the snapshots.
 What these tiers establish is repeatability: the same inputs give the same page text and the same
 outcomes, and changes to either are visible in review. They do not establish that the outcomes
 are correct. The expected outcomes were blessed from the pipeline's own output, and the OCR gold
-set helped choose the OCR model. Correctness claims still need independently annotated evidence,
+set, transcribed by an AI agent and not yet checked by a person, helped choose the OCR model. Correctness claims still need independently annotated evidence,
 ideally on held-out deeds.
 
 ## Timings
