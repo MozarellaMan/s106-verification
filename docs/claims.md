@@ -8,16 +8,14 @@ project's working rules and applies to every report, table and note built from t
   must look at the borough's records.
 - **No developer- or council-specific claim without human review.** Nothing names a developer or
   a council as having done or failed to do something until a person has checked the evidence.
-- **No causal claims from approved-only data.** The sample starts at permissions that were
-  approved and deeds that could be retrieved. It cannot say whether obligations reduced housing
-  supply or changed which schemes went ahead.
-- **No London-wide figure from one borough.** A result from a sample in one borough describes that
-  borough's sample.
-- **No accuracy claim without human labels.** Until people have labelled obligations in deeds the
-  pipeline was not tuned on, there is no measured accuracy. PASS means a value matches the model's
-  own citation on the cited page, nothing more.
-- **No mixing of measurement bases.** Units, habitable rooms and floorspace are kept apart and
-  never converted into one another.
+- **Caution with causal claims.** Descriptive patterns are not causal evidence. That some
+  approved developments were never built does not show that their obligations caused them to fail.
+  Causal studies remain a later goal, if a defensible research design is possible.
+- **No accuracy claim without human labels.** Until people have labelled obligations, ideally in
+  held-out deeds, there is no measured accuracy. PASS means a value matches the model's own
+  citation on the cited page, nothing more.
+- **No mixing of measurement bases.** Percentages by units, habitable rooms or floorspace are kept
+  apart and cannot be compared as if they were equivalent.
 - **No original obligation reported as the current one.** A deed of variation can change what is
   owed; the original figure is labelled as original.
 - **Unknown is not zero.** Unknown, unverified, inconsistent, varied and not yet due are different
