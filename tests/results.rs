@@ -626,6 +626,9 @@ fn agreed_cells_are_sampled_once_their_group_passes_the_gate() {
     props += &proposal("EX/1", "V4", "deed", "route=fixed", "", "found");
     routes += &route("EX/1/V2/deed", "G1", "agreed", "");
     routes += &route("EX/1/V4/deed", "G2", "agreed", "");
+    // a route that is neither agreed nor sample (a typo here) never raises a cell
+    props += &proposal("EX/1", "V8", "datahub", "completed=10", "units", "found");
+    routes += &route("EX/1/V8/datahub", "G1", "agred", "");
     // 35 blind G1 sample cards, all the same: the lower bound is just over 90%
     for i in 0..35 {
         let s = format!("S/{i}");
@@ -641,6 +644,7 @@ fn agreed_cells_are_sampled_once_their_group_passes_the_gate() {
     assert_eq!((g1.same, g1.differs, g1.pending), (35, 0, 0));
     assert!(g1.passes);
     assert_eq!(entry(&r, "EX/1", "V2", "deed").check, Check::Sampled);
+    assert_eq!(entry(&r, "EX/1", "V8", "datahub").check, Check::Proposed);
     // G2 has no sample, so its agreed cell stays proposed
     assert_eq!(entry(&r, "EX/1", "V4", "deed").check, Check::Proposed);
 
