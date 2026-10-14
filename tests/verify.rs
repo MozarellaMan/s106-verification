@@ -22,7 +22,7 @@ fn pages(items: &[(usize, &str)]) -> Pages {
     items.iter().map(|(p, t)| (*p, t.to_string())).collect()
 }
 
-/// Invented OCR-style lines (spaces dropped as RapidOCR drops them).
+/// Invented OCR-style lines (spaces dropped, as RapidOCR in the former Python harness dropped them).
 fn sample_pages() -> Pages {
     pages(&[
         (
@@ -350,7 +350,8 @@ fn no_mix_table_skips() {
 
 use TriggerEvent as E;
 
-/// Invented RapidOCR-style output for Schedule 5 para 3 (p89): "50%" reads as "5o%".
+/// Invented OCR output for Schedule 5 para 3 (p89), in the style of RapidOCR (the former Python
+/// harness's OCR): "50%" reads as "5o%".
 const PAGE_89: &str = "3. CarbonOffsetFund Contribution
 3.1 Prior to the Occupation of 5o%of theDevelopment(or upon such other dateas may be
 agreed between the Council and the Owner) the Council and the Owner shall compare the
