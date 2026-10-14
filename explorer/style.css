@@ -46,6 +46,12 @@ aside { background: var(--panel); border: 1px solid var(--line); padding: 14px; 
 .lineage { display: grid; gap: 6px; }
 .stage { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; }
 .stage .name { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding-top: 6px; }
+.cells { display: grid; gap: 4px; min-width: 0; }
+.chip.reading { background: var(--panel); border: 1px solid var(--line); color: var(--ink); }
+.chip .what { display: block; font-size: .72rem; color: var(--muted); }
+.chip .src.unchecked { font-style: italic; }
+.others { font-size: .74rem; color: var(--muted); }
+.private { margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 4px; font-size: .86rem; max-width: 90ch; }
 .chip { border-radius: 4px; padding: 6px 8px; font-size: .84rem; background: var(--none); border: 1px dashed var(--border); color: var(--muted); }
 .chip.found { background: var(--found); border: 1px solid transparent; color: var(--ink); }
 .chip .src { display: block; font-family: var(--mono); font-size: .7rem; color: var(--muted); margin-top: 2px; }

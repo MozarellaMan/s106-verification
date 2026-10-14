@@ -1,7 +1,7 @@
 //! The explorer's pure logic: colours, bins, sizes and number formats. No browser types, so the
 //! tests run on the host with `cargo test`.
 
-use crate::site::{Site, Status};
+use crate::site::{Reading, Site, Status};
 
 impl Site {
     /// Affordable share of homes with a recorded tenure; None when no tenure was recorded.
@@ -107,6 +107,58 @@ pub fn percent(part: u64, whole: u64) -> String {
     }
 }
 
+/// A ledger check level in words.
+pub fn check_label(check: &str) -> &str {
+    match check {
+        "independent" => "read by a person",
+        "anchored" => "agent reading checked by a person",
+        "proposed" => "agent reading, not checked",
+        "unsettled" => "readers disagree",
+        "unread" => "not read",
+        other => other,
+    }
+}
+
+/// A ledger source in words.
+pub fn source_label(source: &str) -> String {
+    match source {
+        "committee_report" => "Committee report".into(),
+        "deed" => "Deed".into(),
+        "datahub" => "Datahub".into(),
+        "epc" => "EPC".into(),
+        "gla" => "GLA".into(),
+        other => other.replace('_', " "),
+    }
+}
+
+/// A reading with something to show (a value, or a doubt about one), as against a status alone.
+pub fn has_value(r: &Reading) -> bool {
+    matches!(r.status.as_str(), "found" | "ambiguous" | "inconsistent")
+}
+
+/// The other readings as one line per status, e.g. "Not stated: deed V5, gla V1".
+pub fn status_lines(readings: &[Reading]) -> Vec<String> {
+    let mut lines: Vec<(&str, Vec<String>)> = Vec::new();
+    for r in readings.iter().filter(|r| !has_value(r)) {
+        let status = match r.status.as_str() {
+            "not_stated" => "Not stated",
+            "source_missing" => "No document",
+            "not_applicable" => "Not applicable",
+            "" => "Not read",
+            other => other,
+        };
+        let item = format!("{} {}", source_label(&r.source), r.variable);
+        match lines.iter_mut().find(|(s, _)| *s == status) {
+            Some((_, items)) => items.push(item),
+            None => lines.push((status, vec![item])),
+        }
+    }
+    lines
+        .into_iter()
+        .map(|(s, items)| format!("{s}: {}", items.join(", ")))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,6 +178,7 @@ mod tests {
             updated: "2026-01-02".into(),
             lat: 51.5,
             lon: -0.1,
+            readings: Vec::new(),
         }
     }
 
@@ -165,6 +218,41 @@ mod tests {
         assert_eq!(thousands(1_234_567), "1,234,567");
         assert_eq!(percent(1, 3), "33.3%");
         assert_eq!(percent(5, 0), "n/a");
+    }
+
+    fn reading(source: &str, variable: &str, status: &str) -> Reading {
+        Reading {
+            stage: crate::site::Stage::Decision,
+            variable: variable.into(),
+            name: "Total homes".into(),
+            source: source.into(),
+            status: status.into(),
+            value: None,
+            basis: None,
+            pages: None,
+            check: "proposed".into(),
+        }
+    }
+
+    #[test]
+    fn statuses_without_a_value_share_a_line() {
+        let r = [
+            reading("deed", "V1", "found"),
+            reading("gla", "V1", "source_missing"),
+            reading("deed", "V5", "not_stated"),
+            reading("committee_report", "V5", "not_stated"),
+            reading("datahub", "V2", ""),
+        ];
+        assert!(has_value(&r[0]));
+        assert_eq!(
+            status_lines(&r),
+            [
+                "No document: GLA V1",
+                "Not stated: Deed V5, Committee report V5",
+                "Not read: Datahub V2"
+            ]
+        );
+        assert_eq!(check_label("proposed"), "agent reading, not checked");
     }
 
     #[test]

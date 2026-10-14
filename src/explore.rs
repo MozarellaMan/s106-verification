@@ -7,6 +7,9 @@
 //! from its `applications.csv`: every count is of final homes (`final_*`, homes no later permission
 //! replaced), like the baseline's headline. This only adds each site's centroid from the same
 //! snapshot, and counts every record it leaves out so the page can say so.
+//!
+//! A private build (`--results`) also adds each scheme's cells from a results ledger, with their
+//! check levels. Those are unreviewed readings: that build is for local viewing, never for Pages.
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -20,7 +23,7 @@ use serde_json::Value;
 // The file format, shared with the explorer so the two can't drift apart.
 #[path = "../explorer/src/site.rs"]
 mod site;
-pub use site::{Bundle, Site, Sources, Status};
+pub use site::{Bundle, Reading, Site, Sources, Stage, Status};
 
 /// One row of the baseline run's `tables/applications.csv` (only the columns used here).
 #[derive(Deserialize)]
@@ -46,6 +49,23 @@ pub struct Inputs {
     pub applications: PathBuf,
     pub snapshot: PathBuf,
     pub boundaries: PathBuf,
+    /// a results folder (`results/<batch>`) whose `ledger.csv` to add: private builds only
+    pub results: Option<PathBuf>,
+}
+
+/// One row of a results folder's `ledger.csv` (only the columns used here).
+#[derive(Deserialize)]
+struct LedgerRow {
+    scheme: String,
+    stage: Stage,
+    variable_id: String,
+    variable: String,
+    source: String,
+    status: String,
+    value: String,
+    basis: String,
+    pages: String,
+    check: String,
 }
 
 pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
@@ -89,11 +109,16 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
             updated: a.last_updated.chars().take(10).collect(),
             lat,
             lon,
+            readings: Vec::new(),
         });
     }
     if sites.is_empty() {
         bail!("no permitted sites with a centroid in {}", path.display());
     }
+    let unmatched = match &inputs.results {
+        Some(dir) => add_readings(&root.join(dir).join("ledger.csv"), &mut sites)?,
+        None => Vec::new(),
+    };
     let name = |p: &Path| p.display().to_string();
     Ok(Bundle {
         sources: Sources {
@@ -106,9 +131,43 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
             no_decision_year,
             wholly_superseded,
             without_centroid,
+            results: inputs.results.as_deref().map(name),
+            unmatched,
         },
         sites,
     })
+}
+
+/// Attach each scheme's ledger cells to the one site with that reference; returns the schemes
+/// that matched no site, or more than one.
+fn add_readings(ledger: &Path, sites: &mut [Site]) -> Result<Vec<String>> {
+    let mut reader =
+        csv::Reader::from_path(ledger).with_context(|| format!("reading {}", ledger.display()))?;
+    let mut by_scheme: HashMap<String, Vec<Reading>> = HashMap::new();
+    for row in reader.deserialize() {
+        let r: LedgerRow = row.with_context(|| format!("parsing {}", ledger.display()))?;
+        by_scheme.entry(r.scheme).or_default().push(Reading {
+            stage: r.stage,
+            variable: r.variable_id,
+            name: r.variable,
+            source: r.source,
+            status: r.status,
+            value: non_empty(r.value),
+            basis: non_empty(r.basis),
+            pages: non_empty(r.pages),
+            check: r.check,
+        });
+    }
+    let mut unmatched = Vec::new();
+    for (scheme, readings) in by_scheme {
+        let mut found = sites.iter_mut().filter(|s| s.reference == scheme);
+        match (found.next(), found.next()) {
+            (Some(site), None) => site.readings = readings,
+            _ => unmatched.push(scheme),
+        }
+    }
+    unmatched.sort();
+    Ok(unmatched)
 }
 
 fn non_empty(s: String) -> Option<String> {
@@ -203,8 +262,11 @@ mod tests {
             applications: "applications.csv".into(),
             snapshot: snap.into(),
             boundaries: "boroughs.geojson".into(),
+            results: None,
         };
         let bundle = bake(root, &inputs).unwrap();
+        assert!(bundle.sources.results.is_none());
+        assert!(bundle.sites.iter().all(|s| s.readings.is_empty()));
         let src = &bundle.sources;
         assert_eq!(src.snapshot_date, "14 October 2026");
         assert_eq!(
@@ -232,5 +294,32 @@ mod tests {
             (s.site.as_deref(), s.completion_date.as_deref()),
             (None, None)
         );
+
+        // A private build adds the ledger's cells to the matching site, and names the rest.
+        std::fs::create_dir(root.join("results")).unwrap();
+        std::fs::write(
+            root.join("results/ledger.csv"),
+            "scheme,stage,variable_id,variable,source,status,value,basis,doc_ids,pages,check,reader,origin\n\
+             1,obligation,V1,Total homes,deed,found,total=40; SR=10,units,D-1,D-1:3,proposed,machine:x,p.csv:2\n\
+             1,decision,V1,Total homes,gla,source_missing,,,,,proposed,machine:x,p.csv:3\n\
+             9,decision,V1,Total homes,deed,,,,,,unread,,\n",
+        )
+        .unwrap();
+        let private = Inputs {
+            results: Some("results".into()),
+            ..inputs
+        };
+        let bundle = bake(root, &private).unwrap();
+        assert_eq!(bundle.sources.results.as_deref(), Some("results"));
+        assert_eq!(bundle.sources.unmatched, ["9"]);
+        let r = &bundle.sites[0].readings;
+        assert_eq!(r.len(), 2);
+        assert_eq!(r[0].stage, Stage::Obligation);
+        assert_eq!(
+            (r[0].value.as_deref(), r[0].check.as_str()),
+            (Some("total=40; SR=10"), "proposed")
+        );
+        assert_eq!(r[1].value, None);
+        assert!(bundle.sites[1].readings.is_empty());
     }
 }

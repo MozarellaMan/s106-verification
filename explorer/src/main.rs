@@ -12,8 +12,11 @@ use leaflet::{
 };
 use leptos::html;
 use leptos::prelude::*;
-use model::{Colour, colour, legend, percent, radius, thousands};
-use site::{Bundle, Site, Sources};
+use model::{
+    Colour, check_label, colour, has_value, legend, percent, radius, source_label, status_lines,
+    thousands,
+};
+use site::{Bundle, Reading, Site, Sources, Stage};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
@@ -88,6 +91,7 @@ fn App() -> impl IntoView {
 #[component]
 fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
     let Bundle { sources, sites } = bundle;
+    let private = sources.results.clone();
     let sites = StoredValue::new(sites);
     let (from, set_from) = signal(DEFAULT_YEARS.0);
     let (to, set_to) = signal(DEFAULT_YEARS.1);
@@ -141,6 +145,14 @@ fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
     };
 
     view! {
+        {private.map(|results| view! {
+            <p class="private">
+                <b>"Private build, not for publication. "</b>
+                "Schemes with readings carry cells from " <code>{results}</code>
+                ". Each says how far it has been checked; an agent reading nobody has checked is not a result, "
+                "and a difference between two sources is a prompt to read them, never a finding."
+            </p>
+        })}
         <div class="controls">
             <label>"Decided from "
                 <select on:change=move |e| { if let Ok(y) = event_target_value(&e).parse() { set_from.set(y) } }>
@@ -186,6 +198,7 @@ fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
             </div>
             <aside node_ref=panel>
                 <Detail sites selected />
+                <ReadSchemes sites on_pick=set_selected />
                 <Largest sites visible on_pick=set_selected />
             </aside>
         </div>
@@ -393,6 +406,13 @@ fn Detail(
             ),
         };
         let as_of = format!("current Datahub record, as of {}", x.updated);
+        let at = |stage: Stage| -> Vec<Reading> {
+            x.readings
+                .iter()
+                .filter(|r| r.stage == stage)
+                .cloned()
+                .collect()
+        };
         let completion = if x.completed > 0 {
             let date = x
                 .completion_date
@@ -420,11 +440,11 @@ fn Detail(
             <p class="hint">"The Datahub keeps one record per permission and updates it in place, so this is the record as it stands now, not what was decided."</p>
             <div class="lineage">
                 <Stage name="Target" known=Known::NotCollected { from: "policy target" } />
-                <Stage name="Offer" known=Known::NotCollected { from: "committee report" } />
-                <Stage name="Decision" known=Known::NotCollected { from: "committee report, decision notice" } />
-                <Stage name="Obligation" known=Known::NotCollected { from: "S106 agreement" } />
-                <Stage name="Variation" known=Known::NotCollected { from: "deeds of variation, section 73" } />
-                <Stage name="Completion" known=completion />
+                <Stage name="Offer" known=Known::NotCollected { from: "committee report" } readings=at(Stage::Offer) />
+                <Stage name="Decision" known=Known::NotCollected { from: "committee report, decision notice" } readings=at(Stage::Decision) />
+                <Stage name="Obligation" known=Known::NotCollected { from: "S106 agreement" } readings=at(Stage::Obligation) />
+                <Stage name="Variation" known=Known::NotCollected { from: "deeds of variation, section 73" } readings=at(Stage::Variation) />
+                <Stage name="Completion" known=completion readings=at(Stage::Completion) />
             </div>
         }
         .into_any()
@@ -440,17 +460,72 @@ enum Known {
 }
 
 #[component]
-fn Stage(name: &'static str, known: Known) -> impl IntoView {
-    let (found, text, source) = match known {
-        Known::Recorded { text, source } => (true, text, source),
-        Known::NotCollected { from } => (false, "Not collected".to_string(), from.to_string()),
+fn Stage(
+    name: &'static str,
+    known: Known,
+    /// a ledger's cells for this stage (private builds only)
+    #[prop(optional)]
+    readings: Vec<Reading>,
+) -> impl IntoView {
+    let chip = match known {
+        Known::Recorded { text, source } => Some((true, text, source)),
+        // Cells from a ledger replace the "not collected" chip.
+        Known::NotCollected { .. } if !readings.is_empty() => None,
+        Known::NotCollected { from } => Some((false, "Not collected".into(), from.into())),
     };
+    let shown: Vec<Reading> = readings.iter().filter(|r| has_value(r)).cloned().collect();
+    let others = status_lines(&readings);
     view! {
         <div class="stage">
             <div class="name">{name}</div>
-            <div class="chip" class:found=found>{text}<span class="src">{source}</span></div>
+            <div class="cells">
+                {chip.map(|(found, text, source)| view! {
+                    <div class="chip" class:found=found>{text}<span class="src">{source}</span></div>
+                })}
+                {shown.into_iter().map(|r| {
+                    let doubt = (r.status != "found").then(|| format!(" ({})", r.status));
+                    let title = format!("{}{}", r.name, r.pages.as_deref().map(|p| format!(" · pages {p}")).unwrap_or_default());
+                    view! {
+                        <div class="chip reading" title=title>
+                            <span class="what">{format!("{} {}", source_label(&r.source), r.variable)}{doubt}</span>
+                            {r.value.unwrap_or_default()}
+                            {r.basis.map(|b| format!(" ({b})"))}
+                            <span class="src" class:unchecked={r.check != "independent" && r.check != "anchored"}>{check_label(&r.check).to_string()}</span>
+                        </div>
+                    }
+                }).collect_view()}
+                {others.into_iter().map(|l| view! { <div class="others">{l}</div> }).collect_view()}
+            </div>
         </div>
     }
+}
+
+/// Private builds: the schemes that carry ledger readings, so they can be found on the map.
+#[component]
+fn ReadSchemes(
+    sites: StoredValue<Vec<Site>>,
+    on_pick: WriteSignal<Option<(usize, bool)>>,
+) -> impl IntoView {
+    let read: Vec<(usize, Site)> = sites.with_value(|s| {
+        s.iter()
+            .enumerate()
+            .filter(|(_, x)| !x.readings.is_empty())
+            .map(|(i, x)| (i, x.clone()))
+            .collect()
+    });
+    (!read.is_empty()).then(|| {
+        view! {
+            <div class="hint">{format!("{} schemes with ledger readings", read.len())}</div>
+            <div class="list">
+                {read.into_iter().map(|(i, x)| view! {
+                    <button on:click=move |_| on_pick.set(Some((i, true)))>
+                        <span>{x.name().to_string()} " " <span class="ref">{format!("{} {}", x.borough, x.reference)}</span></span>
+                        <span class="n">{x.year}</span>
+                    </button>
+                }).collect_view()}
+            </div>
+        }
+    })
 }
 
 /// Three reference dots, drawn with the same radius as the map's.

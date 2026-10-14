@@ -36,6 +36,13 @@ jobs:
           curl -sSL https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-gnu.tar.gz \
             | tar xz -C "$HOME/.cargo/bin"
       - run: cargo run --release -- explore --out explorer/data
+      # Never publish a private build: it carries unreviewed ledger readings.
+      - name: Check the data is public-only
+        run: |
+          if grep -qE '"(results|readings)":' explorer/data/sites.json; then
+            echo "::error::sites.json carries ledger readings; a private build must not be published"
+            exit 1
+          fi
       - run: trunk build --release --public-url "/${{ github.event.repository.name }}/"
         working-directory: explorer
       - uses: actions/upload-pages-artifact@v3

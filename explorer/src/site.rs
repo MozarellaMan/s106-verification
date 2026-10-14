@@ -24,6 +24,12 @@ pub struct Sources {
     pub no_decision_year: u64,
     pub wholly_superseded: u64,
     pub without_centroid: u64,
+    /// Private builds only: the results folder whose ledger readings were added, and its schemes
+    /// that matched no site on the map. A public build never carries these.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub results: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unmatched: Vec<String>,
 }
 
 /// One permission, as on its current Datahub record. Every count is of homes no later permission
@@ -51,6 +57,42 @@ pub struct Site {
     pub updated: String,
     pub lat: f64,
     pub lon: f64,
+    /// Private builds only: this scheme's cells from a results ledger.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub readings: Vec<Reading>,
+}
+
+/// One cell of a results ledger (`results/<batch>/ledger.csv`): what one source says about one
+/// variable, and how far it has been checked.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Reading {
+    pub stage: Stage,
+    /// e.g. "V1", and what it is ("Total homes; affordable homes by tenure")
+    pub variable: String,
+    pub name: String,
+    /// committee_report, deed, datahub, epc, gla, ...
+    pub source: String,
+    /// found, not_stated, source_missing, not_applicable, ambiguous, inconsistent; blank if unread
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub basis: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pages: Option<String>,
+    /// independent, anchored, proposed, unsettled or unread
+    pub check: String,
+}
+
+/// The lineage stages a ledger uses.
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Stage {
+    Offer,
+    Decision,
+    Obligation,
+    Variation,
+    Completion,
 }
 
 /// The Datahub's status, folded case-insensitively into the few the map tells apart.
