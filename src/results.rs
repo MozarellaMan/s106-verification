@@ -993,8 +993,13 @@ fn csv_files(dir: &Path, out: &mut Vec<PathBuf>) {
 }
 
 /// Fills each scheme's Datahub status and system from the snapshot its Datahub cells cite,
-/// returning the snapshots read.
-fn datahub_records(root: &Path, ledger: &mut [Entry]) -> Vec<PathBuf> {
+/// returning the snapshots read. A snapshot that can't be read or parsed is recorded in
+/// `rejected`, and the scheme's Datahub record is left blank.
+fn datahub_records(
+    root: &Path,
+    ledger: &mut [Entry],
+    rejected: &mut Vec<labels::Rejected>,
+) -> Vec<PathBuf> {
     let mut found: BTreeMap<String, (String, String)> = BTreeMap::new();
     let mut read = vec![];
     for e in ledger.iter().filter(|e| e.source == "datahub") {
@@ -1009,11 +1014,26 @@ fn datahub_records(root: &Path, ledger: &mut [Entry]) -> Vec<PathBuf> {
         else {
             continue;
         };
-        let Ok(text) = std::fs::read_to_string(&path) else {
-            continue;
-        };
-        let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else {
-            continue;
+        let json = std::fs::read_to_string(&path)
+            .map_err(|err| err.to_string())
+            .and_then(|t| {
+                serde_json::from_str::<serde_json::Value>(&t).map_err(|err| err.to_string())
+            });
+        let json = match json {
+            Ok(json) => json,
+            Err(err) => {
+                rejected.push(labels::Rejected {
+                    origin: e.origin.clone(),
+                    reason: format!(
+                        "Datahub snapshot {} for {} not read: {err}",
+                        path.strip_prefix(root).unwrap_or(&path).display(),
+                        e.scheme
+                    ),
+                });
+                // one report per scheme
+                found.insert(e.scheme.clone(), (String::new(), String::new()));
+                continue;
+            }
         };
         let get = |k: &str| json["response"][k].as_str().unwrap_or("").to_string();
         found.insert(e.scheme.clone(), (get("status"), get("bo_system")));
@@ -1039,7 +1059,7 @@ pub fn run(root: &Path, sheet: &Path, out: &Path) -> Result<Results> {
     rejected.extend(bad);
 
     let mut ledger = ledger(&cells, &submitted, &proposed);
-    let snapshots = datahub_records(root, &mut ledger);
+    let snapshots = datahub_records(root, &mut ledger, &mut rejected);
     let rules = rules(&ledger);
     let sources = sheet_path.with_file_name("sources.csv");
     let retrieval = retrieval(&sources)?;
