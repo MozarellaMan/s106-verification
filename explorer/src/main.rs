@@ -208,8 +208,9 @@ fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
                 <SizeKey />
             </div>
             <aside node_ref=panel>
-                <Detail sites selected />
+                // Above the details, so a pick from it lands just below, not off-screen.
                 <ReadSchemes sites on_pick=set_selected from=(from, set_from) to=(to, set_to) />
+                <Detail sites selected />
                 <Largest sites visible on_pick=set_selected />
             </aside>
         </div>
