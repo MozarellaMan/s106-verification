@@ -128,12 +128,13 @@ pub fn check_class(check: Check) -> &'static str {
     }
 }
 
-/// A short tag shown before a value that no person has settled.
-pub fn check_tag(check: Check) -> Option<&'static str> {
+/// A short tag shown before a value: whether a person has settled it.
+pub fn check_tag(check: Check) -> &'static str {
     match check {
-        Check::Unread | Check::Proposed => Some("unchecked"),
-        Check::Unsettled => Some("readers disagree"),
-        Check::Anchored | Check::Independent => None,
+        Check::Unread | Check::Proposed => "unchecked",
+        Check::Unsettled => "readers disagree",
+        Check::Anchored => "checked by a person",
+        Check::Independent => "read by a person",
     }
 }
 
@@ -201,6 +202,9 @@ fn humanize_one(value: &str) -> String {
                     "cascade" => format!("tenure cascade: {v}"),
                     "pil" => format!("payment in lieu: {v}"),
                     "pil_amount" => format!("payment in lieu amount: {v}"),
+                    "target" => format!("policy target {v}"),
+                    "first_offer" => format!("first offer: {v}"),
+                    "offer_doc" => format!("offer document: {v}"),
                     other => format!("{} {v}", tenure(other).unwrap_or(other)),
                 };
             }
@@ -504,8 +508,8 @@ mod tests {
         assert_eq!(check_class(Check::Unsettled), "disagree");
         assert_eq!(check_class(Check::Anchored), "checked");
         assert_eq!(check_class(Check::Independent), "independent");
-        assert_eq!(check_tag(Check::Proposed), Some("unchecked"));
-        assert_eq!(check_tag(Check::Anchored), None);
+        assert_eq!(check_tag(Check::Proposed), "unchecked");
+        assert_eq!(check_tag(Check::Anchored), "checked by a person");
         assert!(Check::Proposed < Check::Anchored && Check::Unsettled < Check::Anchored);
         let mut r = vec![reading("deed", "V1", Finding::Found); 3];
         r[0].check = Check::Anchored;

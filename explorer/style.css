@@ -68,7 +68,7 @@ aside { background: var(--panel); border: 1px solid var(--line); padding: 14px; 
 .by-source tr.independent th { box-shadow: inset 3px 0 0 var(--accent); }
 .counts { margin: 4px 0 0; font-size: .82rem; font-family: var(--mono); }
 .others { font-size: .74rem; color: var(--muted); }
-.private { margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 4px; font-size: .86rem; max-width: 90ch; }
+.notice { margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 4px; font-size: .86rem; max-width: 90ch; }
 .chip { border-radius: 4px; padding: 6px 8px; font-size: .84rem; background: var(--none); border: 1px dashed var(--border); color: var(--muted); }
 .chip.found { background: var(--found); border: 1px solid transparent; color: var(--ink); }
 .chip .src { display: block; font-family: var(--mono); font-size: .7rem; color: var(--muted); margin-top: 2px; }
