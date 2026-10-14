@@ -266,6 +266,16 @@ fn parser_behaviour_on_recorded_strings() {
     );
 }
 
+/// (figure, words) pairs where the deed itself states figures and words that disagree, checked
+/// against the scan. The recording keeps both as written.
+const DEED_WORDS_DIFFER: &[(&str, &str)] = &[
+    // southwark-09_AP_1783-1 p18: £381,872, words say ...seventy one; the components sum to 381,872.
+    (
+        "381872",
+        "three hundred and eighty one thousand eight hundred and seventy one pounds",
+    ),
+];
+
 #[test]
 #[ignore = "data tier: needs the s106-data checkout; cargo test-data"]
 fn recorded_words_replay_with_negative_twins() {
@@ -286,12 +296,12 @@ fn recorded_words_replay_with_negative_twins() {
                     let figure =
                         rust_decimal::Decimal::from_str_exact(c["amount_gbp"].as_str().unwrap())
                             .unwrap();
-                    assert_eq!(
-                        s106::quantity::amount(words).unwrap(),
-                        figure,
-                        "{}: {words}",
-                        path.display()
-                    );
+                    let parsed = s106::quantity::amount(words).unwrap();
+                    if DEED_WORDS_DIFFER.contains(&(figure.to_string().as_str(), words)) {
+                        assert_ne!(parsed, figure, "{}: {words}", path.display());
+                    } else {
+                        assert_eq!(parsed, figure, "{}: {words}", path.display());
+                    }
                     assert!(
                         s106::quantity::amount(&format!("{words} banana")).is_err(),
                         "{}: corrupted {words}",
