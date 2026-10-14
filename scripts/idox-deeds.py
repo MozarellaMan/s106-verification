@@ -10,6 +10,8 @@ raw/ folder and records their SHA-256.
 Registers rate-limit scrapers. The script waits --delay seconds between requests and stops at the
 first sign of a block (HTTP 429/403, or a page it can't recognise), saving that page next to the
 CSVs and marking the remaining applications "not attempted". Re-run with --only for those later.
+A re-run with --download skips any document already in corpus.tsv whose file is still in raw/ with
+the recorded SHA-256, so an application with many deeds picks up where a block stopped it.
 
 Outputs, in --out (default: the sample's directory). Each run appends; nothing is overwritten, so
 a re-run with --only adds new attempts and keeps the earlier ones (read the latest `retrieved_at`
@@ -241,6 +243,28 @@ def slug(ref):
     return re.sub(r"[^A-Za-z0-9]+", "_", ref).strip("_")
 
 
+def read_corpus(path):
+    """corpus.tsv rows written by earlier runs, as {id: {id, path, sha256, url, session}}."""
+    if not os.path.exists(path):
+        return {}
+    with open(path, newline="") as f:
+        return {r["id"]: r for r in csv.DictReader(f, delimiter="\t")}
+
+
+def already_downloaded(known, data, url):
+    """The earlier corpus row for `url` whose file is still in the data checkout unchanged, if any."""
+    for r in known.values():
+        if r["url"] != url:
+            continue
+        try:
+            with open(os.path.join(data, r["path"]), "rb") as f:
+                if hashlib.sha256(f.read()).hexdigest() == r["sha256"]:
+                    return r
+        except OSError:
+            pass
+    return None
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("sample", help="CSV with an lpa_app_no column")
@@ -262,6 +286,7 @@ def main():
     if a.only:
         refs = [r for r in refs if r in a.only]
     sess = Session(a.base, a.cafile, a.delay)
+    known = read_corpus(os.path.join(out, "corpus.tsv"))
     stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
     doc_rows, ret_rows, corpus_rows = [], [], []
@@ -295,9 +320,20 @@ def main():
                 if a.download and cands:
                     os.makedirs(os.path.join(a.data, "raw"), exist_ok=True)
                     failed = []
+                    # ids already used for this application, so a new download never takes the
+                    # file name of one recorded earlier
+                    taken = set(known)
                     try:
                         for i, d in enumerate(cands, 1):
-                            path = f"raw/{a.prefix}-{slug(ref)}-{i}.pdf"
+                            done = already_downloaded(known, a.data, d["url"])
+                            if done:
+                                d["sha256"], d["path"] = done["sha256"], done["path"]
+                                continue
+                            n = i
+                            while f"{a.prefix}-{slug(ref)}-{n}" in taken:
+                                n += 1
+                            taken.add(f"{a.prefix}-{slug(ref)}-{n}")
+                            path = f"raw/{a.prefix}-{slug(ref)}-{n}.pdf"
                             try:
                                 _, body = sess.open(d["url"])
                             except Blocked:
@@ -313,7 +349,7 @@ def main():
                                 f.write(body)
                             d["sha256"] = hashlib.sha256(body).hexdigest()
                             d["path"] = path
-                            corpus_rows.append([f"{a.prefix}-{slug(ref)}-{i}", path, d["sha256"], d["url"], page])
+                            corpus_rows.append([f"{a.prefix}-{slug(ref)}-{n}", path, d["sha256"], d["url"], page])
                     finally:
                         if failed:
                             row.update(status="found, not downloaded",

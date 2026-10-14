@@ -175,16 +175,26 @@ fn answer(
         let client = client.context("live extraction needs Anthropic credentials")?;
         let pdf = std::fs::read(&doc.path)?;
         // Three calls over the same PDF: one schema for everything compiles to a grammar
-        // the API rejects as too large (see wire.rs).
+        // the API rejects as too large (see wire.rs). They are independent, so they run at
+        // the same time; each result is still taken from its own call.
         let call = |prompt: String, schema: Value| {
             llm::extract(client, model, &pdf, &prompt, &schema, ExtractEffort::Medium)
         };
-        let i = call(prompt_instrument(), llm::schema_for::<WireInstrumentPart>())?;
-        let mut h = call(prompt_housing(), llm::schema_for::<WireHousingPart>())?;
-        let mut c = call(
-            prompt_contributions(),
-            llm::schema_for::<WireContributionsPart>(),
-        )?;
+        let (i, h, c) = std::thread::scope(|s| {
+            let i = s.spawn(|| call(prompt_instrument(), llm::schema_for::<WireInstrumentPart>()));
+            let h = s.spawn(|| call(prompt_housing(), llm::schema_for::<WireHousingPart>()));
+            let c = s.spawn(|| {
+                call(
+                    prompt_contributions(),
+                    llm::schema_for::<WireContributionsPart>(),
+                )
+            });
+            let join = |t: std::thread::ScopedJoinHandle<'_, _>| {
+                t.join().expect("extraction call panicked")
+            };
+            (join(i), join(h), join(c))
+        });
+        let (i, mut h, mut c) = (i?, h?, c?);
         let mut output = i.output;
         output["housing"] = h.output["housing"].take();
         output["contributions"] = c.output["contributions"].take();
