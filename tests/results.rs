@@ -679,4 +679,17 @@ fn a_batch_without_rules_says_so() {
     assert!(r.rules.is_empty());
     let note = std::fs::read_to_string(root.path().join("results/b/README.md")).unwrap();
     assert!(note.contains("no pre-registered decision rules"));
+    assert!(note.contains("Retrieval is not recorded for this batch yet"));
+    // no routed cells, so no blind-sample table
+    assert!(!note.contains("## Blind sample"));
+    for (f, header) in [
+        ("rules.csv", "rule,scheme,outcome,reason,check"),
+        (
+            "retrieval.csv",
+            "scheme,source,documents,in_hand,not_in_hand",
+        ),
+    ] {
+        let body = std::fs::read_to_string(root.path().join("results/b").join(f)).unwrap();
+        assert_eq!(body.trim(), header, "{f}");
+    }
 }

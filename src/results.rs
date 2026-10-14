@@ -1150,8 +1150,12 @@ pub fn markdown(r: &Results) -> String {
     }
 
     s += "\n## Retrieval\n\nEvery document listed for each scheme and source, and which are in \
-          hand. A gap here is recorded, not dropped, so the sample's selection can be checked.\n\n\
-          | scheme | source | documents | in hand | not in hand |\n|---|---|---|---|---|\n";
+          hand. A gap here is recorded, not dropped, so the sample's selection can be checked.\n\n";
+    s += if r.retrieval.is_empty() {
+        "Retrieval is not recorded for this batch yet: it has no `sources.csv` next to its sheet.\n"
+    } else {
+        "| scheme | source | documents | in hand | not in hand |\n|---|---|---|---|---|\n"
+    };
     for x in &r.retrieval {
         s += &format!(
             "| {} | {} | {} | {} | {} |\n",
@@ -1271,7 +1275,7 @@ pub fn run(root: &Path, sheet: &Path, out: &Path, with_rules: bool) -> Result<Re
                 .is_ok_and(|f| x.origin == f.display().to_string())
         })
     });
-    let samples = samples(&routed, &submitted, &proposed);
+    let mut samples = samples(&routed, &submitted, &proposed);
     let gated: BTreeSet<String> = samples
         .iter()
         .filter(|t| t.passes)
@@ -1281,6 +1285,11 @@ pub fn run(root: &Path, sheet: &Path, out: &Path, with_rules: bool) -> Result<Re
     let mut ledger = ledger(&cells, &submitted, &proposed, &routed, &gated);
     let snapshots = datahub_records(root, &mut ledger, &mut rejected);
     let rules = if with_rules { rules(&ledger) } else { vec![] };
+    // the sample table belongs to batches read under the audit rule; batch 1's cells are never
+    // routed and never count towards it
+    if !cells.keys().any(|k| routed.contains_key(k)) {
+        samples.clear();
+    }
     let sources = sheet_path.with_file_name("sources.csv");
     let retrieval = retrieval(&sources)?;
     let claims_path = out_dir.join("claims.csv");
@@ -1319,11 +1328,17 @@ pub fn run(root: &Path, sheet: &Path, out: &Path, with_rules: bool) -> Result<Re
     }
     w.flush()?;
     let mut w = csv::Writer::from_path(out_dir.join("rules.csv"))?;
+    if r.rules.is_empty() {
+        w.write_record(["rule", "scheme", "outcome", "reason", "check"])?;
+    }
     for o in r.rules.iter().flat_map(|x| &x.schemes) {
         w.serialize(o)?;
     }
     w.flush()?;
     let mut w = csv::Writer::from_path(out_dir.join("retrieval.csv"))?;
+    if r.retrieval.is_empty() {
+        w.write_record(["scheme", "source", "documents", "in_hand", "not_in_hand"])?;
+    }
     for x in &r.retrieval {
         w.serialize(x)?;
     }
