@@ -6,7 +6,6 @@
 
 use std::fmt::Write;
 use std::ops::Range;
-use std::sync::LazyLock;
 
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 use sha2::{Digest, Sha256};
@@ -220,10 +219,6 @@ pub const PARSER_POLICY: &str = "s106-quantity/1";
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RunIdentity {
     pub parser_policy: String,
-    /// A hash of the parser's results (values and diagnostics) on the probe corpus, not of its
-    /// source. The hash also changes when probes are added; acceptance outside the corpus is not
-    /// covered.
-    pub parser_fingerprint: String,
     pub crate_version: String,
     pub cargo_lock_sha256: String,
     /// Set by whoever builds (`S106_SOFTWARE_REVISION`); unknown otherwise, never inferred.
@@ -255,7 +250,6 @@ impl RunIdentity {
     ) -> RunIdentity {
         RunIdentity {
             parser_policy: PARSER_POLICY.into(),
-            parser_fingerprint: parser_fingerprint().to_string(),
             crate_version: env!("CARGO_PKG_VERSION").into(),
             cargo_lock_sha256: sha256_hex(include_str!("../Cargo.lock")),
             software_revision: option_env!("S106_SOFTWARE_REVISION").map(str::to_string),
@@ -277,9 +271,7 @@ impl RunIdentity {
     }
 }
 
-const PROBES: &str = include_str!("../fixtures/numeric-probes.txt");
-
-/// Probes are one per line with backslash, newline and carriage return escaped.
+/// Probes (strings the parser is run on, `tests/replay.rs`) are one per line with backslash, newline and carriage return escaped.
 pub fn unescape_probe(line: &str) -> String {
     let mut out = String::new();
     let mut chars = line.chars();
@@ -304,14 +296,9 @@ pub fn escape_probe(s: &str) -> String {
         .replace('\r', "\\r")
 }
 
-/// What the number parser does on every probe, one canonical block per probe: each quantity with
-/// unit and span, each error with cause and spans, then the whole-input readers. The fingerprint
-/// hashes this rendering and `tests/numeric_snapshot.rs` snapshots it.
-pub fn probe_rendering() -> String {
-    render_probes(PROBES)
-}
-
-/// What the parser does on each probe (one per line, escaped as in the probe file).
+/// What the number parser does on each probe (one per line, escaped as by `escape_probe`), one
+/// canonical block per probe: each quantity with unit and span, each error with cause and spans,
+/// then the whole-input readers.
 pub fn render_probes(probes: &str) -> String {
     let mut out = String::new();
     for line in probes.lines().filter(|l| !l.is_empty()) {
@@ -353,11 +340,4 @@ fn render_error(e: &ParseError) -> String {
         e.span,
         e.expected
     )
-}
-
-/// SHA-256 of `probe_rendering()`. A comment edit leaves it unchanged. It changes when the parser's
-/// results on the probe corpus change (values, spans or diagnostic wording) or when probes are added.
-pub fn parser_fingerprint() -> &'static str {
-    static FP: LazyLock<String> = LazyLock::new(|| sha256_hex(&probe_rendering()));
-    &FP
 }

@@ -216,8 +216,7 @@ fn eval_fails_unless_every_selected_deed_completes() {
     assert!(err.to_string().contains("lists no candidates"), "{err}");
 }
 
-/// What the number parser does on every string the recorded responses cite: the data-tier
-/// counterpart of `tests/numeric_snapshot.rs`, whose probes are invented. A change shows up as a
+/// What the number parser does on every string the recorded responses cite. A change shows up as a
 /// diff of `expected/parser-on-extractions.txt`.
 #[test]
 #[ignore = "data tier: needs the s106-data checkout; cargo test-data"]
