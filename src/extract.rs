@@ -176,7 +176,7 @@ fn answer(
         let client = client.context("live extraction needs Anthropic credentials")?;
         let pdf = std::fs::read(&doc.path)?;
         // Three calls over the same PDF: one schema for everything compiles to a grammar
-        // the API rejects as too large (see wire.rs). The calls are independent and run
+        // the API rejects as too large (see wire.rs). The calls are independent, so they run
         // concurrently; the first to fail cancels the other two.
         let call = |prompt: String, schema: Value| {
             let pdf = &pdf;

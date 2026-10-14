@@ -961,7 +961,7 @@ pub fn check_variation(v: &Variation, idx: usize, pages: &Pages) -> CheckResult 
         .unwrap_or("");
     let tokens = target_tokens(&v.target);
     // the first identifying token the citation states, else the whole description (which then
-    // fails: a description is never verbatim)
+    // fails honestly)
     let target_value = tokens
         .iter()
         .find(|t| value_in_snippet(&Value::Text((*t).clone()), snippet))

@@ -92,7 +92,7 @@ fn is_number(tok: &str) -> bool {
 // "one", "two", "ten" also sit inside common words (network, maintenance), so they
 // count at a word's start or end or after "and". A skipped gap stops where matching
 // resumes, so an amount word OCR joined to a column fragment ("Contributionandten
-// pounds") ends its gap word; this rejects some terms that end in an amount word ("Zone").
+// pounds") ends its gap word; the rule rejects some terms that end in an amount word ("Zone").
 const SHORT_NUMS: [&str; 3] = ["one", "two", "ten"];
 static NUM_WORD: LazyLock<Regex> = LazyLock::new(|| {
     let words: Vec<&str> = NUMBER_WORDS
