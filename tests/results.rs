@@ -531,3 +531,20 @@ fn split_counts_are_not_compared_and_datahub_context_is_shown() {
     let readme = std::fs::read_to_string(p.join("results/b/README.md")).unwrap();
     assert!(readme.contains("Datahub record: Completed, from FME Legacy Data Import."));
 }
+
+#[test]
+fn an_unreadable_datahub_snapshot_is_reported() {
+    let root = tempfile::tempdir().unwrap();
+    let p = root.path();
+    sheet(p, &["EX/1"]);
+    let row = "EX/1,V8,x,datahub,snapshots/missing.json,\"completed=2022-12-15; completed_homes=84\",units,,found,,,machine:proposal/test,2026-10-14,\n";
+    write(p, "proposals/x.csv", &format!("{HEADER}{row}"));
+    let r = run(p);
+    assert_eq!(entry(&r, "EX/1", "V8", "datahub").datahub_status, "");
+    let reasons: Vec<&str> = r.rejected.iter().map(|x| x.reason.as_str()).collect();
+    assert_eq!(reasons.len(), 1, "{reasons:?}");
+    assert!(
+        reasons[0].starts_with("Datahub snapshot snapshots/missing.json for EX/1 not read"),
+        "{reasons:?}"
+    );
+}
