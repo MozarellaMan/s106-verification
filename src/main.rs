@@ -137,8 +137,8 @@ enum Cmd {
         out: PathBuf,
     },
     /// Bake the results explorer's data (Datahub-derived only) into <out>/sites.json and
-    /// <out>/boroughs.geojson. Paths are relative to the data root. With --results it is a private
-    /// build that also carries a results ledger's unreviewed readings: view it locally, never
+    /// <out>/boroughs.geojson. Paths are relative to the data root. With --results the build is
+    /// private: it also carries a results ledger's unreviewed readings. View it locally; never
     /// publish it.
     Explore {
         /// a Datahub baseline run's applications table
@@ -341,7 +341,7 @@ fn main() -> Result<()> {
                     );
                 }
             }
-            // This thread reads each deed in turn (the slow OCR) while up to AUDITS_IN_FLIGHT
+            // The main thread reads each deed in turn (the slow OCR) while up to AUDITS_IN_FLIGHT
             // earlier deeds wait on the model in their own threads. Reports print in input order.
             let client = credentials(llm_mode)?;
             let mut worst = 0;

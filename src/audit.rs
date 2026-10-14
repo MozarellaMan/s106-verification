@@ -221,7 +221,8 @@ pub const PARSER_POLICY: &str = "s106-quantity/1";
 pub struct RunIdentity {
     pub parser_policy: String,
     /// A hash of the parser's results (values and diagnostics) on the probe corpus, not of its
-    /// source. It also changes when probes are added; acceptance outside the corpus is not covered.
+    /// source. The hash also changes when probes are added; acceptance outside the corpus is not
+    /// covered.
     pub parser_fingerprint: String,
     pub crate_version: String,
     pub cargo_lock_sha256: String,
@@ -304,8 +305,8 @@ pub fn escape_probe(s: &str) -> String {
 }
 
 /// What the number parser does on every probe, one canonical block per probe: each quantity with
-/// unit and span, each error with cause and spans, then the whole-input readers. This is what the
-/// fingerprint hashes and what `tests/numeric_snapshot.rs` snapshots.
+/// unit and span, each error with cause and spans, then the whole-input readers. The fingerprint
+/// hashes this rendering and `tests/numeric_snapshot.rs` snapshots it.
 pub fn probe_rendering() -> String {
     render_probes(PROBES)
 }

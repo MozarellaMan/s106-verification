@@ -25,9 +25,9 @@ pub struct Gold {
     pub facts: Vec<GoldFact>,
     #[serde(default)]
     pub term_definitions: Vec<GoldTerm>,
-    /// What the regression tiers require of page text on these pages. They sit just below the
-    /// scores when the gold set was made, so a regression fails while noise on a few pages
-    /// does not.
+    /// What the regression tiers require of page text on these pages. The thresholds sit just
+    /// below the scores when the gold set was made, so a regression fails while noise on a few
+    /// pages does not.
     #[serde(default)]
     pub thresholds: Thresholds,
 }

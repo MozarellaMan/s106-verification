@@ -14,7 +14,8 @@
 //! for those deeds (`eval/register/developer-agreement*.csv`, or a full download with
 //! `--register`), and page text from `raw/<id>.pdf` or, with `--pages`, from snapshots.
 //! Writes `<out>/<id>/run<k>.audit.json` and `<out>/summary.{json,md}` (default `processed/eval`).
-//! Runs are sequential: PDFium sits behind a process-wide lock and `extract` calls the API synchronously.
+//! Runs are sequential: PDFium sits behind a process-wide lock and `extract` calls the API
+//! synchronously.
 
 use crate::schema::Observed;
 use std::collections::{BTreeMap, BTreeSet};

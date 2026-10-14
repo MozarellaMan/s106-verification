@@ -92,7 +92,7 @@ fn is_number(tok: &str) -> bool {
 // "one", "two", "ten" also sit inside common words (network, maintenance), so they
 // count at a word's start or end or after "and". A skipped gap stops where matching
 // resumes, so an amount word OCR joined to a column fragment ("Contributionandten
-// pounds") ends its gap word; this rejects some terms ending in them ("Zone").
+// pounds") ends its gap word; this rejects some terms that end in an amount word ("Zone").
 const SHORT_NUMS: [&str; 3] = ["one", "two", "ten"];
 static NUM_WORD: LazyLock<Regex> = LazyLock::new(|| {
     let words: Vec<&str> = NUMBER_WORDS
@@ -287,7 +287,7 @@ pub struct Located {
 /// Where `ev`'s snippet is on its cited page, if anywhere.
 ///
 /// Acceptance is decided by the digit-repaired page (so a snippet that literally contains
-/// "5o" is not found, as before). If the page as printed also matches, that match wins and
+/// "5o" is still not found). If the page as printed also matches, that match wins and
 /// no repairs are reported; otherwise `repairs` lists each substitution inside the range.
 pub fn locate(ev: &Evidence, pages: &Pages) -> Option<Located> {
     let page = pages.get(&ev.page)?;
@@ -304,7 +304,7 @@ pub fn locate(ev: &Evidence, pages: &Pages) -> Option<Located> {
 
     let offsets: Vec<usize> = page.char_indices().map(|(b, _)| b).collect();
     // `to_lowercase()` can change the char count, which breaks the char index mapping;
-    // then the range conservatively covers the whole page.
+    // when it does, the range conservatively covers the whole page.
     let aligned = page.to_lowercase().chars().count() == offsets.len();
     let byte = |c: usize| offsets.get(c).copied().unwrap_or(page.len());
     let resolve = |span: Range<usize>| {

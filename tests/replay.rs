@@ -6,8 +6,8 @@
 //!
 //! The snapshots are only as good as their agreement with the real pipeline; the real-PDF tiers
 //! check that (`tests/pdf_regression.rs` on difficult pages, `tests/corpus.rs` on whole deeds).
-//! Expected outcomes live in the data repository's `expected/`; after an intended change, regenerate them with
-//! `S106_BLESS=1 cargo test-data` and review the diff.
+//! Expected outcomes live in the data repository's `expected/`; after an intended change,
+//! regenerate them with `S106_BLESS=1 cargo test-data` and review the diff.
 
 mod common;
 

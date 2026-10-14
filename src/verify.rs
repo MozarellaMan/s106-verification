@@ -8,8 +8,9 @@
 //! * PASS: the assertion holds and every input is grounded
 //! * REVIEW: the assertion holds, but some input isn't grounded, so its correctness is unproven
 //! * FAIL + ParserError: an input is missing or ungrounded, and the assertion fails
-//! * FAIL + DocumentDiscrepancy: the assertion fails although every input is grounded. This is
-//!   what the deed *appears* to say through OCR; confirm against the original before relying on it.
+//! * FAIL + DocumentDiscrepancy: the assertion fails although every input is grounded. The
+//!   discrepancy is what the deed *appears* to say through OCR; confirm against the original
+//!   before relying on it.
 //! * SKIP: the deed doesn't state what the check needs
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -221,7 +222,7 @@ fn ground(input: &Input, pages: &Pages) -> Grounding {
 }
 
 impl Grounding {
-    /// A numeric value is never verified against a page we had to rewrite.
+    /// A numeric value whose citation re-locates only after OCR digit repair is never verified.
     fn repaired(&self, input: &Input) -> bool {
         input.value.as_ref().is_some_and(|v| v.decimal().is_some())
             && self.located.as_ref().is_some_and(|l| !l.repairs.is_empty())
@@ -731,7 +732,7 @@ fn cell(row: &crate::schema::MixRow, ten: Tenure) -> u32 {
         .sum()
 }
 
-/// Schedule mix table is an independent restatement of the tenure counts: cross-check it.
+/// The schedule's mix table restates the tenure counts independently: cross-check the two.
 ///
 /// Cells carry no snippets of their own, so a row counts as grounded when a line on the
 /// table's cited page states all of its counts.
@@ -959,7 +960,8 @@ pub fn check_variation(v: &Variation, idx: usize, pages: &Pages) -> CheckResult 
         .map(|e| e.snippet.as_str())
         .unwrap_or("");
     let tokens = target_tokens(&v.target);
-    // the first identifying token the citation states, else the whole description (which then fails honestly)
+    // the first identifying token the citation states, else the whole description (which then
+    // fails: a description is never verbatim)
     let target_value = tokens
         .iter()
         .find(|t| value_in_snippet(&Value::Text((*t).clone()), snippet))
@@ -1114,7 +1116,8 @@ pub fn check_contribution(c: &Contribution, pages: &Pages, idx: usize) -> Vec<Ch
     }
     out.extend(check_conditionality(c, pages, &cid));
     // A contribution with no stated figure only gets payment checks if the extraction cites a payment
-    // at all (the Python verifier stopped after the amount check; v2 can carry a trigger for these).
+    // at all (the Python verifier stopped after the amount check; v2 can carry a trigger for such
+    // contributions).
     let has_payment = c.payment.covenant.is_some()
         || c.payment.trigger_phrase.is_some()
         || c.payment.trigger_event.is_some()
@@ -1184,7 +1187,7 @@ fn covenant_problem(clause: &str, page: usize, pages: &Pages) -> Option<String> 
     None
 }
 
-/// Why the cited clause can't be trusted as this contribution's payment covenant, if it can't.
+/// Why the cited clause can't be trusted as this contribution's payment covenant; None if it can.
 ///
 /// The timing phrase alone proves little: "Prior to Occupation" also schedules assessments. So
 /// the clause must itself be in the deed, the phrase must sit inside it, and its wording must
