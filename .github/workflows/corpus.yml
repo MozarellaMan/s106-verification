@@ -1,6 +1,5 @@
 # Tiers 3-4 weekly and on demand: difficult pages and then every whole deed read afresh from the
-# PDFs (PDFium + OCR, empty page-text cache) and compared with the committed snapshots, then the
-# register evaluation on the PDFs. The data comes from the private s106-data repository (read with
+# PDFs (PDFium + OCR, empty page-text cache) and compared with the committed snapshots. The data comes from the private s106-data repository (read with
 # the read-only deploy key in the S106_DATA_DEPLOY_KEY secret); deeds are fetched from the council
 # registers and checked against that repository's corpus/manifest.tsv. Downloads are cached by
 # that file's hash; page text never is.
@@ -52,11 +51,3 @@ jobs:
       - name: tier 4, every deed from its PDF (cold page-text cache)
         if: steps.corpus.outputs.ok == 'true'
         run: S106_OCR_CACHE=$(mktemp -d) cargo test --release --test corpus -- --ignored --nocapture
-      - name: register evaluation on the PDFs (replayed responses)
-        if: steps.corpus.outputs.ok == 'true'
-        run: cargo run --release -- eval --replay
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: eval-replay
-          path: data/processed/eval/summary.*

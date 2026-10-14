@@ -2,8 +2,8 @@
 # Fetch the deed corpus listed in the data repository's corpus/manifest.tsv (the checkout at
 # $S106_DATA, else data/), each into its `path` there. Each download is checked against its
 # SHA-256 before it is put in place; a file that doesn't match is never installed.
-# Needed only for the real-PDF tiers (tests/pdf_regression.rs, tests/corpus.rs, `s106 eval` on
-# PDFs); `cargo test` and `cargo test-data` never open a PDF.
+# Needed only for the real-PDF tiers (tests/pdf_regression.rs, tests/corpus.rs) and for writing
+# page text with `s106 pages`; `cargo test` and `cargo test-data` never open a PDF.
 #   scripts/fetch-corpus.sh [id ...]      (default: every deed)
 # Exit status: 0 every deed present and verified; 1 a file failed its checksum (an integrity
 # failure, never to be ignored); 2 a source could not be reached (third-party outage).
