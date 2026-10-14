@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Result, bail};
 use clap::{Parser, Subcommand};
 
-use s106::document::{self, OcrModels, Snapshot};
+use s106::document::{self, Document, OcrModels, Snapshot};
 use s106::extract::{self, Mode};
 use s106::{eval, labels, llm, ocrbench, pld, reconcile, report, verify};
 
@@ -24,12 +24,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Extract and verify one deed: terminal report + JSON. Exit 0 clean, 1 parser errors or
-    /// REVIEW flags, 2 document discrepancies.
+    /// Extract and verify deeds: terminal report + JSON per deed. Exit 0 clean, 1 parser errors
+    /// or REVIEW flags, 2 document discrepancies (the worst over all deeds), 3 if any deed could
+    /// not be audited. With several deeds, one is read (OCR) while earlier ones wait on the model.
     Audit {
-        /// the deed's PDF, or its page-text snapshot (`<data>/pages/<stem>.pages.json`) to
-        /// replay without the PDF
-        pdf: PathBuf,
+        /// the deeds' PDFs, or their page-text snapshots (`<data>/pages/<stem>.pages.json`) to
+        /// replay without the PDFs
+        #[arg(required = true)]
+        pdfs: Vec<PathBuf>,
         #[arg(long, default_value = llm::DEFAULT_MODEL)]
         model: String,
         #[arg(long, value_enum, default_value = "auto")]
@@ -39,7 +41,7 @@ enum Cmd {
         escalate: bool,
         #[arg(long, default_value = llm::ESCALATION_MODEL)]
         escalation_model: String,
-        /// JSON output (default <data>/processed/<stem>.audit.json)
+        /// JSON output (default <data>/processed/<stem>.audit.json); only with one deed
         #[arg(long)]
         out: Option<PathBuf>,
         #[arg(short, long)]
@@ -150,6 +152,95 @@ fn credentials(mode: Mode) -> Result<Option<rust_claude_sdk::Client>> {
     }
 }
 
+/// Deeds whose model calls may be in flight at once during a batch audit.
+const AUDITS_IN_FLIGHT: usize = 4;
+
+struct AuditOpts {
+    model: String,
+    escalate: bool,
+    escalation_model: String,
+}
+
+/// A deed's page text and the LLM mode to audit it with (a snapshot has no PDF, so it replays).
+fn read_deed(
+    pdf: &Path,
+    cfg: &document::Config,
+    mode: Mode,
+    quiet: bool,
+) -> Result<(Document, Mode)> {
+    if pdf.to_string_lossy().ends_with(".pages.json") {
+        if !matches!(mode, Mode::Replay | Mode::Auto) {
+            bail!("a snapshot has no PDF to send; use --llm-mode replay");
+        }
+        Ok((Snapshot::read(pdf)?.document(), Mode::Replay))
+    } else {
+        Ok((document::load(pdf, cfg, !quiet)?, mode))
+    }
+}
+
+/// Extract, verify and write the audit JSON for one deed; returns the report text and exit code.
+fn audit(
+    doc: &Document,
+    mode: Mode,
+    client: Option<&rust_claude_sdk::Client>,
+    o: &AuditOpts,
+    out: Option<PathBuf>,
+) -> Result<(String, i32)> {
+    let (mut agreement, info) = extract::extract(doc, &o.model, mode, client)?;
+    let pages = doc.pages();
+    let mut results = verify::verify(&agreement, &pages);
+    if o.escalate {
+        let (merged, log) =
+            extract::escalate(doc, agreement, &results, &o.escalation_model, mode, client)?;
+        for l in &log {
+            eprintln!("  escalation: {l}");
+        }
+        agreement = merged;
+        results = verify::verify(&agreement, &pages);
+    }
+    agreement.warnings.extend(info.usage_note());
+    let out = out.unwrap_or_else(|| {
+        s106::data::processed().join(format!(
+            "{}.audit.json",
+            doc.path.file_stem().unwrap_or_default().to_string_lossy()
+        ))
+    });
+    std::fs::create_dir_all(out.parent().unwrap())?;
+    std::fs::write(
+        &out,
+        serde_json::to_string_pretty(&report::AuditJson {
+            agreement: &agreement,
+            verification: &results,
+        })?,
+    )?;
+    Ok((
+        format!(
+            "{}\n\nJSON written to {}\n",
+            report::render(&agreement, &results),
+            out.display()
+        ),
+        report::exit_code(&results),
+    ))
+}
+
+/// Print a finished batch audit, keeping the worst exit code (3 for a deed that failed).
+fn finish(
+    pdf: &Path,
+    h: std::thread::ScopedJoinHandle<'_, Result<(String, i32)>>,
+    worst: &mut i32,
+) {
+    match h.join().expect("audit thread panicked") {
+        Ok((report, code)) => {
+            print!("{report}");
+            *worst = (*worst).max(code);
+        }
+        Err(e) => {
+            eprintln!("{}: {e:#}", pdf.display());
+            *worst = 3;
+        }
+    }
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     if let Some(dir) = cli.data {
@@ -158,7 +249,7 @@ fn main() -> Result<()> {
     }
     match cli.cmd {
         Cmd::Audit {
-            pdf,
+            pdfs,
             model,
             llm_mode,
             escalate,
@@ -166,53 +257,52 @@ fn main() -> Result<()> {
             out,
             quiet,
         } => {
+            if out.is_some() && pdfs.len() > 1 {
+                bail!(
+                    "--out takes one deed; with several, each goes to <data>/processed/<stem>.audit.json"
+                );
+            }
             let cfg = document::Config::from_env(&repo_root());
-            let from_snapshot = pdf.to_string_lossy().ends_with(".pages.json");
-            if from_snapshot && !matches!(llm_mode, Mode::Replay | Mode::Auto) {
-                bail!("a snapshot has no PDF to send; use --llm-mode replay");
-            }
-            let (doc, llm_mode) = if from_snapshot {
-                (Snapshot::read(&pdf)?.document(), Mode::Replay)
-            } else {
-                (document::load(&pdf, &cfg, !quiet)?, llm_mode)
+            let opts = AuditOpts {
+                model,
+                escalate,
+                escalation_model,
             };
-            let client = credentials(llm_mode)?;
-            let (mut agreement, info) = extract::extract(&doc, &model, llm_mode, client.as_ref())?;
-            let pages = doc.pages();
-            let mut results = verify::verify(&agreement, &pages);
-            if escalate {
-                let (merged, log) = extract::escalate(
-                    &doc,
-                    agreement,
-                    &results,
-                    &escalation_model,
-                    llm_mode,
-                    client.as_ref(),
-                )?;
-                for l in &log {
-                    eprintln!("  escalation: {l}");
-                }
-                agreement = merged;
-                results = verify::verify(&agreement, &pages);
+            if let [pdf] = pdfs.as_slice() {
+                let (doc, mode) = read_deed(pdf, &cfg, llm_mode, quiet)?;
+                let client = credentials(mode)?;
+                let (report, code) = audit(&doc, mode, client.as_ref(), &opts, out)?;
+                print!("{report}");
+                std::process::exit(code);
             }
-            agreement.warnings.extend(info.usage_note());
-            println!("{}", report::render(&agreement, &results));
-            let out = out.unwrap_or_else(|| {
-                s106::data::processed().join(format!(
-                    "{}.audit.json",
-                    doc.path.file_stem().unwrap_or_default().to_string_lossy()
-                ))
+            // This thread reads each deed in turn (the slow OCR) while up to AUDITS_IN_FLIGHT
+            // earlier deeds wait on the model in their own threads. Reports print in input order.
+            let client = credentials(llm_mode)?;
+            let mut worst = 0;
+            std::thread::scope(|s| {
+                let mut running = std::collections::VecDeque::new();
+                for pdf in &pdfs {
+                    if running.len() == AUDITS_IN_FLIGHT {
+                        let (pdf, h) = running.pop_front().unwrap();
+                        finish(pdf, h, &mut worst);
+                    }
+                    match read_deed(pdf, &cfg, llm_mode, quiet) {
+                        Ok((doc, mode)) => {
+                            let (client, opts) = (client.as_ref(), &opts);
+                            let h = s.spawn(move || audit(&doc, mode, client, opts, None));
+                            running.push_back((pdf, h));
+                        }
+                        Err(e) => {
+                            eprintln!("{}: {e:#}", pdf.display());
+                            worst = 3;
+                        }
+                    }
+                }
+                while let Some((pdf, h)) = running.pop_front() {
+                    finish(pdf, h, &mut worst);
+                }
             });
-            std::fs::create_dir_all(out.parent().unwrap())?;
-            std::fs::write(
-                &out,
-                serde_json::to_string_pretty(&report::AuditJson {
-                    agreement: &agreement,
-                    verification: &results,
-                })?,
-            )?;
-            println!("\nJSON written to {}", out.display());
-            std::process::exit(report::exit_code(&results));
+            std::process::exit(worst);
         }
         Cmd::Eval {
             runs,
