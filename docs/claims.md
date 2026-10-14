@@ -9,7 +9,7 @@ working rules and apply to every report, table and note built from this code.
 - **No developer- or council-specific claim without human review.** Nothing names a developer or
   a council as having done or failed to do something until a person has checked the evidence.
 - **Caution with causal claims.** Descriptive patterns are not causal evidence. That some
-  approved developments were never built does not show that their obligations stopped them.
+  approved developments were never built does not show that their obligations stopped them being built.
   Causal studies remain a later goal, if a defensible research design is possible.
 - **No accuracy claim without human labels.** Until people have labelled obligations, ideally in
   held-out deeds, the pipeline has no measured accuracy. PASS means a value matches the model's

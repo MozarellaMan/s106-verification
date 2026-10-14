@@ -84,7 +84,7 @@ equals the latest figure from a verified, whole-scheme, grounded deed, the row i
 The rule is deliberately conservative. What counts as the current obligation after a variation
 needs legal input (research plan, open question 3); a wrong automatic answer would be a silent
 error, while a review row is only a cost. Applying variations automatically later would change
-only `reconcile::facts`, not the event log. Build it from the extraction's own variation
+only `reconcile::facts`, not the event log. Build that step from the extraction's own variation
 operations, each citing its operative clause, once the summary shows variation rows are a large
 share of the review queue.
 

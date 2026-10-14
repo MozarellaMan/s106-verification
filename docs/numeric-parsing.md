@@ -63,8 +63,8 @@ scanned.
 ## Findings and codes
 
 Each numeric problem becomes one `audit::Finding`, built in one place and used by both the
-terminal report and the audit JSON (`verification[].findings`). Findings are added facts; they
-do not change `status` or `error_class`.
+terminal report and the audit JSON (`verification[].findings`). Findings are extra facts attached
+to a check; they do not change `status` or `error_class`.
 
 A finding carries the check id, the field path, the code and category, the cause, what was
 expected, the observed input with its SHA-256 and span, the citation, and `extraction_sha256`.
@@ -94,7 +94,7 @@ rewrite, so a match with repairs is `RelocationRequiresDigitSubstitution` (NUM00
 REVIEW.
 
 A snippet whose numbers are unreadable yields one finding per unreadable number, in addition
-to the reason. Citation matching is exact after normalisation, not a fuzzy score.
+to the reason. Citation matching itself is unchanged and is not a fuzzy score.
 
 ## Provenance and the snapshot gate
 

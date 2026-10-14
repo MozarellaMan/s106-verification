@@ -113,7 +113,7 @@ so read a check's description alongside its status, not the status alone.
 A Document Discrepancy is a contradiction between grounded inputs, extracted or
 OCR'd. Confirm the discrepancy against the original page before treating it as
 something the deed says. A PASS covers only that check's assertion and the current
-grounding mechanism.
+grounding rules.
 
 ## Ownership and useful entry points
 
@@ -189,7 +189,8 @@ override locations.
 `S106_OCR_WORKERS=<n>` (default 1, opt-in) OCRs n pages at a time, each on its own
 engine and still one page per call. Each extra worker uses about 0.3 GB more memory,
 and the setting keeps its own cache (keyed by workers and threads). `cargo test-pdf`
-on the real PDFs should pass with it before it becomes a default.
+on the real PDFs should pass with more than one worker before the setting becomes a
+default.
 
 Scans are read with PP-OCRv6 tiny by default (since October 2026): 2.6x faster than
 PP-OCRv5 mobile on 15 recorded deeds (4 vCPUs), with different but not clearly worse
@@ -220,8 +221,8 @@ a discrepancy to a small reproducible excerpt without a PDF or a live call.
 The cache key hashes the line-logic version, OCR settings and the pinned SHA-256 of
 every runtime artifact; files that differ from their pins are refused before use, and
 the manifest is validated on read. Cached page files are not authenticated one by
-one: a hand-edited cache file is read as it is, and only the snapshot comparison in
-the real-PDF test tiers would expose the edit. Commit the snapshot of the text used
+one: a hand-edited cache file is read as it is, and the snapshot comparison in the
+real-PDF test tiers would expose the edit. Commit the snapshot of the text used
 for a research run.
 
 ## Remaining complexity and limits
