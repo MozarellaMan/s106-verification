@@ -35,10 +35,24 @@ committed.
 Decision, Obligation, Variation and Completion stages then show each source's cell with its check
 level, a banner marks the page as private, and a list on the right finds those schemes. These are
 unreviewed readings: view the build locally with `trunk serve` and never publish it. The Pages
-workflow never passes `--results`, and refuses to deploy data that carries readings.
+workflow never passes `--results`, and refuses to deploy data that carries a results folder,
+retrieval rows, or any reading other than the deed cells described below.
+
+## Deed figures on the public site
+
+`--deed-cells results/<batch>` adds, from that results folder, every cell read from the deed for the
+obligation, variation and completion stages, with its pages and its check level. A deed's offer
+cells only recite the committee report or policy, so they stay out. Unchecked AI readings are marked
+UNCHECKED AI READING and drawn dashed, and cells a person has checked are tagged CHECKED BY A
+PERSON. Nothing else from the ledger goes in: no other source, no retrieval rows, no rule outcome or
+claim. The page says these are transcriptions of the obligations as first signed, mostly not yet
+checked by a person, that only variations in the documents held are shown, and that a difference
+from the Datahub is never evidence of a breach.
 
 ## Publish it
 
 `.github/workflows/explorer.yml` builds the site and deploys it to GitHub Pages. It only runs when
 started by hand (Actions → explorer → Run workflow), so merging a change never publishes anything.
+Its `deed_cells` input names a results folder whose deed figures to publish; left empty, the
+site carries Datahub figures only. A check before deploy refuses any other ledger cell.
 Pages must be set to "GitHub Actions" under Settings → Pages before the first run.

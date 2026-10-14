@@ -136,10 +136,12 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
-    /// Bake the results explorer's data (Datahub-derived only) into <out>/sites.json and
-    /// <out>/boroughs.geojson. Paths are relative to the data root. With --results the build is
-    /// private: it also carries a results ledger's unreviewed readings. View it locally; never
-    /// publish it.
+    /// Bake the results explorer's data into <out>/sites.json and <out>/boroughs.geojson: Datahub
+    /// figures only, unless a flag below adds ledger cells. Paths are relative to the data root.
+    /// With --results the build is private: it also carries a results ledger's unreviewed
+    /// readings. View it locally; never publish it. With --deed-cells it adds every deed cell for
+    /// the obligation, variation and completion stages, each labelled with its check level, which
+    /// the public site may carry.
     Explore {
         /// a Datahub baseline run's applications table
         #[arg(
@@ -160,8 +162,12 @@ enum Cmd {
         )]
         boundaries: PathBuf,
         /// a results folder (e.g. results/2026-10-14-batch1) whose ledger readings to add
-        #[arg(long)]
+        #[arg(long, conflicts_with = "deed_cells")]
         results: Option<PathBuf>,
+        /// a results folder whose deed cells (only, each with its check level) to add, for the
+        /// public site
+        #[arg(long)]
+        deed_cells: Option<PathBuf>,
         #[arg(long, default_value = "explorer/data")]
         out: PathBuf,
     },
@@ -559,6 +565,7 @@ fn main() -> Result<()> {
             snapshot,
             boundaries,
             results,
+            deed_cells,
             out,
         } => {
             let root = s106::data::root();
@@ -567,6 +574,7 @@ fn main() -> Result<()> {
                 snapshot,
                 boundaries,
                 results,
+                deed_cells,
             };
             let bundle = explore::bake(&root, &inputs)?;
             std::fs::create_dir_all(&out)?;
@@ -587,6 +595,15 @@ fn main() -> Result<()> {
                     read.count(),
                     results,
                     bundle.sources.data_commit.as_deref().unwrap_or("unknown"),
+                    bundle.sources.unmatched
+                );
+            }
+            if let Some(from) = &bundle.sources.deed_cells {
+                let cells: usize = bundle.sites.iter().map(|s| s.readings.len()).sum();
+                let read = bundle.sites.iter().filter(|s| !s.readings.is_empty());
+                eprintln!(
+                    "{cells} deed cells on {} schemes from {from} (not matched: {:?})",
+                    read.count(),
                     bundle.sources.unmatched
                 );
             }

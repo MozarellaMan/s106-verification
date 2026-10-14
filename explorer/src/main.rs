@@ -17,7 +17,7 @@ use model::{
     has_value, humanize, legend, not_in_hand, percent, radius, retrieval_stage, source_label,
     split_target, status_lines, thousands,
 };
-use site::{Bundle, Lineage, Reading, Site, Sources};
+use site::{Bundle, Check, Lineage, Reading, Site, Sources};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
@@ -102,6 +102,21 @@ fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
         });
         (r, commit, unmatched)
     });
+    // A public build with deed figures (and nothing else from the ledger).
+    let build = match (&sources.results, &sources.deed_cells) {
+        (Some(_), _) => Build::Private,
+        (None, Some(_)) => Build::DeedFigures,
+        (None, None) => Build::Public,
+    };
+    provide_context(build);
+    let deed_note = (build == Build::DeedFigures).then(|| {
+        (!sources.unmatched.is_empty()).then(|| {
+            format!(
+                " Not on the map (no single matching Datahub record): {}.",
+                sources.unmatched.join(", ")
+            )
+        })
+    });
     let sites = StoredValue::new(sites);
     let (from, set_from) = signal(DEFAULT_YEARS.0);
     let (to, set_to) = signal(DEFAULT_YEARS.1);
@@ -156,11 +171,26 @@ fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
 
     view! {
         {private.map(|(results, commit, unmatched)| view! {
-            <p class="private">
+            <p class="notice">
                 <b>"Private build, not for publication. "</b>
                 "Schemes with readings carry cells from " <code>{results}</code>
-                " at s106-data commit " <code>{commit}</code> ". Each says how far it has been checked; an agent reading nobody has checked is not a result, "
+                " at s106-data commit " <code>{commit}</code> ". Each says how far it has been checked; an AI reading nobody has checked is not a result, "
                 "and a difference between two sources is a prompt to read them, never a finding."
+                {unmatched}
+            </p>
+        })}
+        {deed_note.map(|unmatched| view! {
+            <p class="notice">
+                <b>"Deed figures. "</b>
+                "The schemes under \"schemes with deed figures\" show figures transcribed from their S106 "
+                "agreements, with the deed pages cited. Most were transcribed by an AI model and have not been "
+                "checked by a person: those are marked UNCHECKED AI READING and drawn dashed. A deed figure is the obligation "
+                "as first signed, not what is due today or what was built. Only variations in the documents we "
+                "hold are shown: no search of the Local Land Charges register or council records has been made, "
+                "so later variations may exist. Deed and Datahub figures often differ for ordinary reasons (later "
+                "variations, phasing, counting habitable rooms rather than homes, boroughs updating records), so a "
+                "difference is a prompt to read the documents, never evidence that an obligation was breached. "
+                "No figure here is a finding about a scheme."
                 {unmatched}
             </p>
         })}
@@ -461,6 +491,7 @@ fn Detail(
             .cloned()
             .collect();
         let read = !x.readings.is_empty();
+        let deed_only = build() == Build::DeedFigures;
         let completion = if x.completed > 0 {
             let date = x
                 .completion_date
@@ -484,35 +515,69 @@ fn Detail(
         view! {
             <h2>{x.name().to_string()}</h2>
             <div class="ref">{format!("{} · {} · Datahub permission year {}", x.borough, x.reference, x.year)}</div>
-            {read.then(|| view! { <p class="counts">{check_counts(&x.readings)}</p> })}
+            {read.then(|| view! {
+                <p class="counts">{if deed_only {
+                    let checked = x.readings.iter().filter(|r| r.check >= Check::Anchored).count();
+                    format!(
+                        "{} items read from the deed: {checked} checked by a person, {} not yet checked.",
+                        x.readings.len(),
+                        x.readings.len() - checked
+                    )
+                } else {
+                    check_counts(&x.readings)
+                }}</p>
+            })}
             {(!by_source.is_empty()).then(|| view! {
                 <table class="by-source">
-                    <caption>"Homes by source"</caption>
+                    <caption>
+                        {if deed_only { "Homes in the deed" } else { "Homes by source" }}
+                        <span class="src">{if deed_only {
+                            "The obligation as first signed; not what is due today or what was built. A difference from the Datahub record below is a prompt to read the documents, never evidence of a breach."
+                        } else {
+                            "Different stages and bases: a difference is a prompt to read the documents, not a finding."
+                        }}</span>
+                    </caption>
                     {by_source.into_iter().map(|r| {
                         let value = humanize(r.value.as_deref().unwrap_or_default());
                         let basis = basis_note(&value, r.basis.as_deref());
                         view! {
                             <tr class=check_class(r.check)>
-                                <th>{source_label(&r.source)}<span class="src">{format!("{:?} · {}", r.stage, r.variable)}</span></th>
-                                <td>{check_tag(r.check).map(|t| view! { <span class="tag">{t}</span> })}{value}{basis}<span class="src">{check_label(r.check)}</span></td>
+                                <th>{source_label(&r.source)}<span class="src">{r.name.clone()}</span></th>
+                                <td><span class="tag">{check_tag(r.check)}</span>{value}{basis}{(!deed_only).then(|| view! { <span class="src">{check_label(r.check)}</span> })}</td>
                             </tr>
                         }
                     }).collect_view()}
                 </table>
             })}
             <p class="current" class:plain=read>{current}<span class="src">{as_of.clone()}</span></p>
-            <p class="hint">"The Datahub keeps one record per permission and updates it in place, so this is the record as it stands now, not what was decided."</p>
+            <p class="hint">"The Datahub keeps one record per permission and updates it in place, so the panel shows the record as it stands now, not what was decided."</p>
             <div class="lineage">
                 <Stage name="Target" known=Known::NotCollected { from: "policy target" } readings=targets />
                 <Stage name="Offer" known=Known::NotCollected { from: "committee report" } readings=at(Lineage::Offer) missing=missing(Lineage::Offer) />
                 <Stage name="Decision" known=Known::NotCollected { from: "committee report, decision notice" } readings=at(Lineage::Decision) missing=missing(Lineage::Decision) />
                 <Stage name="Obligation" known=Known::NotCollected { from: "S106 agreement" } readings=at(Lineage::Obligation) missing=missing(Lineage::Obligation) />
-                <Stage name="Variation" known=Known::NotCollected { from: "deeds of variation, section 73" } readings=at(Lineage::Variation) missing=missing(Lineage::Variation) />
+                <Stage name="Variation" known=Known::NotCollected { from: "deeds of variation, section 73" } readings=at(Lineage::Variation) missing=missing(Lineage::Variation)
+                    note=(deed_only && read).then_some("Only variations found in the documents held. No search of the Local Land Charges register or council records has been made yet, so later variations may exist.") />
                 <Stage name="Completion" known=completion readings=at(Lineage::Completion) missing=missing(Lineage::Completion) />
             </div>
         }
         .into_any()
     }
+}
+
+/// Which kind of build the page is, from what was baked into it.
+#[derive(Clone, Copy, PartialEq)]
+enum Build {
+    /// Datahub figures only
+    Public,
+    /// public, with deed figures and nothing else from the ledger
+    DeedFigures,
+    /// a results ledger's readings: never published
+    Private,
+}
+
+fn build() -> Build {
+    use_context::<Build>().unwrap_or(Build::Public)
 }
 
 /// What the explorer knows about one stage of a permission.
@@ -533,6 +598,9 @@ fn Stage(
     /// documents of this stage listed for the scheme but not in hand (private builds only)
     #[prop(optional)]
     missing: Vec<String>,
+    /// a fixed caveat shown under the stage's cells
+    #[prop(default = None)]
+    note: Option<&'static str>,
 ) -> impl IntoView {
     let chip = match known {
         Known::Recorded { text, source } => Some((true, text, source)),
@@ -542,6 +610,7 @@ fn Stage(
     };
     let shown: Vec<Reading> = readings.iter().filter(|r| has_value(r)).cloned().collect();
     let others = status_lines(&readings);
+    let deed_only = build() == Build::DeedFigures;
     view! {
         <div class="stage">
             <div class="name">{name}</div>
@@ -554,18 +623,24 @@ fn Stage(
                     let class = format!("chip reading {}", check_class(r.check));
                     let value = humanize(r.value.as_deref().unwrap_or_default());
                     let basis = basis_note(&value, r.basis.as_deref());
-                    let pages = r.pages.map(|p| format!(" · pages {p}"));
+                    let pages = r.pages.map(|p| {
+                        if deed_only { format!("deed pages {p}") } else { format!(" · pages {p}") }
+                    });
                     view! {
                         <div class=class>
-                            <span class="what">{format!("{} {}", source_label(&r.source), r.variable)}{doubt}</span>
-                            {check_tag(r.check).map(|t| view! { <span class="tag">{t}</span> })}
+                            <span class="what">{format!("{}: {}", source_label(&r.source), r.name)}{doubt}</span>
+                            <span class="tag">{check_tag(r.check)}</span>
                             {value}{basis}
-                            <span class="src">{check_label(r.check)}{pages}</span>
+                            <span class="src">
+                                {(!deed_only).then(|| check_label(r.check))}
+                                {pages}
+                            </span>
                         </div>
                     }
                 }).collect_view()}
                 {others.into_iter().map(|l| view! { <div class="others">{l}</div> }).collect_view()}
                 {missing.into_iter().map(|l| view! { <div class="others missing">"Not in hand: " {l}</div> }).collect_view()}
+                {note.map(|n| view! { <div class="others">{n}</div> })}
             </div>
         </div>
     }
@@ -588,7 +663,7 @@ fn ReadSchemes(
     });
     (!read.is_empty()).then(|| {
         view! {
-            <div class="hint">{format!("{} schemes with ledger readings", read.len())}</div>
+            <div class="hint">{format!("{} schemes with {}", read.len(), if build() == Build::DeedFigures { "deed figures" } else { "ledger readings" })}</div>
             <div class="list all">
                 {read.into_iter().map(|(i, x)| view! {
                     // Widen the years if the scheme is outside them, so its dot is on the map.
