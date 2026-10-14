@@ -557,7 +557,7 @@ fn main() -> Result<()> {
                 .with_context(|| format!("copying {}", inputs.boundaries.display()))?;
             eprintln!(
                 "wrote {} sites ({} without a centroid left out) to {}",
-                bundle.sources.sites,
+                bundle.sites.len(),
                 bundle.sources.without_centroid,
                 out.display()
             );

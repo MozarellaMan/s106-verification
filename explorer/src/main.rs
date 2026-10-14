@@ -4,32 +4,25 @@
 //! Leptos draws the page; Leaflet (loaded by index.html) draws the map through the `leaflet`
 //! crate's bindings. Everything runs in the browser from static files.
 
+mod site;
+
 use leaflet::{
     CircleMarker, FeatureGroup, GeoJson, LatLng, LayerGroup, Map, MapOptions, PathOptions, Svg,
 };
 use leptos::html;
 use leptos::prelude::*;
-use serde::Deserialize;
+use site::{Bundle, Site, Sources, Status};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
-#[derive(Clone, Deserialize)]
-struct Site {
-    borough: String,
-    #[serde(rename = "ref")]
-    reference: String,
-    site: String,
-    status: String,
-    year: i32,
-    homes: u32,
-    affordable: u32,
-    known: u32,
-    completed: u32,
-    completion_date: String,
-    updated: String,
-    lat: f64,
-    lon: f64,
-}
+/// The decision years shown when the page opens.
+const DEFAULT_YEARS: (i32, i32) = (2015, 2024);
+
+/// Before this year the Datahub rarely records tenure (under 80% of homes have one).
+const TENURE_RECORDED_FROM: i32 = 2003;
+
+/// Narrower than this the map and the panel stack (keep in step with style.css).
+const NARROW: &str = "(max-width: 820px)";
 
 impl Site {
     /// Affordable share of homes with a recorded tenure; None when no tenure was recorded.
@@ -37,26 +30,9 @@ impl Site {
         (self.known > 0).then(|| self.affordable as f64 / self.known as f64)
     }
 
-    fn name(&self) -> String {
-        if self.site.trim().is_empty() {
-            "(no site name)".into()
-        } else {
-            self.site.clone()
-        }
+    fn name(&self) -> &str {
+        self.site.as_deref().unwrap_or("(no site name)")
     }
-}
-
-#[derive(Clone, Deserialize)]
-struct Sources {
-    applications: String,
-    snapshot: String,
-    boundaries: String,
-}
-
-#[derive(Clone, Deserialize)]
-struct Bundle {
-    sources: Sources,
-    sites: Vec<Site>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -65,44 +41,65 @@ enum Colour {
     Status,
 }
 
-/// Mark colours, mid-tones that read on both the light and dark page.
-const LOW: &str = "#d0654c";
-const MID: &str = "#d9a73e";
-const HIGH: &str = "#2f8f7a";
-const UNKNOWN: &str = "#8e8e99";
+/// Affordable share: one hue, light to dark, in even 10-point bins. No bin edge sits on a policy
+/// threshold, so no colour reads as a pass or a fail.
+const SHARE: [(&str, &str); 5] = [
+    ("#d3e4ec", "under 10%"),
+    ("#a3c6d6", "10 to 20%"),
+    ("#6fa3bd", "20 to 30%"),
+    ("#3f7f9f", "30 to 40%"),
+    ("#1d5674", "40% or more"),
+];
+const UNKNOWN: &str = "#9a9aa3";
+
+/// Datahub status: neutral hues, none red or green.
+fn status_colour(s: Status) -> &'static str {
+    match s {
+        Status::Completed => "#4e79a7",
+        Status::Commenced => "#e0b445",
+        Status::Approved => "#b07aa1",
+        Status::Lapsed => "#9c755f",
+        Status::Superseded => "#7fb7c9",
+        Status::Other => UNKNOWN,
+    }
+}
+
+const STATUSES: [Status; 6] = [
+    Status::Completed,
+    Status::Commenced,
+    Status::Approved,
+    Status::Lapsed,
+    Status::Superseded,
+    Status::Other,
+];
 
 fn colour(site: &Site, by: Colour) -> &'static str {
     match by {
         Colour::Affordable => match site.affordable_share() {
             None => UNKNOWN,
-            Some(a) if a < 0.2 => LOW,
-            Some(a) if a < 0.35 => MID,
-            Some(_) => HIGH,
+            Some(a) => SHARE[((a * 10.0) as usize).min(4)].0,
         },
-        Colour::Status => match site.status.to_lowercase().as_str() {
-            "completed" => HIGH,
-            "commenced" => MID,
-            "lapsed" => LOW,
-            _ => UNKNOWN,
-        },
+        Colour::Status => status_colour(site.status),
     }
 }
 
-fn legend(by: Colour) -> [(&'static str, &'static str); 4] {
+fn legend(by: Colour) -> Vec<(&'static str, &'static str)> {
     match by {
-        Colour::Affordable => [
-            (LOW, "under 20%"),
-            (MID, "20 to 35%"),
-            (HIGH, "35% or more"),
-            (UNKNOWN, "tenure not recorded"),
-        ],
-        Colour::Status => [
-            (HIGH, "Completed"),
-            (MID, "Commenced"),
-            (LOW, "Lapsed"),
-            (UNKNOWN, "Approved, other or blank"),
-        ],
+        Colour::Affordable => SHARE
+            .into_iter()
+            .chain([(UNKNOWN, "tenure not recorded")])
+            .collect(),
+        Colour::Status => STATUSES
+            .into_iter()
+            .map(|s| (status_colour(s), s.label()))
+            .collect(),
     }
+}
+
+/// Dot radius in pixels: area scales with homes; every site under about 30 homes shares the
+/// smallest size so it stays visible.
+fn radius(homes: u32) -> f64 {
+    (homes as f64).sqrt().max(5.5) / 2.2
 }
 
 /// 12345 -> "12,345"
@@ -126,7 +123,15 @@ fn percent(part: u64, whole: u64) -> String {
     }
 }
 
-async fn load() -> Result<(Bundle, serde_json::Value), String> {
+fn matches_media(query: &str) -> bool {
+    window()
+        .match_media(query)
+        .ok()
+        .flatten()
+        .is_some_and(|m| m.matches())
+}
+
+async fn load() -> Result<(Bundle, JsValue), String> {
     let get = |url: &'static str| async move {
         gloo_net::http::Request::get(url)
             .send()
@@ -138,24 +143,22 @@ async fn load() -> Result<(Bundle, serde_json::Value), String> {
         .json::<Bundle>()
         .await
         .map_err(|e| e.to_string())?;
-    let boroughs = get("data/boroughs.geojson")
+    // Leaflet reads the boundaries; Rust never looks inside them.
+    let text = get("data/boroughs.geojson")
         .await?
-        .json()
+        .text()
         .await
         .map_err(|e| e.to_string())?;
+    let boroughs = js_sys::JSON::parse(&text).map_err(|_| "boroughs.geojson is not JSON")?;
     Ok((bundle, boroughs))
 }
 
 fn main() {
-    console_error_panic_hook_lite();
-    mount_to_body(App);
-}
-
-/// Panics go to the browser console instead of failing silently.
-fn console_error_panic_hook_lite() {
+    // Panics go to the browser console instead of failing silently.
     std::panic::set_hook(Box::new(|info| {
         web_sys::console::error_1(&info.to_string().into())
     }));
+    mount_to_body(App);
 }
 
 #[component]
@@ -167,7 +170,7 @@ fn App() -> impl IntoView {
             <p class="caveat">
                 <b>"Datahub figures as boroughs recorded them, not checked against any S106 agreement. "</b>
                 "Permissions of 10 or more homes in the Planning London Datahub, final permissions only. "
-                "Dots sit at the Datahub site centroid. A gap between what was proposed and what is "
+                "Dots sit at the Datahub site centroid. A gap between what was permitted and what is "
                 "recorded as built is a prompt to read the documents, never a finding."
             </p>
         </header>
@@ -180,26 +183,22 @@ fn App() -> impl IntoView {
 }
 
 #[component]
-fn Explorer(bundle: Bundle, boroughs: serde_json::Value) -> impl IntoView {
+fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
     let Bundle { sources, sites } = bundle;
     let sites = StoredValue::new(sites);
-    let (from, set_from) = signal(2015);
-    let (to, set_to) = signal(2024);
+    let (from, set_from) = signal(DEFAULT_YEARS.0);
+    let (to, set_to) = signal(DEFAULT_YEARS.1);
     let (by, set_by) = signal(Colour::Affordable);
     let (borough, set_borough) = signal(String::new());
-    let (selected, set_selected) = signal(None::<usize>);
-    let (min_year, max_year) = sites.with_value(|s| {
-        (
-            s.iter().map(|x| x.year).min().unwrap_or(2000),
-            s.iter().map(|x| x.year).max().unwrap_or(2025),
-        )
+    // The picked site, and whether the map should move to it (a pick from the list).
+    let (selected, set_selected) = signal(None::<(usize, bool)>);
+    let years = sites.with_value(|s| {
+        let min = s.iter().map(|x| x.year).min().unwrap_or(DEFAULT_YEARS.0);
+        let max = s.iter().map(|x| x.year).max().unwrap_or(DEFAULT_YEARS.1);
+        (min..=max).collect::<Vec<_>>()
     });
     let boroughs_list = sites.with_value(|s| {
-        let mut b: Vec<String> = s
-            .iter()
-            .map(|x| x.borough.clone())
-            .filter(|b| !b.is_empty())
-            .collect();
+        let mut b: Vec<String> = s.iter().map(|x| x.borough.clone()).collect();
         b.sort();
         b.dedup();
         b
@@ -220,20 +219,39 @@ fn Explorer(bundle: Bundle, boroughs: serde_json::Value) -> impl IntoView {
         })
     });
 
+    // On a phone the panel sits below the map: bring it into view when a site is picked.
+    let panel = NodeRef::<html::Aside>::new();
+    Effect::new(move |_| {
+        if selected.get().is_some()
+            && matches_media(NARROW)
+            && let Some(el) = panel.get_untracked()
+        {
+            el.scroll_into_view();
+        }
+    });
+
+    let year_options = move |current: ReadSignal<i32>| {
+        years
+            .iter()
+            .map(|&y| view! { <option value=y selected=move || current.get() == y>{y}</option> })
+            .collect_view()
+    };
+
     view! {
         <div class="controls">
             <label>"Decided from "
-                <input type="range" min=min_year max=max_year prop:value=from
-                    on:input=move |e| set_from.set(event_target_value(&e).parse().unwrap_or(2015)) />
+                <select on:change=move |e| { if let Ok(y) = event_target_value(&e).parse() { set_from.set(y) } }>
+                    {year_options(from)}
+                </select>
             </label>
             <label>"to "
-                <input type="range" min=min_year max=max_year prop:value=to
-                    on:input=move |e| set_to.set(event_target_value(&e).parse().unwrap_or(2024)) />
+                <select on:change=move |e| { if let Ok(y) = event_target_value(&e).parse() { set_to.set(y) } }>
+                    {year_options(to)}
+                </select>
             </label>
-            <span class="years">{move || format!("{} to {}", from.get().min(to.get()), from.get().max(to.get()))}</span>
             <label>"Colour by "
                 <select on:change=move |e| set_by.set(if event_target_value(&e) == "status" { Colour::Status } else { Colour::Affordable })>
-                    <option value="affordable">"Proposed affordable share"</option>
+                    <option value="affordable">"Affordable share"</option>
                     <option value="status">"Datahub status"</option>
                 </select>
             </label>
@@ -247,25 +265,38 @@ fn Explorer(bundle: Bundle, boroughs: serde_json::Value) -> impl IntoView {
         <Stats sites visible />
         <div class="main">
             <div class="mapcol">
-                <MapView sites visible by boroughs on_pick=set_selected />
+                <MapView sites visible by boroughs selected on_pick=set_selected />
                 <div class="legend">
                     {move || legend(by.get()).into_iter().map(|(c, t)| view! {
                         <span><i style:background=c></i>{t}</span>
                     }).collect_view()}
-                    <span>"Dot area scales with proposed homes. Shares are of homes with a recorded tenure."</span>
                 </div>
+                <p class="hint">
+                    {move || match by.get() {
+                        Colour::Affordable => "Affordable share is of homes (units) with a recorded tenure, on the current Datahub record.",
+                        Colour::Status => "Status as on the current Datahub record.",
+                    }}
+                    {move || (from.get().min(to.get()) < TENURE_RECORDED_FROM).then_some(
+                        " Tenure is rarely recorded for decisions before 2003, so earlier sites mostly show as not recorded.")}
+                </p>
+                <SizeKey />
             </div>
-            <aside>
+            <aside node_ref=panel>
                 <Detail sites selected />
                 <Largest sites visible on_pick=set_selected />
             </aside>
         </div>
-        <footer>
-            "Data: Planning London Datahub, Greater London Authority (Open Government Licence v3), "
-            "snapshot " <code>{sources.snapshot}</code> ", counted by " <code>{sources.applications}</code>
-            ". Borough boundaries: ONS (OGL v3), " <code>{sources.boundaries}</code> "."
-        </footer>
+        <Footer sources />
     }
+}
+
+/// Totals over the sites in view.
+#[derive(Clone, Copy, Default, PartialEq)]
+struct Totals {
+    homes: u64,
+    known: u64,
+    affordable: u64,
+    completed: u64,
 }
 
 #[component]
@@ -275,13 +306,11 @@ fn Stats(sites: StoredValue<Vec<Site>>, visible: Memo<Vec<usize>>) -> impl IntoV
             visible.with(|v| {
                 v.iter()
                     .map(|&i| &s[i])
-                    .fold((0u64, 0u64, 0u64, 0u64), |t, x| {
-                        (
-                            t.0 + x.homes as u64,
-                            t.1 + x.known as u64,
-                            t.2 + x.affordable as u64,
-                            t.3 + x.completed as u64,
-                        )
+                    .fold(Totals::default(), |t, x| Totals {
+                        homes: t.homes + x.homes as u64,
+                        known: t.known + x.known as u64,
+                        affordable: t.affordable + x.affordable as u64,
+                        completed: t.completed + x.completed as u64,
                     })
             })
         })
@@ -293,12 +322,16 @@ fn Stats(sites: StoredValue<Vec<Site>>, visible: Memo<Vec<usize>>) -> impl IntoV
     };
     view! {
         <div class="stats">
-            {stat("Schemes", Signal::derive(move || thousands(visible.with(|v| v.len()) as u64)))}
-            {stat("Homes proposed", Signal::derive(move || thousands(totals.get().0)))}
-            {stat("Affordable, of recorded tenure", Signal::derive(move || { let t = totals.get(); percent(t.2, t.1) }))}
-            {stat("Tenure not recorded", Signal::derive(move || { let t = totals.get(); percent(t.0 - t.1, t.0) }))}
-            {stat("Homes with a completion date", Signal::derive(move || thousands(totals.get().3)))}
+            {stat("Permissions", Signal::derive(move || thousands(visible.with(|v| v.len()) as u64)))}
+            {stat("Homes on current records", Signal::derive(move || thousands(totals.get().homes)))}
+            {stat("Affordable, of recorded tenure", Signal::derive(move || { let t = totals.get(); percent(t.affordable, t.known) }))}
+            {stat("Tenure not recorded", Signal::derive(move || { let t = totals.get(); percent(t.homes - t.known, t.homes) }))}
+            {stat("With a completion date", Signal::derive(move || thousands(totals.get().completed)))}
         </div>
+        <p class="hint">
+            "Recent permissions have had little time to be built, so a low completion count for recent "
+            "years is mostly time, not shortfall."
+        </p>
     }
 }
 
@@ -307,11 +340,13 @@ fn MapView(
     sites: StoredValue<Vec<Site>>,
     visible: Memo<Vec<usize>>,
     by: ReadSignal<Colour>,
-    boroughs: serde_json::Value,
-    on_pick: WriteSignal<Option<usize>>,
+    boroughs: JsValue,
+    selected: ReadSignal<Option<(usize, bool)>>,
+    on_pick: WriteSignal<Option<(usize, bool)>>,
 ) -> impl IntoView {
     let node = NodeRef::<html::Div>::new();
-    let layers = StoredValue::new_local(None::<(Map, LayerGroup)>);
+    // The map, its dots, and the ring that marks the picked site.
+    let layers = StoredValue::new_local(None::<(Map, LayerGroup, LayerGroup)>);
 
     // Create the map once the element exists.
     Effect::new(move |_| {
@@ -336,12 +371,14 @@ fn MapView(
         style.set_interactive(false);
         let options = js_sys::Object::new();
         js_sys::Reflect::set(&options, &"style".into(), &style).unwrap();
-        let outlines = geo_json(&to_js(&boroughs), &options);
+        let outlines = geo_json(&boroughs, &options);
         outlines.add_to(&map);
         map.fit_bounds(&outlines.unchecked_ref::<FeatureGroup>().get_bounds());
         let dots = LayerGroup::new();
         dots.add_to(&map);
-        layers.set_value(Some((map, dots)));
+        let ring = LayerGroup::new();
+        ring.add_to(&map);
+        layers.set_value(Some((map, dots, ring)));
     });
 
     // Redraw the dots whenever the filters or the colouring change.
@@ -351,18 +388,19 @@ fn MapView(
         // Largest first, so smaller sites draw on top and stay clickable.
         sites.with_value(|s| keep.sort_by_key(|&i| std::cmp::Reverse(s[i].homes)));
         layers.with_value(|l| {
-            let Some((_, dots)) = l else { return };
+            let Some((_, dots, _)) = l else { return };
             dots.clear_layers();
             sites.with_value(|s| {
                 for i in keep {
                     let x = &s[i];
                     let style = PathOptions::new();
                     style.set_fill_color(colour(x, by).into());
-                    style.set_fill_opacity(0.85);
-                    style.set_color("#ffffff".into());
-                    style.set_weight(0.6);
+                    style.set_fill_opacity(0.9);
+                    style.set_color("#33424a".into());
+                    style.set_opacity(0.6);
+                    style.set_weight(0.5);
                     let marker = CircleMarker::new_with_options(&LatLng::new(x.lat, x.lon), &style);
-                    marker.set_radius((x.homes as f64).sqrt().max(5.5) / 2.2);
+                    marker.set_radius(radius(x.homes));
                     let tip = format!(
                         "{} {}: {} homes",
                         x.borough,
@@ -370,9 +408,35 @@ fn MapView(
                         thousands(x.homes as u64)
                     );
                     marker.unchecked_ref::<Tooltipped>().bind_tooltip(&tip);
-                    let pick = Closure::<dyn Fn()>::new(move || on_pick.set(Some(i)));
+                    let pick = Closure::<dyn Fn()>::new(move || on_pick.set(Some((i, false))));
                     marker.on("click", &pick.into_js_value());
                     dots.add_layer(&marker);
+                }
+            });
+        });
+    });
+
+    // Ring the picked site; move the map to it when it was picked from the list.
+    Effect::new(move |_| {
+        let picked = selected.get();
+        layers.with_value(|l| {
+            let Some((map, _, ring)) = l else { return };
+            ring.clear_layers();
+            let Some((i, go)) = picked else { return };
+            sites.with_value(|s| {
+                let x = &s[i];
+                let at = LatLng::new(x.lat, x.lon);
+                let dark = matches_media("(prefers-color-scheme: dark)");
+                let style = PathOptions::new();
+                style.set_fill(false);
+                style.set_color((if dark { "#ffffff" } else { "#111111" }).into());
+                style.set_weight(2.5);
+                style.set_interactive(false);
+                let marker = CircleMarker::new_with_options(&at, &style);
+                marker.set_radius(radius(x.homes) + 4.0);
+                ring.add_layer(&marker);
+                if go {
+                    map.set_view(&at, map.get_zoom().max(13.0));
                 }
             });
         });
@@ -396,61 +460,61 @@ extern "C" {
     fn bind_tooltip(this: &Tooltipped, content: &str);
 }
 
-fn to_js(value: &serde_json::Value) -> JsValue {
-    js_sys::JSON::parse(&value.to_string()).unwrap_or(JsValue::NULL)
-}
-
 #[component]
-fn Detail(sites: StoredValue<Vec<Site>>, selected: ReadSignal<Option<usize>>) -> impl IntoView {
+fn Detail(
+    sites: StoredValue<Vec<Site>>,
+    selected: ReadSignal<Option<(usize, bool)>>,
+) -> impl IntoView {
     move || {
-        let Some(i) = selected.get() else {
+        let Some((i, _)) = selected.get() else {
             return view! {
                 <h2>"Pick a site"</h2>
-                <p class="hint">"Click a dot or a row below. The panel shows what the Datahub records for each stage of the site's history. Stages the Datahub cannot speak to are shown as not collected rather than hidden."</p>
+                <p class="hint">"Click a dot or a row below to see what is known about each stage of that permission. Stages with no data yet are shown as not collected."</p>
             }
             .into_any();
         };
         let x = sites.with_value(|s| s[i].clone());
-        let snapshot = "Datahub, as recorded by the borough";
-        let decision = match x.affordable_share() {
+        let current = match x.affordable_share() {
             Some(a) => format!(
-                "{} homes, {} affordable ({:.0}% of recorded tenure)",
+                "{} homes, {} affordable ({:.0}% of recorded tenure). Status: {}",
                 thousands(x.homes as u64),
                 thousands(x.affordable as u64),
-                100.0 * a
+                100.0 * a,
+                x.status.label()
             ),
-            None => format!("{} homes, tenure not recorded", thousands(x.homes as u64)),
+            None => format!(
+                "{} homes, tenure not recorded. Status: {}",
+                thousands(x.homes as u64),
+                x.status.label()
+            ),
         };
         let completion = if x.completed > 0 {
-            let date = if x.completion_date.is_empty() {
-                String::new()
-            } else {
-                format!(", date on record {}", x.completion_date)
-            };
+            let date = x
+                .completion_date
+                .as_deref()
+                .map(|d| format!(", completion date on record {d}"))
+                .unwrap_or_default();
             format!(
                 "{} of {} homes have a completion date{date}",
                 thousands(x.completed as u64),
                 thousands(x.homes as u64)
             )
         } else {
-            format!(
-                "No completion date recorded. Status: {}",
-                if x.status.is_empty() {
-                    "blank"
-                } else {
-                    &x.status
-                }
-            )
+            "No completion date recorded".into()
         };
+        let as_of = format!("current Datahub record, as of {}", x.updated);
         view! {
-            <h2>{x.name()}</h2>
-            <div class="ref">{format!("{} · {} · decided {} · record updated {}", x.borough, x.reference, x.year, x.updated)}</div>
+            <h2>{x.name().to_string()}</h2>
+            <div class="ref">{format!("{} · {} · decided {}", x.borough, x.reference, x.year)}</div>
+            <p class="current">{current}<span class="src">{as_of.clone()}</span></p>
+            <p class="hint">"The Datahub keeps one record per permission and updates it in place, so this is the record as it stands now, not what was decided."</p>
             <div class="lineage">
-                <Stage name="Offer" found=false body="Not collected".into() source="committee report" />
-                <Stage name="Decision" found=true body=decision source=snapshot />
-                <Stage name="Obligation" found=false body="Not collected".into() source="S106 agreement" />
-                <Stage name="Variation" found=false body="Not collected".into() source="deeds of variation, section 73" />
-                <Stage name="Completion" found={x.completed > 0} body=completion source=snapshot />
+                <Stage name="Target" found=false body="Not collected" source="policy target" />
+                <Stage name="Offer" found=false body="Not collected" source="committee report" />
+                <Stage name="Decision" found=false body="Not collected" source="committee report, decision notice" />
+                <Stage name="Obligation" found=false body="Not collected" source="S106 agreement" />
+                <Stage name="Variation" found=false body="Not collected" source="deeds of variation, section 73" />
+                <Stage name="Completion" found={x.completed > 0} body=completion source=as_of />
             </div>
         }
         .into_any()
@@ -458,7 +522,12 @@ fn Detail(sites: StoredValue<Vec<Site>>, selected: ReadSignal<Option<usize>>) ->
 }
 
 #[component]
-fn Stage(name: &'static str, found: bool, body: String, source: &'static str) -> impl IntoView {
+fn Stage(
+    name: &'static str,
+    found: bool,
+    #[prop(into)] body: String,
+    #[prop(into)] source: String,
+) -> impl IntoView {
     view! {
         <div class="stage">
             <div class="name">{name}</div>
@@ -467,11 +536,25 @@ fn Stage(name: &'static str, found: bool, body: String, source: &'static str) ->
     }
 }
 
+/// Three reference dots, drawn with the same radius as the map's.
+#[component]
+fn SizeKey() -> impl IntoView {
+    view! {
+        <div class="legend sizes">
+            {[50, 250, 1000].into_iter().map(|h| {
+                let d = format!("{:.1}px", 2.0 * radius(h));
+                view! { <span><i class="ring" style:width=d.clone() style:height=d></i>{format!("{} homes", thousands(h as u64))}</span> }
+            }).collect_view()}
+            <span>"Dot area scales with homes; sites under about 30 homes share the smallest size."</span>
+        </div>
+    }
+}
+
 #[component]
 fn Largest(
     sites: StoredValue<Vec<Site>>,
     visible: Memo<Vec<usize>>,
-    on_pick: WriteSignal<Option<usize>>,
+    on_pick: WriteSignal<Option<(usize, bool)>>,
 ) -> impl IntoView {
     let top = Memo::new(move |_| {
         sites.with_value(|s| {
@@ -487,12 +570,46 @@ fn Largest(
             {move || top.get().into_iter().map(|i| {
                 let x = sites.with_value(|s| s[i].clone());
                 view! {
-                    <button on:click=move |_| on_pick.set(Some(i))>
-                        <span>{x.name()} " " <span class="ref">{format!("{} {}", x.borough, x.reference)}</span></span>
+                    <button on:click=move |_| on_pick.set(Some((i, true)))>
+                        <span>{x.name().to_string()} " " <span class="ref">{format!("{} {}", x.borough, x.reference)}</span></span>
                         <span class="n">{thousands(x.homes as u64)}</span>
                     </button>
                 }
             }).collect_view()}
         </div>
+    }
+}
+
+#[component]
+fn Footer(sources: Sources) -> impl IntoView {
+    let left_out = format!(
+        "Left out of {} Datahub records: {} not permitted, {} permitted with no decision year, \
+         {} wholly superseded by a later permission, {} without a site centroid.",
+        thousands(sources.records),
+        thousands(sources.not_permitted),
+        thousands(sources.no_decision_year),
+        thousands(sources.wholly_superseded),
+        thousands(sources.without_centroid),
+    );
+    // Paths in the (private) data repository, kept for provenance but out of the reader's way.
+    let provenance = format!(
+        "{}\n{}\n{}",
+        sources.snapshot, sources.applications, sources.boundaries
+    );
+    view! {
+        <footer>
+            <p>
+                {left_out}
+                " Completion dates are missing for about 8% of homes on records marked Completed "
+                "(permitted since 2010), and outline and reserved-matters records for the same site can "
+                "both carry completed homes (up to 4,114 counted twice)."
+            </p>
+            <p title=provenance>
+                "Planning London Datahub, Greater London Authority, as on " {sources.snapshot_date}
+                " (Open Government Licence v3). Borough boundaries: Office for National Statistics, "
+                "December 2023 (Open Government Licence v3). Contains OS data © Crown copyright and "
+                "database right 2023."
+            </p>
+        </footer>
     }
 }
