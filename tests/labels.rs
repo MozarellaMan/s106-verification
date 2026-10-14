@@ -29,6 +29,7 @@ fn machine(scheme: &str, variable_id: &str, source: &str, value: &str, basis: &s
         labeller: "machine:test".into(),
         labelled_on: String::new(),
         minutes: None,
+        method: String::new(),
         origin: "test".into(),
     }
 }
@@ -313,4 +314,81 @@ fn datahub_v8_scored_on_the_date_only() {
     let r = labels::report(&got, rejected, &[m], vec![]);
     let a = &r.accuracy[0];
     assert_eq!((a.true_pos, a.false_pos, a.false_neg), (1, 0, 0));
+}
+
+#[test]
+fn method_column_is_optional_and_checked() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join("labels");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("audit.csv"),
+        "scheme,variable_id,source,value,basis,status,labeller,labelled_on,method\n\
+         EX/1,V1,deed,total=10,units,found,AB,2026-10-20,audited\n\
+         EX/1,V2,deed,share=35%,units,found,AB,2026-10-20,Blind\n\
+         EX/1,V3,deed,,,not_stated,AB,2026-10-20,\n\
+         EX/1,V4,deed,x=1,,found,AB,2026-10-20,guessed\n",
+    )
+    .unwrap();
+    let (got, rejected) = labels::load(&dir).unwrap();
+    let methods: Vec<&str> = got.iter().map(|r| r.method.as_str()).collect();
+    assert_eq!(methods, ["audited", "blind", "read"]);
+    assert_eq!(rejected.len(), 1);
+    assert!(
+        rejected[0].reason.contains("method `guessed`"),
+        "{rejected:?}"
+    );
+    let r = labels::report(&got, rejected, &[], vec![]);
+    assert_eq!(r.labels.by_method["read"], 1);
+    assert!(labels::markdown(&r).contains("| audited | 1 |"));
+}
+
+#[test]
+fn proposals_are_scored_as_machine_readings_split_by_label_kind() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join("labels");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("audit.csv"),
+        "scheme,variable_id,source,value,basis,status,labeller,labelled_on,method\n\
+         EX/1,V1,deed,total=10,units,found,AB,2026-10-20,audited\n\
+         EX/2,V1,deed,total=12,units,found,AB,2026-10-20,corrected\n\
+         EX/3,V1,deed,total=30,units,found,AB,2026-10-20,blind\n",
+    )
+    .unwrap();
+    let proposals = root.path().join("proposals");
+    std::fs::create_dir_all(&proposals).unwrap();
+    std::fs::write(
+        proposals.join("2026-10-14-agent-batch1.csv"),
+        "scheme,variable_id,source,value,basis,status,labeller,labelled_on,quote\n\
+         EX/1,V1,deed,total=10,units,found,machine:proposal/agent,2026-10-14,ten dwellings\n\
+         EX/2,V1,deed,total=20,units,found,machine:proposal/agent,2026-10-14,twenty\n\
+         EX/3,V1,deed,total=30,units,found,machine:proposal/agent,2026-10-14,thirty\n\
+         EX/4,V1,deed,total=1,units,found,AB,2026-10-14,signed by a person\n",
+    )
+    .unwrap();
+    let (proposed, bad) = labels::proposals(root.path()).unwrap();
+    assert_eq!(proposed.len(), 3);
+    assert_eq!(bad.len(), 1);
+    assert!(bad[0].origin.starts_with("proposals/"), "{bad:?}");
+    assert!(bad[0].reason.contains("signed"), "{bad:?}");
+    // machine-signed rows never load as labels, wherever the file is
+    let (as_labels, refused) = labels::load(&proposals).unwrap();
+    assert!(as_labels.iter().all(|r| r.labeller == "AB"));
+    assert_eq!(refused.len(), 3);
+
+    let r = labels::run(root.path(), "claude-haiku-5-5").unwrap();
+    let rows: Vec<(&str, usize, usize)> = r
+        .accuracy
+        .iter()
+        .map(|a| (a.labels, a.cells, a.true_pos))
+        .collect();
+    // anchored: EX/1 confirmed, EX/2 corrected; independent: EX/3 blind
+    assert_eq!(rows, [("anchored", 2, 3), ("independent", 1, 2)]);
+    let md = std::fs::read_to_string(root.path().join("reports/labels/labels.md")).unwrap();
+    assert!(
+        md.contains("| machine:proposal/agent | V1 | deed | anchored | 2 |"),
+        "{md}"
+    );
+    assert!(md.contains("total 20 (label 12)"), "{md}");
 }
