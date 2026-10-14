@@ -257,7 +257,7 @@ fn rule1_compares_report_and_deed_tenures() {
 fn rule2_allows_five_percent_and_leaves_out_uncompleted_schemes() {
     let root = tempfile::tempdir().unwrap();
     let p = root.path();
-    sheet(p, &["EX/1", "EX/2", "EX/3", "EX/4", "EX/5"]);
+    sheet(p, &["EX/1", "EX/2", "EX/3", "EX/4", "EX/5", "EX/6"]);
     let rows = [
         proposal(
             "EX/1",
@@ -324,6 +324,15 @@ fn rule2_allows_five_percent_and_leaves_out_uncompleted_schemes() {
             "found",
         ),
         proposal("EX/5", "V8", "datahub", "", "", "not_stated"),
+        proposal(
+            "EX/6",
+            "V8",
+            "datahub",
+            "completed=2020-01-01; completed_homes=0",
+            "units",
+            "found",
+        ),
+        proposal("EX/6", "V8", "epc", "new_dwelling_epcs=0", "units", "found"),
     ];
     write(p, "proposals/x.csv", &format!("{HEADER}{}", rows.concat()));
     let r = run(p);
@@ -333,6 +342,8 @@ fn rule2_allows_five_percent_and_leaves_out_uncompleted_schemes() {
     assert_eq!(outcome("EX/2"), Outcome::DoesNotCount);
     assert_eq!(outcome("EX/3"), Outcome::Indeterminate);
     assert_eq!(outcome("EX/5"), Outcome::LeftOut);
+    // no completed homes is not completed, not a 0/0 mismatch
+    assert_eq!(outcome("EX/6"), Outcome::LeftOut);
     // 2 of 4 completed agree, 3 needed
     assert_eq!(
         (rule.counts, rule.counted, rule.needed, rule.met),

@@ -472,7 +472,8 @@ fn rule2(cells: &Cells, schemes: &[String]) -> Vec<SchemeOutcome> {
             };
             let homes = dh
                 .filter(|d| d.status == "found")
-                .and_then(|d| d.fields().get("completed_homes").and_then(|v| number(v)));
+                .and_then(|d| d.fields().get("completed_homes").and_then(|v| number(v)))
+                .filter(|h| *h > 0.0);
             let Some(homes) = homes else {
                 return out(
                     Outcome::LeftOut,
