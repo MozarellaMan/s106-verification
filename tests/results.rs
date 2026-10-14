@@ -557,3 +557,55 @@ fn variation_sources_sit_in_the_variation_stage() {
     assert_eq!(results::stage("V1", "committee_report"), "decision");
     assert_eq!(results::stage("V8", "variation"), "completion");
 }
+
+#[test]
+fn an_unnamed_intermediate_matches_the_named_product() {
+    let root = tempfile::tempdir().unwrap();
+    let p = root.path();
+    sheet(p, &["EX/1", "EX/2"]);
+    let rows = [
+        proposal(
+            "EX/1",
+            "V1",
+            "committee_report",
+            "total=100; market=41; SR=38; INT=21",
+            "units",
+            "found",
+        ),
+        proposal(
+            "EX/1",
+            "V1",
+            "deed",
+            "total=100; market=41; SR=38; SO=21",
+            "units",
+            "found",
+        ),
+        // the totals differ, so it doesn't match
+        proposal(
+            "EX/2",
+            "V1",
+            "committee_report",
+            "total=100; market=41; SR=38; INT=21",
+            "units",
+            "found",
+        ),
+        proposal(
+            "EX/2",
+            "V1",
+            "deed",
+            "total=100; market=42; SR=38; SO=20",
+            "units",
+            "found",
+        ),
+    ];
+    write(p, "proposals/x.csv", &format!("{HEADER}{}", rows.concat()));
+    let r = run(p);
+    let o = |s: &str| r.rules[0].schemes.iter().find(|o| o.scheme == s).unwrap();
+    assert_eq!(o("EX/1").outcome, Outcome::Counts, "{}", o("EX/1").reason);
+    assert!(
+        o("EX/1")
+            .reason
+            .contains("unnamed intermediate taken as the deed's so")
+    );
+    assert_eq!(o("EX/2").outcome, Outcome::DoesNotCount);
+}
