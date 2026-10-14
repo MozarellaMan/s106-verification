@@ -1,4 +1,4 @@
-# Shorthands for the slower test tiers (see README "Tests"). `cargo test` alone runs tiers 1-2.
+# Shorthands for the slower test tiers (see README "Tests"). `cargo test` alone runs tier 1 (tier 2 is `cargo test-data`).
 [alias]
 test-data = "test --test replay --test golden_python_m1 -- --ignored"
 test-pdf = "test --release --test pdf_regression -- --ignored"
