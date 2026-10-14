@@ -28,32 +28,20 @@ pub struct Problem {
     pub doc: PathBuf,
     pub line: usize,
     pub figure: String,
-    /// the cited file, as written in the tag
-    pub src: String,
-    pub missing_src: bool,
+    /// why the figure fails, naming the cited file
+    pub why: String,
 }
 
 impl fmt::Display for Problem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.missing_src {
-            write!(
-                f,
-                "{}:{}: {} cites {}, which does not exist",
-                self.doc.display(),
-                self.line,
-                self.figure,
-                self.src
-            )
-        } else {
-            write!(
-                f,
-                "{}:{}: {} is not in {}",
-                self.doc.display(),
-                self.line,
-                self.figure,
-                self.src
-            )
-        }
+        write!(
+            f,
+            "{}:{}: {} {}",
+            self.doc.display(),
+            self.line,
+            self.figure,
+            self.why
+        )
     }
 }
 
@@ -76,21 +64,17 @@ pub fn check(root: &Path) -> Result<Report> {
         let rel = doc.strip_prefix(root).unwrap_or(&doc).to_path_buf();
         for (line, figure, src) in citations(&text) {
             report.cited += 1;
-            let path = root.join(&src);
-            let problem = |missing_src| Problem {
+            let why = match std::fs::read_to_string(root.join(&src)) {
+                Err(e) => format!("cites {src}, which cannot be read: {e}"),
+                Ok(cited) if !contains_figure(&cited, &figure) => format!("is not in {src}"),
+                Ok(_) => continue,
+            };
+            report.problems.push(Problem {
                 doc: rel.clone(),
                 line,
-                figure: figure.clone(),
-                src: src.clone(),
-                missing_src,
-            };
-            match std::fs::read_to_string(&path) {
-                Err(_) => report.problems.push(problem(true)),
-                Ok(cited) if !contains_figure(&cited, &figure) => {
-                    report.problems.push(problem(false))
-                }
-                Ok(_) => {}
-            }
+                figure,
+                why,
+            });
         }
     }
     Ok(report)
@@ -127,8 +111,14 @@ fn strip_inline_code(line: &str) -> String {
 }
 
 /// Whether `figure` appears in `text` as a whole number: not part of a longer number, so 29.8
-/// is not found in 129.8 or 29.85.
+/// is not found in 129.8 or 29.85. A figure written with thousands commas (1,234) is also found
+/// without them (1234), as a CSV stores it.
 pub fn contains_figure(text: &str, figure: &str) -> bool {
+    let bare = figure.replace(',', "");
+    whole_match(text, figure) || (bare != figure && whole_match(text, &bare))
+}
+
+fn whole_match(text: &str, figure: &str) -> bool {
     text.match_indices(figure).any(|(at, _)| {
         !continues_number(text[..at].chars().rev())
             && !continues_number(text[at + figure.len()..].chars())
@@ -189,6 +179,8 @@ mod tests {
         assert!(!contains_figure("29.85", "29.8"));
         assert!(!contains_figure("29.8,5", "29.8"));
         assert!(!contains_figure("29.7%", "29.8%"));
+        assert!(contains_figure("units\n34233\n", "34,233"));
+        assert!(!contains_figure("341233", "34,233"));
     }
 
     #[test]
@@ -197,21 +189,24 @@ mod tests {
         let root = dir.path();
         std::fs::create_dir(root.join("frame")).unwrap();
         std::fs::write(root.join("frame/gap.md"), "| v1 | 29.8% |\n").unwrap();
+        std::fs::write(root.join("frame/x.gz"), [0x1f, 0x8b, 0xff, 0xfe]).unwrap();
         std::fs::write(
             root.join("frame/README.md"),
             "Old: 29.7%<!-- src: frame/gap.md -->\nNew: 29.8%<!-- src: frame/gap.md -->\n\
-             Gone: 4<!-- src: frame/none.csv -->\n",
+             Gone: 4<!-- src: frame/none.csv -->\nPacked: 5<!-- src: frame/x.gz -->\n",
         )
         .unwrap();
         let report = check(root).unwrap();
-        assert_eq!(report.cited, 3);
+        assert_eq!(report.cited, 4);
         let lines: Vec<String> = report.problems.iter().map(|p| p.to_string()).collect();
-        assert_eq!(
-            lines,
-            vec![
-                "frame/README.md:1: 29.7% is not in frame/gap.md",
-                "frame/README.md:3: 4 cites frame/none.csv, which does not exist",
-            ]
+        assert_eq!(lines.len(), 3, "{lines:?}");
+        assert_eq!(lines[0], "frame/README.md:1: 29.7% is not in frame/gap.md");
+        assert!(
+            lines[1]
+                .starts_with("frame/README.md:3: 4 cites frame/none.csv, which cannot be read: ")
+        );
+        assert!(
+            lines[2].contains("frame/x.gz, which cannot be read: ") && lines[2].contains("UTF-8")
         );
     }
 }
