@@ -125,6 +125,11 @@ enum Cmd {
         /// leave out the decision rules (batch 1's), for a batch that pre-registered none
         #[arg(long)]
         no_rules: bool,
+        /// a blank sheet, relative to <data>, whose schemes' values were seen while the method was
+        /// built (batch 1's); they never count towards an accuracy estimate. Required, so a run
+        /// cannot leave batch 1 in by mistake; repeat for more sheets
+        #[arg(long, required = true)]
+        seen: Vec<PathBuf>,
     },
     /// Check every figure cited as `29.8%<!-- src: path -->` in the markdown under <dir>: the cited
     /// file (relative to <dir>) must exist and still contain the figure. Exit 1 if any fails.
@@ -594,9 +599,10 @@ fn main() -> Result<()> {
             sheet,
             out,
             no_rules,
+            seen,
         } => {
             let root = s106::data::root();
-            let r = results::run(&root, &sheet, &out, !no_rules)?;
+            let r = results::run(&root, &sheet, &out, !no_rules, &seen)?;
             for rule in &r.rules {
                 println!(
                     "rule {}: {} ({} of {} counted, {} needed)",

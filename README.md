@@ -182,19 +182,18 @@ sheet (which cells exist), the labels and the proposals, it writes a folder unde
 data repository: a ledger with one row per scheme, variable and source in lineage order (offer,
 decision, obligation, variation, completion), the batch's pre-registered decision rules worked out
 scheme by scheme, retrieval per source, and a note that lists the hand-written claims in the
-folder's `claims.csv`. Every cell, rule outcome and claim carries a check level: `independent` (a
-person read the source), `anchored` (a person confirmed or corrected a proposal), `sampled` (two
-readers agree and their variable group passed the blind-sample gate of the data repository's
-`docs/audit-rule.md`), `proposed` (an agent only, not a result), `unsettled` (readers disagree,
-a check failed or an external source differs, and no reading settles it yet) or `unread`. A batch with no pre-registered rules
-runs with `--no-rules`. A rule or claim stands at
-the weakest level of the cells it rests on, so the note moves from proposed to checked on its own
-as labels arrive. Like `s106 labels`, `s106 results` never waits for labels.
+folder's `claims.csv`. A batch with no pre-registered rules runs with `--no-rules`, and every run
+names the sheets whose schemes were seen while the method was built with `--seen` (batch 1's).
 
-These levels come from the data repository's `docs/audit-rule.md`, which `src/results.rs` still
-follows. `docs/verification-rule.md` replaces the audit rule with three levels (`proposed`,
-`estimated`, `confirmed`); `s106 results` and the explorer have not switched yet (open in the data
-repository's `STATUS.md`).
+Every cell, rule outcome and claim carries a check level from the data repository's
+`docs/verification-rule.md`: `confirmed`, `estimated`, `proposed` or `unread`. `src/accuracy.rs`
+estimates each reader's accuracy per variable group from how often three readers from three
+families (an LLM model family, people, an external source such as the Datahub) agree, leaving out
+the seen schemes; a person's label is one more reader, not the truth. A cell is `estimated` when
+its readers agree and the shown reader's lower bound passes 90%, and `confirmed` when, on top of
+that, a reader that is not an LLM agrees and the cell's own estimated chance of error is at most 1%.
+A rule or claim stands at the weakest level of the cells it rests on. Like `s106 labels`,
+`s106 results` never waits for labels.
 
 ## Outcomes
 

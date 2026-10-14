@@ -154,25 +154,20 @@ impl Finding {
     }
 }
 
-/// How far a cell has been checked, weakest first: only `Anchored` and `Independent` are checked
-/// by a person.
+/// How far a cell is verified, weakest first (s106-data `docs/verification-rule.md`, section 6).
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Check {
     /// nobody has read it
     Unread,
-    /// an agent's reading only, which is not a result
+    /// one reading, readers who differ, or no estimated error rate that passes: not a result
     Proposed,
-    /// not settled: readers disagree, a check failed, an external source differs or a reading is
-    /// ambiguous, and no reading settles it yet
-    Unsettled,
-    /// two readers agree and the blind sample of their variable group passed the audit rule's
-    /// gate: fit for aggregate statements with the measured error rate, not for one scheme
-    Sampled,
-    /// a person confirmed or corrected an agent's reading
-    Anchored,
-    /// a person read the source
-    Independent,
+    /// readers agree and their variable group's estimated accuracy is at least 90% at the lower
+    /// bound: fit for aggregate statements carrying the error rate, not for one scheme
+    Estimated,
+    /// readers agree, one of them is not an AI model, and the cell's estimated chance of error is
+    /// at most 1%: fit for a statement about one scheme
+    Confirmed,
 }
 
 /// The lineage stages a ledger uses.

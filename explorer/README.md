@@ -52,11 +52,11 @@ retrieval rows, or any reading other than the deed cells described below.
 obligation, variation and completion stages, and every cell read from variation documents (deeds of
 variation and the notices that grant them) for the variation stage, each with its pages and its
 check level. A deed's offer cells only recite the committee report or policy, so they stay out.
-Unchecked AI readings are marked UNCHECKED AI READING and drawn dashed, and cells a person has
-checked are tagged CHECKED BY A PERSON. When a variation found changes the deed's figures, the
+Cells not yet verified are marked UNVERIFIED READING and drawn dashed; `estimated` and
+`confirmed` cells are tagged with their level. When a variation found changes the deed's figures, the
 Obligation stage says so. Nothing else from the ledger goes in: no other source, no retrieval rows,
 no rule outcome or claim. The page says these are transcriptions of the obligations as first signed,
-mostly not yet checked by a person, that only variations in the documents held are shown, and that a
+each with its check level, that only variations in the documents held are shown, and that a
 difference from the Datahub is never evidence of a breach.
 
 ## Publish it

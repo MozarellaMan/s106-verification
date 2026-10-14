@@ -5,9 +5,11 @@
 //! → `verify` (deterministic, evidence-grounded checks) → `report` / JSON.
 //! Layer B: `pld` (Planning London Datahub snapshots) and `reconcile` (obligations vs delivery).
 //! `labels`: human labels, scored against the pipeline's readings; nothing else depends on it.
-//! `results`: a batch's scheme ledger, decision rules and claims, each with its check level.
+//! `results`: a batch's scheme ledger, decision rules and claims, each with its check level;
+//! `accuracy` estimates each reader's error rate from how often readers agree.
 //! `figures`: checks that figures cited in markdown still appear in the files they cite.
 
+pub mod accuracy;
 pub mod audit;
 pub mod data;
 pub mod document;
