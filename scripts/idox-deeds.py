@@ -122,6 +122,10 @@ def find_key_val(sess, ref):
     if m:
         return m.group(1), ""
     body = text(page)
+    # Southwark shows the application itself (no redirect) when exactly one matches.
+    m = re.search(r"activeTab=summary&(?:amp;)?keyVal=([A-Z0-9]+)", body)
+    if m and 'id="searchresults"' not in body:
+        return m.group(1), ""
     # Results list: keep entries whose shown reference is exactly ours.
     hits = []
     for li in re.findall(r'(?s)<li class="searchresult">.*?</li>', body):
