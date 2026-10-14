@@ -41,6 +41,19 @@ pub const STATUSES: [&str; 8] = [
 /// is never a label.
 pub const MACHINE: &str = "machine:";
 
+/// How a person arrived at a label (the optional `method` column; empty means `read`):
+/// `read` and `blind` are independent readings of the source; `audited` and `corrected` are
+/// decisions on a shown proposal and its evidence, so they are anchored on the proposal.
+pub const METHODS: [&str; 4] = ["read", "blind", "audited", "corrected"];
+
+/// The two kinds of label the accuracy tables keep apart.
+pub fn label_kind(method: &str) -> &'static str {
+    match method {
+        "audited" | "corrected" => "anchored",
+        _ => "independent",
+    }
+}
+
 const REQUIRED: [&str; 8] = [
     "scheme",
     "variable_id",
@@ -64,6 +77,8 @@ pub struct Reading {
     pub labeller: String,
     pub labelled_on: String,
     pub minutes: Option<u32>,
+    /// one of [`METHODS`] for a label; empty for a machine reading
+    pub method: String,
     /// `<file>:<line>` for a label; what it was read from for a machine reading
     pub origin: String,
 }
@@ -146,9 +161,48 @@ pub fn load(dir: &Path) -> Result<(Vec<Reading>, Vec<Rejected>)> {
     let mut rejected = vec![];
     for f in &files {
         let name = f.strip_prefix(dir).unwrap_or(f).display().to_string();
-        load_file(f, &name, &mut readings, &mut rejected)?;
+        load_file(f, &name, false, &mut readings, &mut rejected)?;
     }
     Ok((readings, rejected))
+}
+
+/// Every `*.csv` under `<root>/proposals/`: an agent's proposed labels, in the codebook's columns,
+/// signed `machine:<producer>`. They are scored like any other machine reading and are never
+/// labels. A missing directory is no proposals.
+pub fn proposals(root: &Path) -> Result<(Vec<Reading>, Vec<Rejected>)> {
+    let dir = root.join("proposals");
+    let mut files = vec![];
+    collect_csv(&dir, &mut files)?;
+    files.sort();
+    let mut readings = vec![];
+    let mut rejected = vec![];
+    for f in &files {
+        let name = format!("proposals/{}", f.strip_prefix(&dir).unwrap_or(f).display());
+        load_file(f, &name, true, &mut readings, &mut rejected)?;
+    }
+    Ok((readings, rejected))
+}
+
+fn proposal_problem(r: &Reading) -> Option<String> {
+    if r.scheme.is_empty() || r.variable_id.is_empty() || r.source.is_empty() {
+        return Some("scheme, variable_id and source are all needed".into());
+    }
+    if !STATUSES.contains(&r.status.as_str()) {
+        return Some(format!("status `{}` is not in the codebook", r.status));
+    }
+    if !r.labeller.starts_with(MACHINE) {
+        return Some(format!(
+            "a proposal is signed `{MACHINE}<producer>`, not `{}`",
+            r.labeller
+        ));
+    }
+    if !r.method.is_empty() {
+        return Some("a proposal has no method; that column is for labels".into());
+    }
+    if r.status == "found" && r.value.is_empty() {
+        return Some("status found but no value".into());
+    }
+    None
 }
 
 fn collect_csv(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
@@ -166,9 +220,12 @@ fn collect_csv(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
     Ok(())
 }
 
+/// `proposals` reads a proposals file (see [`proposals`]) instead of a submission: the rows must
+/// be signed `machine:` and carry no `method`.
 fn load_file(
     path: &Path,
     name: &str,
+    proposals: bool,
     readings: &mut Vec<Reading>,
     rejected: &mut Vec<Rejected>,
 ) -> Result<()> {
@@ -214,12 +271,21 @@ fn load_file(
             labeller: get("labeller"),
             labelled_on: get("labelled_on"),
             minutes: get("minutes").parse().ok(),
+            method: match get("method").to_lowercase() {
+                m if m.is_empty() && !proposals => "read".into(),
+                m => m,
+            },
             origin: origin.clone(),
         };
         if reading.status.is_empty() {
             continue;
         }
-        match problem(&reading) {
+        let problem = if proposals {
+            proposal_problem(&reading)
+        } else {
+            problem(&reading)
+        };
+        match problem {
             Some(reason) => rejected.push(Rejected { origin, reason }),
             None => readings.push(reading),
         }
@@ -239,6 +305,13 @@ fn problem(r: &Reading) -> Option<String> {
     }
     if r.labeller.starts_with(MACHINE) {
         return Some("a machine reading is not a label".into());
+    }
+    if !METHODS.contains(&r.method.as_str()) {
+        return Some(format!(
+            "method `{}` is not one of {}",
+            r.method,
+            METHODS.join(", ")
+        ));
     }
     if chrono::NaiveDate::parse_from_str(&r.labelled_on, "%Y-%m-%d").is_err() {
         return Some(format!(
@@ -333,6 +406,7 @@ fn deed_readings(root: &Path, model: &str, out: &mut Vec<Reading>, notes: &mut V
                 labeller: labeller.clone(),
                 labelled_on: String::new(),
                 minutes: None,
+                method: String::new(),
                 origin: origin.clone(),
             };
             out.push(reading("V1", deed_v1(&a.housing), "units"));
@@ -460,6 +534,7 @@ fn datahub_readings(root: &Path, out: &mut Vec<Reading>, notes: &mut Vec<String>
                 labeller: labeller.clone(),
                 labelled_on: String::new(),
                 minutes: None,
+                method: String::new(),
                 origin: d.snapshot.path.clone(),
             });
         }
@@ -510,6 +585,8 @@ pub struct Coverage {
     pub schemes: usize,
     pub labellers: Vec<String>,
     pub by_status: BTreeMap<String, usize>,
+    /// current labels per method (`read`, `blind`, `audited`, `corrected`)
+    pub by_method: BTreeMap<String, usize>,
     pub minutes: u32,
 }
 
@@ -551,6 +628,8 @@ pub struct Accuracy {
     pub producer: String,
     pub variable_id: String,
     pub source: String,
+    /// `independent` (labels read or blind) or `anchored` (audited or corrected proposals)
+    pub labels: &'static str,
     /// labelled cells the pipeline also read
     pub cells: usize,
     /// cells left out: the label or the reading is ambiguous, inconsistent, or the source wasn't read
@@ -604,8 +683,10 @@ pub fn report(
         by_cell.entry(r.cell()).or_default().push(r);
     }
     let mut by_status = BTreeMap::new();
+    let mut by_method = BTreeMap::new();
     for r in &current {
         *by_status.entry(r.status.clone()).or_insert(0) += 1;
+        *by_method.entry(r.method.clone()).or_insert(0) += 1;
     }
     let labels = Coverage {
         rows: submitted.len(),
@@ -622,6 +703,7 @@ pub fn report(
             .into_iter()
             .collect(),
         by_status,
+        by_method,
         minutes: current.iter().filter_map(|r| r.minutes).sum(),
     };
     let settled = settle(&by_cell);
@@ -815,18 +897,23 @@ fn accuracy(
     by_cell: &BTreeMap<Cell, Vec<&Reading>>,
     machine: &[Reading],
 ) -> Vec<Accuracy> {
-    let mut out: BTreeMap<(String, String, String), Accuracy> = BTreeMap::new();
+    let mut out: BTreeMap<(String, String, String, &str), Accuracy> = BTreeMap::new();
     for m in machine {
         let cell = m.cell();
-        if !by_cell.contains_key(&cell) {
+        let Some(labels) = by_cell.get(&cell) else {
             continue; // nobody has labelled this cell yet
-        }
+        };
+        // Labellers who disagree on the kind are a split cell; the settled label decides below.
+        let kind = settled
+            .get(&cell)
+            .map_or_else(|| label_kind(&labels[0].method), |l| label_kind(&l.method));
         let a = out
-            .entry((m.labeller.clone(), cell.1.clone(), cell.2.clone()))
+            .entry((m.labeller.clone(), cell.1.clone(), cell.2.clone(), kind))
             .or_insert_with(|| Accuracy {
                 producer: m.labeller.clone(),
                 variable_id: cell.1.clone(),
                 source: cell.2.clone(),
+                labels: kind,
                 cells: 0,
                 not_scored: 0,
                 true_pos: 0,
@@ -929,6 +1016,14 @@ pub fn markdown(r: &Report) -> String {
             s.push_str(&format!("| {k} | {v} |\n"));
         }
         s.push('\n');
+        s.push_str(
+            "By method (`read` and `blind` are independent readings; `audited` and `corrected` \
+             are decisions on a shown proposal, so anchored on it):\n\n| method | labels |\n|---|---|\n",
+        );
+        for (k, v) in &c.by_method {
+            s.push_str(&format!("| {k} | {v} |\n"));
+        }
+        s.push('\n');
     }
     if !r.rejected.is_empty() {
         s.push_str("## Rows not used\n\n");
@@ -945,16 +1040,21 @@ pub fn markdown(r: &Report) -> String {
         s.push_str(
             "Field by field (`total`, `SR`, `share`, `basis`, ...). Cells where labellers disagree \
              or a source wasn't read are not scored. `basis` counts only where the label states \
-             one. The Datahub mapping's V8 scores the completion date only.\n\n\
-             | producer | variable | source | cells | not scored | precision | recall |\n\
-             |---|---|---|---|---|---|---|\n",
+             one. The Datahub mapping's V8 scores the completion date only. `labels` says what \
+             the row rests on: `independent` labels were read without seeing a proposal; \
+             `anchored` ones are confirmations or corrections of a shown proposal, so a \
+             `machine:proposal/...` row against anchored labels is how often the person changed \
+             the proposal, not an independent accuracy.\n\n\
+             | producer | variable | source | labels | cells | not scored | precision | recall |\n\
+             |---|---|---|---|---|---|---|---|\n",
         );
         for a in &r.accuracy {
             s.push_str(&format!(
-                "| {} | {} | {} | {} | {} | {} | {} |\n",
+                "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
                 a.producer,
                 a.variable_id,
                 a.source,
+                a.labels,
                 a.cells,
                 a.not_scored,
                 rate(&a.precision),
@@ -963,7 +1063,10 @@ pub fn markdown(r: &Report) -> String {
         }
         s.push('\n');
         for a in r.accuracy.iter().filter(|a| !a.errors.is_empty()) {
-            s.push_str(&format!("{} {} {}:\n", a.producer, a.variable_id, a.source));
+            s.push_str(&format!(
+                "{} {} {} ({} labels):\n",
+                a.producer, a.variable_id, a.source, a.labels
+            ));
             for e in &a.errors {
                 s.push_str(&format!("- {e}\n"));
             }
@@ -1039,8 +1142,11 @@ pub fn markdown(r: &Report) -> String {
 /// Read every submission under `<root>/labels/`, score the pipeline's readings against them,
 /// and write `<root>/reports/labels/labels.{md,json}`. Never fails for want of labels.
 pub fn run(root: &Path, model: &str) -> Result<Report> {
-    let (submitted, rejected) = load(&root.join("labels"))?;
-    let (machine, notes) = machine_readings(root, model);
+    let (submitted, mut rejected) = load(&root.join("labels"))?;
+    let (mut machine, notes) = machine_readings(root, model);
+    let (proposed, bad) = proposals(root)?;
+    machine.extend(proposed);
+    rejected.extend(bad);
     let r = report(&submitted, rejected, &machine, notes);
     let dir = root.join("reports/labels");
     std::fs::create_dir_all(&dir)?;
