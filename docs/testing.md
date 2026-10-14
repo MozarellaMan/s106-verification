@@ -72,7 +72,7 @@ lets ONNX Runtime load at run time (the container cannot reach its build-time do
 
 Default `cargo test` (debug), tiers 1-2: 131 s from an empty `target/` (almost all compiling
 dependencies; 146 s before, with no replay tests), 19 s after touching `src/verify.rs`, 2.6 s with
-nothing changed. The test binaries themselves take about 1.5 s in debug, of which tier 2 is about 1 s (0.2 s in a release build). Tests in the default run: 113, up from 108 (the frozen Python comparison and four replay tests joined it); 4 are ignored real-PDF tests, previously 3.
+nothing changed. The test binaries themselves take about 1.5 s in debug, of which tier 2 is about 1 s (0.2 s in a release build).
 
 A warm page-text load no longer opens the PDF in PDFium: it hashes the file and reads the cached
 pages. OCR of one page at a time costs about 4% more than batches of six.
