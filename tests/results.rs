@@ -141,7 +141,7 @@ fn labels_outrank_proposals_and_later_proposal_files_win() {
 fn rule1_compares_report_and_deed_tenures() {
     let root = tempfile::tempdir().unwrap();
     let p = root.path();
-    sheet(p, &["EX/1", "EX/2", "EX/3", "EX/4"]);
+    sheet(p, &["EX/1", "EX/2", "EX/3", "EX/4", "EX/5"]);
     let rows = [
         proposal(
             "EX/1",

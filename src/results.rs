@@ -335,8 +335,9 @@ fn shown(m: &BTreeMap<String, String>) -> String {
 
 /// Rule 1: the committee report states the affordable quantity, its tenure split and its
 /// measurement basis, and all three equal the original executed deed. Quantity and split are
-/// read from V1's affordable tenures, the basis from V1's basis; where both V2 readings state a
-/// split or a basis, those must agree too. A report not in hand is left out.
+/// read from V1's affordable tenures and V1's basis; a share split or basis (V2) that either side
+/// states must be stated equally by the other, or the scheme is indeterminate. A report not in
+/// hand is left out.
 fn rule1(cells: &Cells, schemes: &[String]) -> Vec<SchemeOutcome> {
     schemes
         .iter()
@@ -409,19 +410,34 @@ fn rule1(cells: &Cells, schemes: &[String]) -> Vec<SchemeOutcome> {
                     df.get("basis").map_or("none", |b| b)
                 ));
             }
-            if let (Some(r2), Some(d2)) = (r2, d2)
-                && r2.status == "found"
-                && d2.status == "found"
-            {
-                used.extend([Some(r2), Some(d2)]);
-                let (rf2, df2) = (r2.fields(), d2.fields());
-                for k in ["split", "basis"] {
-                    if let (Some(a), Some(b)) = (rf2.get(k), df2.get(k))
-                        && a != b
-                    {
-                        differ.push(format!("V2 {k}: report {a}, deed {b}"));
+            // The share's split and basis (V2). Each side must state what the other states: a
+            // split or basis only one side gives can't be shown equal, so the scheme is
+            // indeterminate, not a match. With no share on either side, V1's counts and basis
+            // stand for the split and basis.
+            used.extend([r2, d2]);
+            let stated = |c: Option<&Entry>, k: &str| {
+                c.filter(|c| c.status == "found")
+                    .and_then(|c| c.fields().get(k).cloned())
+                    .filter(|v| v != "not_stated")
+            };
+            let share = stated(r2, "share").is_some() || stated(d2, "share").is_some();
+            let mut unshown = vec![];
+            for k in ["split", "basis"] {
+                match (stated(r2, k), stated(d2, k)) {
+                    (Some(a), Some(b)) if a != b => {
+                        differ.push(format!("V2 {k}: report {a}, deed {b}"))
                     }
+                    (Some(_), Some(_)) => {}
+                    (Some(a), None) => unshown.push(format!("deed states no V2 {k} (report {a})")),
+                    (None, Some(b)) => unshown.push(format!("report states no V2 {k} (deed {b})")),
+                    (None, None) if k == "basis" && share => {
+                        unshown.push("a share is stated but neither side gives its basis".into())
+                    }
+                    (None, None) => {}
                 }
+            }
+            if differ.is_empty() && !unshown.is_empty() {
+                return out(Outcome::Indeterminate, unshown.join("; "), used);
             }
             if differ.is_empty() {
                 out(
@@ -610,7 +626,7 @@ pub fn rules(ledger: &[Entry]) -> Vec<Rule> {
         rule(
             "1",
             "Offer record from reports: the committee report's affordable quantity, split and basis equal the deed's",
-            "all but one of the schemes counted (7 of 8; a report not in hand is left out; the all-but-one reading with schemes left out is pending Ayo)",
+            "7 of 8; with schemes left out, all but one of those counted is an agent restatement pending Ayo's decision",
             rule1(&cells, &schemes),
             |n| n.saturating_sub(1),
         ),
