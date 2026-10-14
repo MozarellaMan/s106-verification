@@ -337,6 +337,36 @@ fn unrecognised_or_missing_tenure_blocks_tenure_counts_but_not_the_total() {
 }
 
 #[test]
+fn unnamed_intermediate_counts_as_affordable_but_not_as_a_named_product() {
+    // PLD's "Intermediate Other": intermediate homes whose product isn't recorded.
+    let d = delivery(84, &[(SR, 24), (INT, 12)], true);
+    let r = run(&[original()], d.clone());
+    assert_eq!(
+        row(&r, &Measure::AffordableUnits).status,
+        RowStatus::CountsMatch
+    );
+    assert_eq!(
+        row(&r, &Measure::TenureUnits { tenure: SR }).status,
+        RowStatus::CountsMatch
+    );
+    // The deed's Shared Ownership may or may not be those 12 homes: neither short nor extra.
+    let so = row(&r, &Measure::TenureUnits { tenure: SO });
+    assert_eq!(so.status, RowStatus::Indeterminate);
+    assert_eq!(so.cause, Some(Cause::UnknownTenure));
+    assert!(so.delivered.basis.contains("without a named product"));
+    assert!(!r.rows.iter().any(|x| x.label.ends_with("(not in deed)")));
+
+    // A deed that says "Intermediate" counts them.
+    let mut a = original();
+    a.housing.tenures[1].tenure = INT;
+    let r = run(&[a], d);
+    assert_eq!(
+        row(&r, &Measure::TenureUnits { tenure: INT }).status,
+        RowStatus::CountsMatch
+    );
+}
+
+#[test]
 fn duplicates_in_one_deed_merge_or_conflict() {
     let mut a = original();
     let mut again = highways_contribution("45000");
@@ -481,6 +511,14 @@ fn pld_tenures_and_values_are_read_strictly() {
         pld_unit_tenure(Some("social rent")),
         UnitTenure::Affordable(SR)
     );
+    assert_eq!(
+        pld_unit_tenure(Some("Intermediate Other")),
+        UnitTenure::Affordable(INT)
+    );
+    assert_eq!(
+        pld_unit_tenure(Some("Affordable Rent (not at LAR benchmark rents)")),
+        UnitTenure::Affordable(Tenure::AffordableRent)
+    );
     assert_eq!(pld_unit_tenure(None), UnitTenure::Missing);
     assert_eq!(pld_unit_tenure(Some(" ")), UnitTenure::Missing);
 
@@ -493,6 +531,17 @@ fn pld_tenures_and_values_are_read_strictly() {
     let d = delivery_from_pld(&s, at.clone()).unwrap();
     assert_eq!(d.permitted.total_units, Some(120));
     assert_eq!(d.scheme_complete, Some(true));
+    // Southwark says "Commenced" where others say "Started"; "Lapsed" stays unknown.
+    s.response["status"] = "Commenced".into();
+    assert_eq!(
+        delivery_from_pld(&s, at.clone()).unwrap().scheme_complete,
+        Some(false)
+    );
+    s.response["status"] = "Lapsed".into();
+    assert_eq!(
+        delivery_from_pld(&s, at.clone()).unwrap().scheme_complete,
+        None
+    );
     // A field the mapping needs going missing is an error, not a quiet "indeterminate".
     let mut s = snap.clone();
     rd(&mut s.response)

@@ -36,7 +36,7 @@ use crate::verify::{Input, PCT_TOLERANCE, grounding_problem};
 
 pub const RECONCILE_VERSION: &str = "3";
 /// Version of `delivery_from_pld`'s reading of PLD application records.
-pub const PLD_MAPPING_VERSION: &str = "1";
+pub const PLD_MAPPING_VERSION: &str = "2";
 
 // --------------------------------------------------------------------------- obligations
 
@@ -556,6 +556,17 @@ impl Delivery {
             }
             Measure::AffordableUnits => self.count("affordable", affordable, false),
             Measure::AffordableHabitableRooms => self.count("affordable", affordable, true),
+            Measure::TenureUnits { tenure } | Measure::TenureHabitableRooms { tenure }
+                if self.unnamed_intermediate(*tenure) > 0 =>
+            {
+                Counted::none(
+                    Cause::UnknownTenure,
+                    format!(
+                        "{} completed unit record(s) are intermediate without a named product",
+                        self.unnamed_intermediate(*tenure)
+                    ),
+                )
+            }
             Measure::TenureUnits { tenure } => self.count(
                 tenure.label(),
                 |t| matches!(t, UnitTenure::Affordable(d) if covers(*tenure, *d)),
@@ -616,11 +627,25 @@ impl Delivery {
     }
 
     /// Completed affordable units whose tenure no deed tenure covers.
+    /// Completed units PLD records only as Intermediate, when the deed names an intermediate
+    /// product: they may or may not be that product, so they can't be counted for or against it.
+    fn unnamed_intermediate(&self, deed: Tenure) -> usize {
+        if deed == Tenure::Intermediate || !covers(Tenure::Intermediate, deed) {
+            return 0;
+        }
+        self.completed()
+            .filter(|u| u.tenure == UnitTenure::Affordable(Tenure::Intermediate))
+            .count()
+    }
+
     fn uncovered(&self, deed_tenures: &[Tenure]) -> BTreeMap<Tenure, usize> {
         let mut out = BTreeMap::new();
         for u in self.completed() {
             if let UnitTenure::Affordable(d) = u.tenure
                 && !deed_tenures.iter().any(|t| covers(*t, d))
+                // unnamed intermediate homes may be the deed's named intermediate product
+                && !(d == Tenure::Intermediate
+                    && deed_tenures.iter().any(|t| covers(Tenure::Intermediate, *t)))
             {
                 *out.entry(d).or_default() += 1;
             }
@@ -718,7 +743,13 @@ fn pld_count<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<u32, D::Err
 }
 
 /// A PLD unit record's `tenure` string. Market tenures are market; an affordable tenure is
-/// recognised only when it is spelled exactly as a deed tenure; anything else is kept verbatim.
+/// recognised when it is spelled exactly as a deed tenure, or is one of PLD's own labels below;
+/// anything else is kept verbatim.
+///
+/// * "Affordable Rent (not at LAR benchmark rents)" is Affordable Rent.
+/// * "Intermediate Other" is an intermediate home whose product PLD doesn't say, so it is the
+///   umbrella Intermediate: it counts towards a deed's Intermediate, and leaves a deed's named
+///   intermediate product (Shared Ownership, say) indeterminate rather than short.
 pub fn pld_unit_tenure(raw: Option<&str>) -> UnitTenure {
     use Tenure::*;
     let Some(raw) = raw.map(str::trim).filter(|s| !s.is_empty()) else {
@@ -726,6 +757,12 @@ pub fn pld_unit_tenure(raw: Option<&str>) -> UnitTenure {
     };
     if raw.eq_ignore_ascii_case("Market for sale") || raw.eq_ignore_ascii_case("Market for rent") {
         return UnitTenure::Market;
+    }
+    if raw.eq_ignore_ascii_case("Affordable Rent (not at LAR benchmark rents)") {
+        return UnitTenure::Affordable(AffordableRent);
+    }
+    if raw.eq_ignore_ascii_case("Intermediate Other") {
+        return UnitTenure::Affordable(Intermediate);
     }
     [
         SocialRent,
@@ -759,8 +796,8 @@ fn pld_date(field: &str, v: &Option<String>) -> Result<Option<NaiveDate>> {
 
 /// Build `Delivery` from one saved `applications/_source/<id>` snapshot.
 ///
-/// * Scheme complete only when `status` is "Completed"; "Started" / "Not started" mean not yet;
-///   any other status leaves it unknown. Case is ignored.
+/// * Scheme complete only when `status` is "Completed"; "Started", "Commenced" and "Not started"
+///   mean not yet; any other status (including "Lapsed") leaves it unknown. Case is ignored.
 /// * Permission figures are the `total_no_proposed_*` fields. Market = for sale + for rent.
 /// * Units are `residential_units` with `change_type` "Gain" (losses of existing homes are not
 ///   delivery). PLD unit records carry bedrooms, not habitable rooms, so `habitable_rooms` is
@@ -776,7 +813,11 @@ pub fn delivery_from_pld(snap: &Snapshot, at: SnapshotRef) -> Result<Delivery> {
     let status = app.status.clone();
     let scheme_complete = match status.as_deref().map(str::trim) {
         Some(s) if s.eq_ignore_ascii_case("completed") => Some(true),
-        Some(s) if s.eq_ignore_ascii_case("started") || s.eq_ignore_ascii_case("not started") => {
+        Some(s)
+            if ["started", "commenced", "not started"]
+                .iter()
+                .any(|w| s.eq_ignore_ascii_case(w)) =>
+        {
             Some(false)
         }
         _ => None,
