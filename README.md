@@ -41,6 +41,7 @@ src/
   pld.rs        read-only Planning London Datahub client; saves raw snapshots under <data>/snapshots/pld/
   reconcile.rs  obligation events vs PLD delivery, one row per measure, with a status per row
   ocrbench.rs   OCR scored against gold transcriptions (`gold/*.json` in the data repository)
+  labels.rs     scored against human labels (`labels/` in the data repository)
 ```
 
 ## Setup
@@ -120,6 +121,7 @@ s106 eval --replay --pages data/pages                              # the same fr
 s106 pages <pdf>... --check data/pages                             # read PDFs afresh and compare with the snapshots
 s106 eval --runs 3                                                 # live, three runs per deed (run-to-run agreement)
 s106 bench-ocr data/gold/<gold>.json data/raw/<id>.pdf --models ppocrv5-en-mobile,ppocrv4-mobile
+s106 labels                                                        # score everything against the human labels
 ```
 
 (`cargo run --release --` instead of `s106` without installing.)
@@ -132,6 +134,22 @@ schema for everything compiles to a grammar the API rejects, and the PDF can't b
 calls whose schemas differ. With Haiku 5.5 a 30-page deed costs a few cents; a 109-page scan
 costs about $0.30. Escalation to Opus 5.5 costs more and only runs with
 `--escalate`.
+
+## Human labels
+
+A person's reading of a source is the only ground truth here; everything else is the pipeline
+agreeing with itself. Labels are a separate layer that nothing else waits for. A labeller saves a
+filled-in sheet (the source-audit codebook's columns, signed with `labeller` and `labelled_on`)
+as a new file under `labels/` in the data repository, and `s106 labels` reads every file there and
+writes `reports/labels/labels.{md,json}`:
+
+- the pipeline's readings (recorded deed extractions, Datahub snapshots) scored field by field
+  against the labels: precision and recall with their n and a 95% interval;
+- labellers against each other where two labelled the same cell (agreement and Cohen's kappa);
+- sources against each other (deed, committee report, GLA report, Datahub, EPC).
+
+With no labels it says so and succeeds. Submissions are append-only: a correction is a new file,
+and the latest `labelled_on` per labeller and cell wins. A row signed `machine:` is refused.
 
 ## Outcomes
 

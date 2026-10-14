@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 
 use s106::document::{self, OcrModels, Snapshot};
 use s106::extract::{self, Mode};
-use s106::{eval, llm, ocrbench, pld, reconcile, report, verify};
+use s106::{eval, labels, llm, ocrbench, pld, reconcile, report, verify};
 
 #[derive(Parser)]
 #[command(
@@ -112,6 +112,13 @@ enum Cmd {
         /// (snapshots/pld/applications/<id>/<time>.json)
         #[arg(long)]
         pld: Option<PathBuf>,
+        #[arg(long, default_value = llm::DEFAULT_MODEL)]
+        model: String,
+    },
+    /// Score the pipeline and the sources against whatever human labels are in <data>/labels/.
+    /// Writes <data>/reports/labels/labels.{md,json}; with no labels it says so and succeeds.
+    Labels {
+        /// the recorded extractions to score
         #[arg(long, default_value = llm::DEFAULT_MODEL)]
         model: String,
     },
@@ -362,6 +369,16 @@ fn main() -> Result<()> {
                 serde_json::to_string_pretty(&r)?,
             )?;
             std::fs::write(dir.join(format!("{name}.reconcile.md")), md)?;
+            Ok(())
+        }
+        Cmd::Labels { model } => {
+            let root = s106::data::root();
+            let r = labels::run(&root, &model)?;
+            println!("{}", labels::markdown(&r));
+            eprintln!(
+                "wrote {}",
+                root.join("reports/labels/labels.{md,json}").display()
+            );
             Ok(())
         }
     }
