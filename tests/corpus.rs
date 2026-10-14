@@ -16,10 +16,14 @@ use s106::document::{self, Config};
 #[test]
 #[ignore = "needs the corpus and runtime artifacts; minutes on a cold cache: cargo test --release --test corpus -- --ignored"]
 fn every_snapshot_reproduces_from_its_pdf() {
-    let cfg = Config::from_env(&root());
     let mut problems = vec![];
     for deed in corpus() {
         require_pdf(&deed.pdf);
+        let snap = snapshot(&deed.id);
+        // each snapshot is reproduced with the model set it records
+        let cfg = Config::from_env(&root())
+            .with_models_of(&snap.producer)
+            .unwrap();
         let t0 = std::time::Instant::now();
         let doc = document::load(&deed.pdf, &cfg, false).unwrap();
         eprintln!(
@@ -30,8 +34,7 @@ fn every_snapshot_reproduces_from_its_pdf() {
             t0.elapsed().as_secs_f64()
         );
         problems.extend(
-            snapshot(&deed.id)
-                .compare_document(&doc)
+            snap.compare_document(&doc)
                 .into_iter()
                 .map(|d| format!("{} {d}", deed.id)),
         );

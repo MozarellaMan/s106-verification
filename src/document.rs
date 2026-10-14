@@ -87,7 +87,9 @@ impl Producer {
     }
 }
 
-/// The OCR models, chosen by score against the agent-transcribed gold set (see README).
+/// The OCR models. The default, PP-OCRv6 tiny, is about 2.6x faster than PP-OCRv5 mobile on
+/// scanned deeds with about the same accuracy (docs/ocr-speed.md); snapshots made with another set
+/// record it in their producer and are checked with it.
 #[derive(Debug, Clone)]
 pub struct OcrModels {
     pub det: PathBuf,
@@ -99,7 +101,7 @@ pub struct OcrModels {
 
 impl OcrModels {
     pub fn default_in(models_dir: &Path) -> OcrModels {
-        Self::named("ppocrv5-en-mobile", models_dir).expect("default model set")
+        Self::named("ppocrv6-tiny", models_dir).expect("default model set")
     }
 
     /// The model sets fetched by scripts/fetch-models.sh.
@@ -154,7 +156,7 @@ pub struct Config {
 impl Config {
     /// Defaults: `models/` in the repository and `interim/ocr/` in the data checkout.
     /// `S106_MODELS` and `S106_OCR_CACHE` override them; `S106_OCR_WORKERS` sets `ocr_workers`;
-    /// `S106_OCR_MODELS` names another model set (opt-in; its page text has its own cache key).
+    /// `S106_OCR_MODELS` names another model set (its page text has its own cache key).
     pub fn from_env(repo_root: &Path) -> Config {
         let models_dir = std::env::var_os("S106_MODELS")
             .map(PathBuf::from)
@@ -178,6 +180,13 @@ impl Config {
             ocr,
             ocr_workers,
         }
+    }
+
+    /// This configuration with the model set named by `producer`, to reproduce or check a snapshot
+    /// made with it. None for a model set this version does not know.
+    pub fn with_models_of(mut self, producer: &Producer) -> Option<Config> {
+        self.ocr = OcrModels::named(&producer.ocr_models, &self.models_dir)?;
+        Some(self)
     }
 
     /// Everything that produces page text, with the pinned SHA-256 of each runtime artifact.
