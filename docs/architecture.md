@@ -133,6 +133,8 @@ grounding rules.
 | `eval.rs`, `ocrbench.rs` | Register comparison/run agreement; OCR against transcribed gold |
 | `pld.rs`, `reconcile.rs` | Layer B: Datahub snapshots; obligations vs delivery (see `docs/reconciliation.md`) |
 | `labels.rs` | Human labels scored against the pipeline's readings; nothing else depends on it |
+| `results.rs` | `run`: a batch's scheme ledger, decision rules and claims, each with its check level (`s106 results`) |
+| `explore.rs` | `bake`: Datahub-only data for the results explorer in `explorer/` (`s106 explore`) |
 
 The coupling is deliberate: wire and verifier both use the domain enums, so the
 vocabulary is defined once. Extraction depends on verification only for escalation;
