@@ -30,8 +30,8 @@ pub struct Sources {
     pub results: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unmatched: Vec<String>,
-    /// Public builds with deed figures: the results folder whose checked deed cells were added.
-    /// Only cells read from the deed and checked by a person go in; no other source, no retrieval.
+    /// Public builds with deed figures: the results folder whose deed cells were added, each with
+    /// its check level. Only cells read from the deed go in; no other source, no retrieval.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deed_cells: Option<String>,
     /// the data repository's commit a build with ledger cells was made from

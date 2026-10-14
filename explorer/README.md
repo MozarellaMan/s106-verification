@@ -39,15 +39,16 @@ workflow never passes `--results`, and refuses to deploy data that carries readi
 
 ## Deed figures on the public site
 
-`--deed-cells results/<batch>` adds, from that results folder, only the cells read from the deed
-that a person has checked (anchored or independent), with their pages. Nothing else from the ledger
-goes in: no other source, no agent-only reading, no retrieval rows, no rule outcome or claim. The
-page says these are the obligations as first signed, not what is due today, and not findings.
+`--deed-cells results/<batch>` adds, from that results folder, every cell read from the deed, with
+its pages and its check level: unchecked agent readings are marked UNCHECKED and drawn dashed, and
+cells a person has checked stand apart. Nothing else from the ledger goes in: no other source, no
+retrieval rows, no rule outcome or claim. The page says these are transcriptions of the obligations
+as first signed, mostly not yet checked by a person, not what is due today, and not findings.
 
 ## Publish it
 
 `.github/workflows/explorer.yml` builds the site and deploys it to GitHub Pages. It only runs when
 started by hand (Actions → explorer → Run workflow), so merging a change never publishes anything.
-Its `deed_cells` input names a results folder whose checked deed figures to publish; left empty, the
+Its `deed_cells` input names a results folder whose deed figures to publish; left empty, the
 site carries Datahub figures only. A check before deploy refuses any other ledger cell.
 Pages must be set to "GitHub Actions" under Settings → Pages before the first run.

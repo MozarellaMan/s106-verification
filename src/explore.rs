@@ -62,7 +62,8 @@ pub struct Inputs {
     pub boundaries: PathBuf,
     /// a results folder (`results/<batch>`) whose `ledger.csv` to add: private builds only
     pub results: Option<PathBuf>,
-    /// a results folder whose checked deed cells (and nothing else) to add: fit to publish
+    /// a results folder whose deed cells (and nothing else) to add, each with its check level:
+    /// fit to publish
     pub deed_cells: Option<PathBuf>,
 }
 
@@ -132,7 +133,7 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
     let unmatched = match (&inputs.results, &inputs.deed_cells) {
         (Some(_), Some(_)) => bail!("a build takes either --results or --deed-cells, not both"),
         (Some(dir), None) => add_results(&root.join(dir), &mut sites, Keep::All)?,
-        (None, Some(dir)) => add_results(&root.join(dir), &mut sites, Keep::CheckedDeedCells)?,
+        (None, Some(dir)) => add_results(&root.join(dir), &mut sites, Keep::DeedCells)?,
         (None, None) => Vec::new(),
     };
     let from = inputs.results.as_ref().or(inputs.deed_cells.as_ref());
@@ -162,16 +163,16 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
 enum Keep {
     /// every ledger cell and retrieval row: a private build
     All,
-    /// only cells read from the deed that a person has checked, and no retrieval rows: the
-    /// public build's whitelist
-    CheckedDeedCells,
+    /// only cells read from the deed, at whatever check level, and no retrieval rows: the public
+    /// build's whitelist
+    DeedCells,
 }
 
 impl Keep {
     fn reading(self, r: &Reading) -> bool {
         match self {
             Keep::All => true,
-            Keep::CheckedDeedCells => r.source == "deed" && r.check >= Check::Anchored,
+            Keep::DeedCells => r.source == "deed",
         }
     }
 }
@@ -414,7 +415,7 @@ mod tests {
         assert_eq!(got[1].not_in_hand, None);
         assert!(bundle.sites[1].readings.is_empty());
 
-        // A public build keeps only deed cells a person has checked, and no retrieval rows.
+        // A public build keeps only deed cells (checked or not), and no retrieval rows.
         std::fs::write(
             root.join("results/ledger.csv"),
             "scheme,stage,variable_id,variable,source,status,value,basis,doc_ids,pages,check,reader,origin\n\
@@ -431,9 +432,15 @@ mod tests {
         let bundle = bake(root, &public).unwrap();
         assert_eq!(bundle.sources.results, None);
         assert_eq!(bundle.sources.deed_cells.as_deref(), Some("results"));
-        assert!(bundle.sources.unmatched.is_empty(), "9 has nothing to show");
+        assert_eq!(
+            bundle.sources.unmatched,
+            ["9"],
+            "9's deed cell matches no site"
+        );
         let r = &bundle.sites[0].readings;
-        assert_eq!(r.len(), 1);
+        assert_eq!(r.len(), 2, "both deed cells, not the committee report's");
+        assert!(r.iter().all(|r| r.source == "deed"));
+        assert_eq!(r[1].check, Check::Proposed);
         assert_eq!(
             (r[0].source.as_str(), r[0].check),
             ("deed", Check::Anchored)

@@ -163,7 +163,8 @@ enum Cmd {
         /// a results folder (e.g. results/2026-10-14-batch1) whose ledger readings to add
         #[arg(long, conflicts_with = "deed_cells")]
         results: Option<PathBuf>,
-        /// a results folder whose checked deed cells (only) to add, for the public site
+        /// a results folder whose deed cells (only, each with its check level) to add, for the
+        /// public site
         #[arg(long)]
         deed_cells: Option<PathBuf>,
         #[arg(long, default_value = "explorer/data")]
@@ -600,7 +601,7 @@ fn main() -> Result<()> {
                 let cells: usize = bundle.sites.iter().map(|s| s.readings.len()).sum();
                 let read = bundle.sites.iter().filter(|s| !s.readings.is_empty());
                 eprintln!(
-                    "{cells} checked deed cells on {} schemes from {from} at data commit {}",
+                    "{cells} deed cells on {} schemes from {from} at data commit {}",
                     read.count(),
                     bundle.sources.data_commit.as_deref().unwrap_or("unknown"),
                 );
