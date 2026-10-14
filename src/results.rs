@@ -263,6 +263,22 @@ pub struct Rule {
     pub schemes: Vec<SchemeOutcome>,
 }
 
+impl Rule {
+    /// The verdict as the note states it. The rules were fixed to be applied to labels, so a
+    /// verdict resting on any cell below `anchored` is provisional pipeline output, never a finding.
+    pub fn verdict(&self) -> String {
+        let count = if self.met { "met" } else { "not met" };
+        if self.check >= Check::Anchored {
+            format!("{}{}", count[..1].to_uppercase(), &count[1..])
+        } else {
+            format!(
+                "Provisional, not a finding: on {} readings the count would be {count}",
+                self.check.as_str()
+            )
+        }
+    }
+}
+
 struct Cells<'a>(BTreeMap<Key, &'a Entry>);
 
 impl<'a> Cells<'a> {
@@ -594,7 +610,7 @@ pub fn rules(ledger: &[Entry]) -> Vec<Rule> {
         rule(
             "1",
             "Offer record from reports: the committee report's affordable quantity, split and basis equal the deed's",
-            "all but one of the schemes counted (7 of 8; a report not in hand is left out)",
+            "all but one of the schemes counted (7 of 8; a report not in hand is left out; the all-but-one reading with schemes left out is pending Ayo)",
             rule1(&cells, &schemes),
             |n| n.saturating_sub(1),
         ),
@@ -767,15 +783,17 @@ pub fn markdown(r: &Results) -> String {
         s += &format!("| {} | {} | {found} |\n", c.as_str(), all.len());
     }
 
-    s += "\n## Decision rules\n\nFixed before any value was read (the batch README). A verdict \
-          is a result only when its level is anchored or independent.\n";
+    s += "\n## Decision rules\n\nFixed before any value was read (the batch README), to be applied \
+          to human labels. Until every deciding cell is anchored or independent the counts below are \
+          provisional pipeline output on agent readings, not a finding about any scheme or about \
+          the rule.\n";
     for rule in &r.rules {
         s += &format!(
-            "\n### Rule {}: {}\n\n**{}** at the **{}** level: {} of {} schemes counted meet it, {} \
+            "\n### Rule {}: {}\n\n**{}** ({} level): {} of {} schemes counted meet it, {} \
              needed ({}); {} left out.\n\n| scheme | outcome | why | level |\n|---|---|---|---|\n",
             rule.id,
             rule.title,
-            if rule.met { "Met" } else { "Not met" },
+            rule.verdict(),
             rule.check.as_str(),
             rule.counts,
             rule.counted,

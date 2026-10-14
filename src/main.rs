@@ -540,10 +540,9 @@ fn main() -> Result<()> {
             let r = results::run(&root, &sheet, &out)?;
             for rule in &r.rules {
                 println!(
-                    "rule {}: {} at the {} level ({} of {} counted, {} needed)",
+                    "rule {}: {} ({} of {} counted, {} needed)",
                     rule.id,
-                    if rule.met { "met" } else { "not met" },
-                    rule.check.as_str(),
+                    rule.verdict(),
                     rule.counts,
                     rule.counted,
                     rule.needed
