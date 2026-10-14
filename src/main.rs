@@ -5,11 +5,9 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 
-use s106::document::{self, Document, OcrModels, Snapshot};
+use s106::document::{self, Document, Snapshot};
 use s106::extract::{self, Mode};
-use s106::{
-    eval, explore, figures, labels, llm, ocrbench, pld, reconcile, report, results, verify,
-};
+use s106::{eval, explore, figures, labels, llm, pld, reconcile, report, results, verify};
 
 #[derive(Parser)]
 #[command(
@@ -84,19 +82,6 @@ enum Cmd {
         /// compare with `<dir>/<stem>.pages.json` (every page, exactly); exit 1 on any difference
         #[arg(long)]
         check: Option<PathBuf>,
-    },
-    /// Score OCR model sets against a gold transcription file (only the gold pages are read).
-    BenchOcr {
-        /// a gold file (`gold/*.json` in the data repository)
-        gold: PathBuf,
-        /// the PDF the gold file describes
-        pdf: PathBuf,
-        /// model sets to compare (see document::OcrModels::named)
-        #[arg(long, value_delimiter = ',', default_value = "ppocrv6-tiny")]
-        models: Vec<String>,
-        /// print every gold line with its best match
-        #[arg(long)]
-        detail: bool,
     },
     /// Fetch Planning London Datahub records and save them verbatim under <data>/snapshots/pld/.
     Pld {
@@ -469,43 +454,6 @@ fn main() -> Result<()> {
                     "{differ} of {} documents differ from their snapshots",
                     pdfs.len()
                 );
-            }
-            Ok(())
-        }
-        Cmd::BenchOcr {
-            gold,
-            pdf,
-            models,
-            detail,
-        } => {
-            let g = ocrbench::Gold::load(&gold)?;
-            let sha = document::sha256_file(&pdf)?;
-            if sha != g.sha256 {
-                bail!(
-                    "{} does not match the gold file's document (sha256 {} vs {})",
-                    pdf.display(),
-                    sha,
-                    g.sha256
-                );
-            }
-            let pages = g.pages();
-            for name in models {
-                let mut cfg = document::Config::from_env(&repo_root());
-                cfg.ocr = OcrModels::named(&name, &cfg.models_dir)
-                    .ok_or_else(|| anyhow::anyhow!("unknown model set {name}"))?;
-                let t0 = std::time::Instant::now();
-                let doc = document::load_pages(&pdf, &cfg, Some(&pages), false)?;
-                let s = ocrbench::score(&g, &doc);
-                println!(
-                    "== {name} ({}; {:.1}s incl. cache)\n{s}",
-                    doc.text_source(),
-                    t0.elapsed().as_secs_f64()
-                );
-                if detail {
-                    for (p, sp, sq, gold, got) in &s.detail {
-                        println!("  p{p:<3} {sp:.3} {sq:.3}  {gold}\n                 got: {got}");
-                    }
-                }
             }
             Ok(())
         }

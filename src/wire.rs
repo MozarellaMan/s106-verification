@@ -156,7 +156,7 @@ pub struct WireVariation {
 }
 
 // One schema for everything compiles to an output grammar the API rejects as too large
-// (measured with examples/schema_probe.rs), so extraction is three calls over the same PDF.
+// (measured with a probe example removed in October 2026; see git history), so extraction is three calls over the same PDF.
 
 /// First call: what the instrument is, and what it varies.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

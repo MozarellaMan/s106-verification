@@ -108,25 +108,10 @@ impl OcrModels {
     /// The model sets fetched by scripts/fetch-models.sh.
     pub fn named(name: &str, models_dir: &Path) -> Option<OcrModels> {
         let (det, rec, dict) = match name {
-            "ppocrv4-mobile" => (
-                "pp-ocrv4_mobile_det.onnx",
-                "pp-ocrv4_mobile_rec.onnx",
-                "ppocr_keys_v1.txt",
-            ),
             "ppocrv5-en-mobile" => (
                 "pp-ocrv5_mobile_det.onnx",
                 "en_pp-ocrv5_mobile_rec.onnx",
                 "ppocrv5_en_dict.txt",
-            ),
-            "ppocrv5-latin-mobile" => (
-                "pp-ocrv5_mobile_det.onnx",
-                "latin_pp-ocrv5_mobile_rec.onnx",
-                "ppocrv5_latin_dict.txt",
-            ),
-            "ppocrv6-small" => (
-                "pp-ocrv6_small_det.onnx",
-                "pp-ocrv6_small_rec.onnx",
-                "ppocrv6_dict.txt",
             ),
             "ppocrv6-tiny" => (
                 "pp-ocrv6_tiny_det.onnx",

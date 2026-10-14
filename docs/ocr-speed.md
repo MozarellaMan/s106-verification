@@ -26,7 +26,7 @@ recognition cost grows with crop width.
 
 ## Model sets
 
-`s106 bench-ocr` on the gold pages, and the full 15-deed run:
+`s106 bench-ocr` (removed once PP-OCRv6 tiny became the default) on the gold pages, and the full 15-deed run:
 
 | Model set | 12 scanned pages | Gold lines exact | Gold facts | Printed page numbers |
 |---|---|---|---|---|

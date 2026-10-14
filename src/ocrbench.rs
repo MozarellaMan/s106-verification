@@ -138,8 +138,6 @@ pub struct Score {
     pub printed: usize,
     pub definitions_on_own_line: usize,
     pub definitions: usize,
-    /// one row per gold line: (page, cer_spaced, cer_squashed, gold, best match)
-    pub detail: Vec<(usize, f64, f64, String, String)>,
 }
 
 // Not `text::squash`: that keeps ASCII alphanumerics only (drops "£" and punctuation); the OCR
@@ -257,7 +255,6 @@ pub fn score(gold: &Gold, doc: &Document) -> Score {
         printed: 0,
         definitions_on_own_line: 0,
         definitions: gold.term_definitions.len(),
-        detail: vec![],
     };
     for gl in &gold.lines {
         let cands = candidates(gl.page);
@@ -265,20 +262,13 @@ pub fn score(gold: &Gold, doc: &Document) -> Score {
             &norm(&gl.text),
             &cands.iter().map(|c| norm(c)).collect::<Vec<_>>(),
         );
-        let (sq, i) = best_cer(
+        let (sq, _) = best_cer(
             &squash(&gl.text),
             &cands.iter().map(|c| squash(c)).collect::<Vec<_>>(),
         );
         s.mean_cer_spaced += sp;
         s.mean_cer_squashed += sq;
         s.exact_lines += usize::from(sq == 0.0);
-        s.detail.push((
-            gl.page,
-            sp,
-            sq,
-            gl.text.clone(),
-            cands.get(i).cloned().unwrap_or_default(),
-        ));
     }
     let n = gold.lines.len().max(1) as f64;
     s.mean_cer_spaced /= n;
