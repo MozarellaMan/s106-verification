@@ -6,6 +6,7 @@
 //! Layer B: `pld` (Planning London Datahub snapshots) and `reconcile` (obligations vs delivery).
 //! `labels`: human labels, scored against the pipeline's readings; nothing else depends on it.
 //! `results`: a batch's scheme ledger, decision rules and claims, each with its check level.
+//! `figures`: checks that figures cited in markdown still appear in the files they cite.
 
 pub mod audit;
 pub mod data;
@@ -14,6 +15,7 @@ pub mod eval;
 pub mod evidence;
 pub mod explore;
 pub mod extract;
+pub mod figures;
 pub mod labels;
 pub mod llm;
 pub mod ocrbench;

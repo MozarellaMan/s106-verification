@@ -134,6 +134,7 @@ s106 reconcile <deed>... --development <borough>-<reference> --pld snapshots/pld
 s106 labels                                                        # score everything against the human labels
 s106 results --sheet runs/<batch>/labels.csv --out results/<batch>  # a batch's ledger, rules and claims
 s106 explore                                                       # bake the results explorer's data (explorer/README.md)
+s106 check-figures                                                 # every 29.8%<!-- src: path --> still in its cited file
 ```
 
 (`cargo run --release --` instead of `s106` without installing.)
