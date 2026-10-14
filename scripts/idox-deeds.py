@@ -67,7 +67,7 @@ KINDS = [
 # Drafts, heads of terms and correspondence about an agreement are not the executed deed.
 NOT_DEED = re.compile(r"(?i)\bdraft\b|heads of terms|\bHoTs?\b|letter|e-?mail|correspondence|report|"
                       r"statement|viability|consultation|comments?|memo|monitoring|invoice|discharge|"
-                      r"enquiry|confirmation|notice|decision")
+                      r"enquiry|inqui?e?ry|confirmation|notice|decision")
 
 
 class Session:
