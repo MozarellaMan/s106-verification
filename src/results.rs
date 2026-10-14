@@ -1066,22 +1066,6 @@ pub fn markdown(r: &Results) -> String {
     s
 }
 
-/// A file in `proposals/` that holds no readings: one with a `proposal_id` column and no
-/// `labeller` column (the audit rule's routing and card lists), or `proposals/superseded.csv`.
-fn not_readings(root: &Path, origin: &str) -> bool {
-    if origin == "proposals/superseded.csv" {
-        return true;
-    }
-    let Ok(mut r) = csv::Reader::from_path(root.join(origin)) else {
-        return false;
-    };
-    let Ok(headers) = r.headers() else {
-        return false;
-    };
-    let has = |c: &str| headers.iter().any(|h| h.trim() == c);
-    has("proposal_id") && !has("labeller")
-}
-
 fn sha256(path: &Path) -> Result<String> {
     let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
     Ok(Sha256::digest(bytes)
@@ -1177,8 +1161,6 @@ pub fn run(
     let (submitted, mut rejected) = labels::load(&root.join("labels"))?;
     let (proposed, bad) = labels::proposals(root)?;
     rejected.extend(bad);
-    // the audit rule's routing and card lists, and `proposals/superseded.csv`, are not readings
-    rejected.retain(|x| !not_readings(root, &x.origin));
 
     let mut seen_schemes = BTreeSet::new();
     for s in seen {
