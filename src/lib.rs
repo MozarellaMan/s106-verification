@@ -5,6 +5,7 @@
 //! → `verify` (deterministic, evidence-grounded checks) → `report` / JSON.
 //! Layer B: `pld` (Planning London Datahub snapshots) and `reconcile` (obligations vs delivery).
 //! `labels`: human labels, scored against the pipeline's readings; nothing else depends on it.
+//! `results`: a batch's scheme ledger, decision rules and claims, each with its check level.
 
 pub mod audit;
 pub mod data;
@@ -19,6 +20,7 @@ pub mod pld;
 pub mod quantity;
 pub mod reconcile;
 pub mod report;
+pub mod results;
 pub mod schema;
 pub mod text;
 pub mod triggers;

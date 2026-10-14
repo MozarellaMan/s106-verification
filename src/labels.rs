@@ -77,6 +77,9 @@ pub struct Reading {
     pub labeller: String,
     pub labelled_on: String,
     pub minutes: Option<u32>,
+    /// the documents and pages (or Datahub fields) the value was read from, as submitted
+    pub doc_ids: String,
+    pub pages: String,
     /// one of [`METHODS`] for a label; empty for a machine reading
     pub method: String,
     /// `<file>:<line>` for a label; what it was read from for a machine reading
@@ -113,7 +116,14 @@ impl Reading {
         if self.value.contains('=') {
             for part in self.value.split(';') {
                 if let Some((k, v)) = part.split_once('=') {
-                    out.insert(normal(k), normal(v));
+                    let k = normal(k);
+                    // `other=<label>:N` may repeat, one per label, so the label is part of the key
+                    match v.rsplit_once(':').filter(|_| k == "other") {
+                        Some((label, n)) => {
+                            out.insert(format!("other:{}", normal(label)), normal(n))
+                        }
+                        None => out.insert(k, normal(v)),
+                    };
                 }
             }
         } else if !self.value.trim().is_empty() {
@@ -271,6 +281,8 @@ fn load_file(
             labeller: get("labeller"),
             labelled_on: get("labelled_on"),
             minutes: get("minutes").parse().ok(),
+            doc_ids: get("doc_ids"),
+            pages: get("pages"),
             method: match get("method").to_lowercase() {
                 m if m.is_empty() && !proposals => "read".into(),
                 m => m,
@@ -406,6 +418,8 @@ fn deed_readings(root: &Path, model: &str, out: &mut Vec<Reading>, notes: &mut V
                 labeller: labeller.clone(),
                 labelled_on: String::new(),
                 minutes: None,
+                doc_ids: stem.to_string(),
+                pages: String::new(),
                 method: String::new(),
                 origin: origin.clone(),
             };
@@ -534,6 +548,8 @@ fn datahub_readings(root: &Path, out: &mut Vec<Reading>, notes: &mut Vec<String>
                 labeller: labeller.clone(),
                 labelled_on: String::new(),
                 minutes: None,
+                doc_ids: String::new(),
+                pages: String::new(),
                 method: String::new(),
                 origin: d.snapshot.path.clone(),
             });
