@@ -4,8 +4,8 @@ What the project's outputs must not be read as saying. These limits follow from 
 working rules and apply to every report, table and note built from this code.
 
 - **No finding that an obligation was unmet.** A difference between what a deed agreed and what a
-  dataset records is a discrepancy to check, never a breach. "Differs: review" means a person
-  must read the borough's records.
+  dataset records is a discrepancy to check, never a breach. "Differs: review" means another
+  source, such as the borough's own records, has to settle the difference.
 - **No developer- or council-specific claim without its check level and evidence.** Since 14 Oct
   2026 no person reviews a claim before it names a developer or council; the automated checks
   stand in for that review, so every such claim carries the check level of the weakest cell it

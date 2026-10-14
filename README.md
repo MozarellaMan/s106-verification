@@ -7,12 +7,14 @@ supplemental deed) into a typed schema. A deterministic gate then checks every n
 the other numbers **and** against the deed's own text: each value must appear in the passage the
 model cites, and that passage must be found on the cited page. The gate makes no model judgement.
 
-**Status.** No person has yet labelled the obligations in any deed, so extraction and the gate
-have no measured accuracy. PASS means a value matches the model's own citation on the cited page,
-not that it matches independent evidence. An AI agent transcribed the OCR gold pages, and the
-pinned expected outcomes were blessed from the pipeline's own output, so the test tiers show
-repeatability, not correctness ([docs/testing.md](docs/testing.md)). Nine of the ten deeds the
-prompts were tuned on are from outside London.
+**Status.** Extraction and the gate have no measured error rate yet. PASS means a value matches
+the model's own citation on the cited page, not that it matches independent evidence. The data
+repository's `docs/verification-rule.md` says how the error rate is to be measured: independent LLM
+readers and external sources (Datahub, EPC, Price Paid, Infrastructure Funding Statements) read the
+same cells, and their agreement bounds the error. That estimate is not built. An AI agent
+transcribed the OCR gold pages, and the pinned expected outcomes were blessed from the pipeline's
+own output, so the test tiers show repeatability, not correctness ([docs/testing.md](docs/testing.md)).
+Nine of the ten deeds the prompts were tuned on are from outside London.
 
 Architecture and contributor reading path: [docs/architecture.md](docs/architecture.md).
 
@@ -49,6 +51,7 @@ src/
   labels.rs     scored against human labels (`labels/` in the data repository)
   results.rs    a batch's scheme ledger, decision rules and claims, each with its check level
   explore.rs    data for the results explorer (`explorer/`): Datahub, plus deed cells or a private ledger
+  figures.rs    `s106 check-figures`: each cited figure must still be in its cited file
 ```
 
 ## Setup
@@ -149,10 +152,10 @@ and a 109-page scan about $0.30. Escalation to Opus 5.5 costs more and runs only
 
 ## Human labels
 
-A person's reading of a source is the only ground truth here; everything else is the pipeline
-agreeing with itself. Labels are a separate layer that nothing else waits for. A labeller saves a
-filled-in sheet (the source-audit codebook's columns, signed with `labeller` and `labelled_on`)
-as a new file under `labels/` in the data repository. `s106 labels` reads every file there and
+Under the data repository's `docs/verification-rule.md`, a person's label is one reader among
+several, with its own error rate, not ground truth. Labels are optional: nothing waits for them.
+A labeller saves a filled-in sheet (the source-audit codebook's columns, signed with `labeller`
+and `labelled_on`) as a new file under `labels/` in the data repository. `s106 labels` reads every file there and
 writes `reports/labels/labels.{md,json}`:
 
 - the pipeline's readings (recorded deed extractions, Datahub snapshots) scored field by field
@@ -187,6 +190,11 @@ a check failed or an external source differs, and no reading settles it yet) or 
 runs with `--no-rules`. A rule or claim stands at
 the weakest level of the cells it rests on, so the note moves from proposed to checked on its own
 as labels arrive. Like `s106 labels`, `s106 results` never waits for labels.
+
+These levels come from the data repository's `docs/audit-rule.md`, which `src/results.rs` still
+follows. `docs/verification-rule.md` replaces the audit rule with three levels (`proposed`,
+`estimated`, `confirmed`); `s106 results` and the explorer have not switched yet (open in the data
+repository's `STATUS.md`).
 
 ## Outcomes
 
