@@ -82,6 +82,10 @@ pub struct Entry {
     pub reader: String,
     /// `<file>:<line>` of the reading shown
     pub origin: String,
+    /// the scheme's Datahub record: its `status` (Completed, Lapsed, ...) and `bo_system` (where
+    /// the record came from, e.g. `FME Legacy Data Import`), from the snapshot a Datahub cell cites
+    pub datahub_status: String,
+    pub datahub_system: String,
 }
 
 impl Entry {
@@ -177,6 +181,8 @@ pub fn ledger(
                 check,
                 reader: String::new(),
                 origin: String::new(),
+                datahub_status: String::new(),
+                datahub_system: String::new(),
             };
             let shown = |r: &Reading, check: Check| Entry {
                 status: r.status.clone(),
@@ -422,7 +428,24 @@ fn rule1(cells: &Cells, schemes: &[String]) -> Vec<SchemeOutcome> {
             };
             let share = stated(r2, "share").is_some() || stated(d2, "share").is_some();
             let mut unshown = vec![];
+            // A split that doesn't add up to about 100 is likely counts (habitable rooms, homes),
+            // not percentages, so it isn't compared.
+            let mut odd = |side: &str, c: Option<&Entry>| {
+                let v = stated(c, "split")?;
+                let total = split_total(&v)?;
+                if (total - 100.0).abs() > 2.0 {
+                    unshown.push(format!(
+                        "{side} V2 split adds up to {total}, not 100 ({v}), so isn't compared"
+                    ));
+                    return Some(());
+                }
+                None
+            };
+            let odd_split = odd("report", r2).is_some() | odd("deed", d2).is_some();
             for k in ["split", "basis"] {
+                if k == "split" && odd_split {
+                    continue;
+                }
                 match (stated(r2, k), stated(d2, k)) {
                     (Some(a), Some(b)) if a != b => {
                         differ.push(format!("V2 {k}: report {a}, deed {b}"))
@@ -454,6 +477,16 @@ fn rule1(cells: &Cells, schemes: &[String]) -> Vec<SchemeOutcome> {
 
 fn number(v: &str) -> Option<f64> {
     v.parse().ok()
+}
+
+/// The sum of a split's parts: `72.4:27.6 SR:INT` gives 100.
+fn split_total(v: &str) -> Option<f64> {
+    let parts = v.split_whitespace().next()?;
+    parts.split(':').map(number).sum()
+}
+
+fn date(v: &str) -> Option<chrono::NaiveDate> {
+    chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d").ok()
 }
 
 /// Rule 2: for each scheme the Datahub records as completed, the counts agree when
@@ -496,10 +529,27 @@ fn rule2(cells: &Cells, schemes: &[String]) -> Vec<SchemeOutcome> {
                 );
             };
             let gap = (homes - certs).abs() / homes;
-            let reason = format!(
+            let mut reason = format!(
                 "Datahub {homes} completed, EPC {certs} new-dwelling certificates ({:.1}% apart)",
                 gap * 100.0
             );
+            // How far the certificates' lodgement dates sit from the Datahub completion date:
+            // shown, not used in the count.
+            let field = |c: Option<&Entry>, k: &str| {
+                c.and_then(|c| c.fields().get(k).cloned())
+                    .and_then(|v| date(&v))
+            };
+            if let (Some(done), Some(first), Some(last)) = (
+                field(dh, "completed"),
+                field(epc, "first_lodged"),
+                field(epc, "last_lodged"),
+            ) {
+                reason += &format!(
+                    "; EPCs lodged {} to {} days from the Datahub completion date",
+                    (first - done).num_days(),
+                    (last - done).num_days()
+                );
+            }
             let outcome = if gap <= 0.05 {
                 Outcome::Counts
             } else {
@@ -864,11 +914,16 @@ pub fn markdown(r: &Results) -> String {
           documents and the row each reading came from.\n";
     let schemes: BTreeSet<&String> = r.ledger.iter().map(|e| &e.scheme).collect();
     for scheme in schemes {
-        s += &format!(
-            "\n### {scheme}\n\n| stage | variable | source | status | value | basis | pages | level |\n\
-             |---|---|---|---|---|---|---|---|\n"
-        );
         let mut rows: Vec<&Entry> = r.ledger.iter().filter(|e| &e.scheme == scheme).collect();
+        s += &format!("\n### {scheme}\n\n");
+        if let Some(e) = rows.iter().find(|e| !e.datahub_status.is_empty()) {
+            s += &format!(
+                "Datahub record: {}, from {}.\n\n",
+                e.datahub_status, e.datahub_system
+            );
+        }
+        s += "| stage | variable | source | status | value | basis | pages | level |\n\
+              |---|---|---|---|---|---|---|---|\n";
         rows.sort_by_key(|e| {
             (
                 STAGES.iter().position(|st| *st == e.stage),
@@ -937,6 +992,42 @@ fn csv_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
+/// Fills each scheme's Datahub status and system from the snapshot its Datahub cells cite,
+/// returning the snapshots read.
+fn datahub_records(root: &Path, ledger: &mut [Entry]) -> Vec<PathBuf> {
+    let mut found: BTreeMap<String, (String, String)> = BTreeMap::new();
+    let mut read = vec![];
+    for e in ledger.iter().filter(|e| e.source == "datahub") {
+        if found.contains_key(&e.scheme) {
+            continue;
+        }
+        let Some(path) = e
+            .doc_ids
+            .split_whitespace()
+            .find(|d| d.ends_with(".json"))
+            .map(|d| root.join(d))
+        else {
+            continue;
+        };
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else {
+            continue;
+        };
+        let get = |k: &str| json["response"][k].as_str().unwrap_or("").to_string();
+        found.insert(e.scheme.clone(), (get("status"), get("bo_system")));
+        read.push(path);
+    }
+    for e in ledger.iter_mut() {
+        if let Some((status, system)) = found.get(&e.scheme) {
+            e.datahub_status = status.clone();
+            e.datahub_system = system.clone();
+        }
+    }
+    read
+}
+
 /// Builds the results for `sheet` (a batch's blank labelling sheet, relative to `root`) into
 /// `out` (relative to `root`), reading `<out>/claims.csv` if there is one.
 pub fn run(root: &Path, sheet: &Path, out: &Path) -> Result<Results> {
@@ -947,7 +1038,8 @@ pub fn run(root: &Path, sheet: &Path, out: &Path) -> Result<Results> {
     let (proposed, bad) = labels::proposals(root)?;
     rejected.extend(bad);
 
-    let ledger = ledger(&cells, &submitted, &proposed);
+    let mut ledger = ledger(&cells, &submitted, &proposed);
+    let snapshots = datahub_records(root, &mut ledger);
     let rules = rules(&ledger);
     let sources = sheet_path.with_file_name("sources.csv");
     let retrieval = retrieval(&sources)?;
@@ -957,6 +1049,7 @@ pub fn run(root: &Path, sheet: &Path, out: &Path) -> Result<Results> {
     let mut read = vec![sheet_path.clone(), sources, claims_path];
     csv_files(&root.join("labels"), &mut read);
     csv_files(&root.join("proposals"), &mut read);
+    read.extend(snapshots);
     read.retain(|p| p.exists());
     read.sort();
     let inputs = read

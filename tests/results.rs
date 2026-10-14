@@ -461,3 +461,73 @@ fn a_claim_stands_at_its_weakest_cell() {
     let md = std::fs::read_to_string(p.join("results/b/README.md")).unwrap();
     assert!(md.contains("*Specific: not signed off.*"), "{md}");
 }
+
+#[test]
+fn split_counts_are_not_compared_and_datahub_context_is_shown() {
+    let root = tempfile::tempdir().unwrap();
+    let p = root.path();
+    sheet(p, &["EX/1"]);
+    let v1 = "total=10; market=5; SR=3; SO=2";
+    let rows = [
+        proposal("EX/1", "V1", "committee_report", v1, "units", "found"),
+        proposal("EX/1", "V1", "deed", v1, "units", "found"),
+        proposal(
+            "EX/1",
+            "V2",
+            "committee_report",
+            "share=35%; split=72:28 SR:SO",
+            "habitable_rooms",
+            "found",
+        ),
+        // habitable-room counts written as a split
+        proposal(
+            "EX/1",
+            "V2",
+            "deed",
+            "share=35%; split=64:25 SR:SO",
+            "habitable_rooms",
+            "found",
+        ),
+        "EX/1,V8,x,datahub,snapshots/EX-1.json,\"completed=2022-12-15; completed_homes=84\",units,,found,,,machine:proposal/test,2026-10-14,\n".into(),
+        proposal(
+            "EX/1",
+            "V8",
+            "epc",
+            "first_lodged=2023-11-02; last_lodged=2024-11-06; new_dwelling_epcs=84",
+            "units",
+            "found",
+        ),
+    ];
+    write(p, "proposals/x.csv", &format!("{HEADER}{}", rows.concat()));
+    write(
+        p,
+        "snapshots/EX-1.json",
+        r#"{"response": {"status": "Completed", "bo_system": "FME Legacy Data Import"}}"#,
+    );
+    let r = run(p);
+
+    let one = &r.rules[0].schemes[0];
+    assert_eq!(one.outcome, Outcome::Indeterminate);
+    assert!(
+        one.reason.contains("deed V2 split adds up to 89"),
+        "{}",
+        one.reason
+    );
+
+    let two = &r.rules[1].schemes[0];
+    assert_eq!(two.outcome, Outcome::Counts);
+    assert!(
+        two.reason
+            .contains("EPCs lodged 322 to 692 days from the Datahub completion date"),
+        "{}",
+        two.reason
+    );
+
+    let e = entry(&r, "EX/1", "V1", "deed");
+    assert_eq!(
+        (e.datahub_status.as_str(), e.datahub_system.as_str()),
+        ("Completed", "FME Legacy Data Import")
+    );
+    let readme = std::fs::read_to_string(p.join("results/b/README.md")).unwrap();
+    assert!(readme.contains("Datahub record: Completed, from FME Legacy Data Import."));
+}
