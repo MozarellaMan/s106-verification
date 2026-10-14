@@ -1659,6 +1659,8 @@ pub fn markdown(r: &Reconciliation) -> String {
     s += "\n\"Counts match\" compares completed-unit counts only; it says nothing about tenure in \
           use, rents or quality. \"Differs: review\" is never a finding that an obligation was \
           unmet: PLD completions are borough-reported and unverified on receipt, and tenure at \
-          completion is not tenure in use.\n";
+          completion is not tenure in use. PLD permitted figures are entered by the borough from \
+          the decision and the deed, so a deed figure that equals PLD permitted checks the \
+          borough's data entry, not the obligation.\n";
     s
 }
