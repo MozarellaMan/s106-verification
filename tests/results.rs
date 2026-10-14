@@ -208,6 +208,31 @@ fn rule1_compares_report_and_deed_tenures() {
             "units",
             "found",
         ),
+        proposal(
+            "EX/5",
+            "V1",
+            "committee_report",
+            "total=50; SR=5; SO=5",
+            "units",
+            "found",
+        ),
+        proposal(
+            "EX/5",
+            "V1",
+            "deed",
+            "total=50; SR=5; SO=5",
+            "units",
+            "found",
+        ),
+        proposal(
+            "EX/5",
+            "V2",
+            "committee_report",
+            "share=30%",
+            "habitable_rooms",
+            "found",
+        ),
+        proposal("EX/5", "V2", "deed", "", "not_stated", "not_stated"),
     ];
     write(p, "proposals/x.csv", &format!("{HEADER}{}", rows.concat()));
     let r = run(p);
@@ -217,12 +242,15 @@ fn rule1_compares_report_and_deed_tenures() {
     assert_eq!(outcome("EX/2"), Outcome::DoesNotCount);
     assert_eq!(outcome("EX/3"), Outcome::LeftOut);
     assert_eq!(outcome("EX/4"), Outcome::DoesNotCount);
-    // 1 of 3 counted, all but one needed
+    // a basis only the report states can't be shown equal
+    assert_eq!(outcome("EX/5"), Outcome::Indeterminate);
+    // 1 of 4 counted, all but one needed
     assert_eq!(
         (rule.counts, rule.counted, rule.needed, rule.met),
-        (1, 3, 2, false)
+        (1, 4, 3, false)
     );
-    assert_eq!(rule.check, Check::Proposed);
+    // EX/1's V2 cells are consulted but nobody has read them
+    assert_eq!(rule.check, Check::Unread);
 }
 
 #[test]
@@ -310,6 +338,7 @@ fn rule2_allows_five_percent_and_leaves_out_uncompleted_schemes() {
         (rule.counts, rule.counted, rule.needed, rule.met),
         (2, 4, 3, false)
     );
+    assert!(rule.verdict().starts_with("Provisional, not a finding"));
 }
 
 #[test]
