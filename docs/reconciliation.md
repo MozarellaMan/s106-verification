@@ -75,7 +75,7 @@ which counts as a replacement of nothing (`replaced` with no `from`):
 
 A deletion (the extraction's `variations` with op `Delete`) names a contribution when the
 contribution's key appears in the deleted target. The deletion's wording is not interpreted:
-whether it deletes the whole obligation or some words of it is for the person reviewing the row.
+whether it deletes the whole obligation or some words of it is left for another reading of the deed.
 
 One exception keeps a match automatic: when every review reason is a replacement and delivery
 equals the latest figure from a verified, whole-scheme, grounded deed, the row is "counts match
@@ -133,7 +133,7 @@ obligation; only delivered figures are an outcome, and they are borough-reported
 "Counts match" compares completed-unit counts only and says nothing about tenure in use, rents
 or quality. "Differs: review" is never a finding that an obligation was unmet: PLD completions are
 borough-reported and not quality-checked on receipt, and tenure at completion is not tenure in
-use. A "differs: review" row goes to a person, who checks the borough's records.
+use. A "differs: review" row is a discrepancy for another source, such as the borough's records, to settle.
 
 ### Tenure matching
 

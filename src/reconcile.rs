@@ -7,7 +7,7 @@
 //! * `reconcile` collects every deed's statements and deletions per obligation (`events`), in
 //!   the order given, without applying them. The first deed sets the figure. Anything a later deed
 //!   changes (a different figure, a deletion, a partial scope, no planning reference, differing
-//!   figures) adds a `ReviewReason` and the row goes to a person (`facts`). A restatement of the
+//!   figures) adds a `ReviewReason` and the row is left for another reading of the deeds (`facts`). A restatement of the
 //!   same figure stays automatic.
 //! * Delivery comes from `Delivery`, read from one saved PLD application snapshot through a typed
 //!   view that fails when a field the mapping needs is missing. Every delivered figure cites that
@@ -346,7 +346,7 @@ pub fn instrument_obligations(a: &Agreement, pages: Option<&Pages>) -> Instrumen
 
 /// One statement per measure. Repeats with the same figure (a sum defined and then restated in a
 /// schedule) merge into the first; repeats with different figures (phased sums, or a misread)
-/// keep no figure and carry a conflict, so their row goes to a person.
+/// keep no figure and carry a conflict, so their row is left for another reading.
 fn merge_duplicates(raw: Vec<Statement>) -> Vec<Statement> {
     let mut out: Vec<Statement> = vec![];
     let mut seen: BTreeMap<Measure, Vec<Option<Decimal>>> = BTreeMap::new();
@@ -913,10 +913,10 @@ pub enum RowStatus {
     CountsMatchVariedFigure,
     /// the scheme isn't complete and delivery is still short
     NotYetDue,
-    /// a later deed did something that needs a person (see the row's `review` reasons)
+    /// a later deed did something this comparison does not settle (see the row's `review` reasons)
     Varied,
-    /// delivery differs from the obligation: a human must check the borough's records.
-    /// Never a finding that the obligation was unmet.
+    /// delivery differs from the obligation: a discrepancy for another source (such as the
+    /// borough's records) to settle. Never a finding that the obligation was unmet.
     DiffersReviewRequired,
     /// something needed for a comparison is missing or unproven (see the row's `cause`)
     Indeterminate,
@@ -934,8 +934,8 @@ impl RowStatus {
         }
     }
 
-    /// decided without a person's judgement on the deeds (a "differs" row still goes to a
-    /// person, but on delivery, which is what the reconciliation is for)
+    /// decided from the deeds alone (a "differs" row is still a discrepancy, but on delivery,
+    /// which is what the reconciliation is for)
     pub fn decided(self) -> bool {
         !matches!(self, RowStatus::Varied | RowStatus::Indeterminate)
     }
@@ -965,7 +965,7 @@ pub enum Cause {
     SchemeStatusUnknown,
 }
 
-/// Why a row needs a person: something a later deed did. Instruments are numbered from 1 in the
+/// Why a row is not settled here: something a later deed did. Instruments are numbered from 1 in the
 /// order given.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "reason", rename_all = "snake_case")]
@@ -1050,12 +1050,12 @@ pub struct Row {
     pub reason: String,
     /// set when the status is indeterminate
     pub cause: Option<Cause>,
-    /// set when a later deed did something that needs a person
+    /// set when a later deed did something this comparison does not settle
     #[serde(default)]
     pub review: Vec<ReviewReason>,
 }
 
-/// Counts for a research loop: how much was decided without a person, and what the rest waits on.
+/// Counts for a research loop: how much was decided from the deeds alone, and what the rest waits on.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Summary {
     pub rows: usize,
@@ -1120,7 +1120,7 @@ pub struct Facts {
     pub current: Current,
     /// the grounding of the first deed's figure
     pub grounding: Grounding,
-    /// what later deeds did that needs a person
+    /// what later deeds did that this comparison does not settle
     pub review: Vec<ReviewReason>,
     /// the latest figure from a later deed that is grounded, verified and whole-scheme, when
     /// the only review reasons are replacements
