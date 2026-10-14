@@ -158,7 +158,7 @@ A labeller saves a filled-in sheet (the source-audit codebook's columns, signed 
 and `labelled_on`) as a new file under `labels/` in the data repository. `s106 labels` reads every file there and
 writes `reports/labels/labels.{md,json}`:
 
-- the pipeline's readings (recorded deed extractions, Datahub snapshots) scored field by field
+- the agents' proposals (under `proposals/` in the data repository) scored field by field
   against the labels: precision and recall with their n and a 95% interval;
 - labellers against each other where two labelled the same cell (agreement and Cohen's kappa);
 - sources against each other (deed, committee report, GLA report, Datahub, EPC).
