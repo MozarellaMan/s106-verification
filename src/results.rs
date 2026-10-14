@@ -157,6 +157,7 @@ pub fn ledger(
     submitted: &[Reading],
     proposed: &[Reading],
     estimates: &[Estimate],
+    superseded: &BTreeSet<(String, String)>,
 ) -> Vec<Entry> {
     let schemes: BTreeSet<&String> = sheet.keys().map(|k| &k.0).collect();
     let names: BTreeMap<&str, &str> = sheet
@@ -170,7 +171,12 @@ pub fn ledger(
     for r in proposed {
         best.insert(key(r), r.clone());
     }
-    let readings: Vec<Reading> = submitted.iter().chain(proposed).cloned().collect();
+    let readings: Vec<Reading> = submitted
+        .iter()
+        .chain(proposed)
+        .filter(|r| !accuracy::is_superseded(r, superseded))
+        .cloned()
+        .collect();
     let all_votes = accuracy::votes(&labels::latest(&readings));
     let mut votes: BTreeMap<Key, Vec<&Vote>> = BTreeMap::new();
     for v in &all_votes {
@@ -900,7 +906,10 @@ pub fn markdown(r: &Results) -> String {
          three readers from three families agree, over every batch's readings except the schemes \
          in {}. The lower bound is the 2.5th percentile over resamples of schemes; a reader's \
          readings can make a cell `estimated` when the lower bound is at least {:.0}% and the \
-         model fits (the lower bound is at most 100%).\n\n",
+         model fits (the lower bound is at most 100%). The rule asks for a latent-class \
+         model per borough; this is its simplest moment estimate (one accuracy per reader, \
+         every borough together), while every scheme is in Southwark. Files listed in \
+         `proposals/superseded.csv` no longer vote.\n\n",
         if r.seen.is_empty() {
             "no sheet".to_string()
         } else {
@@ -1057,6 +1066,22 @@ pub fn markdown(r: &Results) -> String {
     s
 }
 
+/// A file in `proposals/` that holds no readings: one with a `proposal_id` column and no
+/// `labeller` column (the audit rule's routing and card lists), or `proposals/superseded.csv`.
+fn not_readings(root: &Path, origin: &str) -> bool {
+    if origin == "proposals/superseded.csv" {
+        return true;
+    }
+    let Ok(mut r) = csv::Reader::from_path(root.join(origin)) else {
+        return false;
+    };
+    let Ok(headers) = r.headers() else {
+        return false;
+    };
+    let has = |c: &str| headers.iter().any(|h| h.trim() == c);
+    has("proposal_id") && !has("labeller")
+}
+
 fn sha256(path: &Path) -> Result<String> {
     let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
     Ok(Sha256::digest(bytes)
@@ -1152,16 +1177,24 @@ pub fn run(
     let (submitted, mut rejected) = labels::load(&root.join("labels"))?;
     let (proposed, bad) = labels::proposals(root)?;
     rejected.extend(bad);
+    // the audit rule's routing and card lists, and `proposals/superseded.csv`, are not readings
+    rejected.retain(|x| !not_readings(root, &x.origin));
 
     let mut seen_schemes = BTreeSet::new();
     for s in seen {
         seen_schemes.extend(sheet_cells(&root.join(s))?.into_keys().map(|k| k.0));
     }
-    let readings: Vec<Reading> = submitted.iter().chain(&proposed).cloned().collect();
+    let superseded = accuracy::superseded(root)?;
+    let readings: Vec<Reading> = submitted
+        .iter()
+        .chain(&proposed)
+        .filter(|r| !accuracy::is_superseded(r, &superseded))
+        .cloned()
+        .collect();
     let estimates =
         accuracy::estimates(&accuracy::votes(&labels::latest(&readings)), &seen_schemes);
 
-    let mut ledger = ledger(&cells, &submitted, &proposed, &estimates);
+    let mut ledger = ledger(&cells, &submitted, &proposed, &estimates, &superseded);
     let snapshots = datahub_records(root, &mut ledger, &mut rejected);
     let rules = if with_rules { rules(&ledger) } else { vec![] };
     let sources = sheet_path.with_file_name("sources.csv");

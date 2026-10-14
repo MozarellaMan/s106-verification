@@ -6,6 +6,14 @@
 //! as a reading of the deed's V1 total and affordable count, except on a scheme with a `variation`
 //! source, because the Datahub may record the varied figures.
 //!
+//! A file listed in `proposals/superseded.csv` (columns `file`, `labeller`, `reason`) no longer
+//! votes for that labeller: its readings stay on disk and in the ledger's history, as section 7 of
+//! the rule says, but a later file replaced them.
+//!
+//! The rule asks for a latent-class model per borough. This is its simplest moment estimate (three
+//! readers, one accuracy each, no borough split), which is enough while every scheme is in
+//! Southwark and few readers overlap.
+//!
 //! The estimate assumes two readers agree on a cell only when both are right. Then the share of
 //! shared cells on which readers i and j agree is a_i·a_j, and three readers give
 //! a_i = sqrt(A_ij·A_ik / A_jk). Two readers from one family (one LLM model family, people, one
@@ -15,6 +23,7 @@
 //! while the method was built (batch 1) never count towards an estimate.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
 use serde::Serialize;
 
@@ -146,14 +155,17 @@ fn totals(f: &BTreeMap<String, String>) -> BTreeMap<String, String> {
     if let Some(t) = total {
         out.insert("total".into(), shown(t));
     }
+    let tenures: Vec<&String> = f
+        .iter()
+        .filter(|(k, _)| !["total", "market", "basis"].contains(&k.as_str()))
+        .map(|(_, v)| v)
+        .collect();
     let affordable = match (total, f.get("market").and_then(|v| number(v))) {
         (Some(t), Some(m)) => Some(t - m),
+        // a total with no tenure at all states no affordable homes
+        (Some(_), None) if tenures.is_empty() => Some(0.0),
         _ => {
-            let parts: Vec<f64> = f
-                .iter()
-                .filter(|(k, _)| !["total", "market", "basis"].contains(&k.as_str()))
-                .filter_map(|(_, v)| number(v))
-                .collect();
+            let parts: Vec<f64> = tenures.iter().filter_map(|v| number(v)).collect();
             (!parts.is_empty()).then(|| parts.iter().sum())
         }
     };
@@ -161,6 +173,32 @@ fn totals(f: &BTreeMap<String, String>) -> BTreeMap<String, String> {
         out.insert("affordable".into(), shown(a));
     }
     out
+}
+
+/// The (file, labeller) pairs `proposals/superseded.csv` lists; none when the file is absent.
+pub fn superseded(root: &Path) -> anyhow::Result<BTreeSet<(String, String)>> {
+    let path = root.join("proposals/superseded.csv");
+    if !path.exists() {
+        return Ok(BTreeSet::new());
+    }
+    let mut r = csv::Reader::from_path(&path)?;
+    let mut out = BTreeSet::new();
+    for row in r.deserialize::<BTreeMap<String, String>>() {
+        let row = row?;
+        let get = |c: &str| row.get(c).map(|v| v.trim().to_string()).unwrap_or_default();
+        out.insert((get("file"), get("labeller")));
+    }
+    Ok(out)
+}
+
+/// Whether a reading comes from a (file, labeller) pair that no longer votes. A reading's origin is
+/// `<file>:<line>`.
+pub fn is_superseded(r: &Reading, superseded: &BTreeSet<(String, String)>) -> bool {
+    let file = r
+        .origin
+        .rsplit_once(':')
+        .map_or(r.origin.as_str(), |(f, _)| f);
+    superseded.contains(&(file.to_string(), r.labeller.clone()))
 }
 
 /// Every reader's vote, from the latest reading per labeller and cell: proposals, labels and the

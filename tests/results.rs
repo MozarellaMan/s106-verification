@@ -746,3 +746,63 @@ fn a_batch_without_rules_says_so() {
         assert_eq!(body.trim(), header, "{f}");
     }
 }
+
+#[test]
+fn superseded_files_do_not_vote_and_non_reading_files_are_skipped() {
+    let root = tempfile::tempdir().unwrap();
+    let p = root.path();
+    sheet(p, &["EX/1"]);
+    write(
+        p,
+        "proposals/2026-10-14-a.csv",
+        &format!(
+            "{HEADER}{}",
+            reading(
+                "EX/1",
+                "V1",
+                "deed",
+                "total=40; AR=10",
+                "machine:proposal/old"
+            )
+        ),
+    );
+    write(
+        p,
+        "proposals/2026-10-14-b.csv",
+        &format!(
+            "{HEADER}{}{}{}{}",
+            reading("EX/1", "V1", "deed", "total=40; SR=10", LLM),
+            // a total with no tenure states no affordable homes, as the Datahub's 0 does
+            reading("EX/1", "V1", "gla", "total=12", LLM),
+            reading("EX/2", "V1", "deed", "total=12", LLM),
+            reading("EX/2", "V1", "datahub", "total=12; market=12", DATAHUB),
+        ),
+    );
+    write(
+        p,
+        "proposals/routing.csv",
+        "proposal_id,scheme,variable_id,group,route\nEX/1/V1/deed,EX/1,V1,G1,agreed\n",
+    );
+    sheet(p, &["EX/1", "EX/2"]);
+    let r = run_seen(p, &[]);
+    assert!(
+        entry(&r, "EX/1", "V1", "deed")
+            .readers
+            .starts_with("2 differ")
+    );
+    assert_eq!(entry(&r, "EX/2", "V1", "deed").readers, "2 agree");
+    assert!(r.rejected.is_empty(), "{:?}", r.rejected);
+
+    write(
+        p,
+        "proposals/superseded.csv",
+        "file,labeller,reason\nproposals/2026-10-14-a.csv,machine:proposal/old,replaced by b\n",
+    );
+    let r = run_seen(p, &[]);
+    let deed = entry(&r, "EX/1", "V1", "deed");
+    assert_eq!(
+        (deed.value.as_str(), deed.readers.as_str()),
+        ("total=40; SR=10", "1 reader")
+    );
+    assert!(r.rejected.is_empty(), "{:?}", r.rejected);
+}
