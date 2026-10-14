@@ -3,7 +3,8 @@
 # in scripts/runtime-artifacts.tsv:
 #   PDFium:       bblanchon/pdfium-binaries chromium/8100 (renders pages, reads text layers)
 #   ONNX Runtime: microsoft/onnxruntime 1.28.0, loaded at run time by the OCR
-#   OCR:          PP-OCRv5 mobile detection + English recognition and dictionary, published by oar-ocr
+#   OCR:          PP-OCRv6 tiny (the default) and PP-OCRv5 mobile detection + English recognition
+#                 (the model set of the snapshots made before October 2026), published by oar-ocr
 #                 (PaddleOCR models, Apache-2.0). The English dictionary includes "£".
 # Pass --bench to also fetch the alternative model sets compared in `s106 bench-ocr`.
 set -euo pipefail
