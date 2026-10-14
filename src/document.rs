@@ -87,7 +87,7 @@ impl Producer {
     }
 }
 
-/// The OCR models, chosen by score against the hand-verified gold set (see README).
+/// The OCR models, chosen by score against the agent-transcribed gold set (see README).
 #[derive(Debug, Clone)]
 pub struct OcrModels {
     pub det: PathBuf,

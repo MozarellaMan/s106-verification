@@ -204,9 +204,10 @@ fn load_file(
                 .to_string()
         };
         let reading = Reading {
-            scheme: get("scheme"),
-            variable_id: get("variable_id"),
-            source: get("source"),
+            // the same form as the pipeline's readings, so `ex/2` and `EX/2` are one scheme
+            scheme: get("scheme").to_uppercase(),
+            variable_id: get("variable_id").to_uppercase(),
+            source: get("source").to_lowercase(),
             value: get("value"),
             basis: get("basis"),
             status: get("status"),
@@ -251,7 +252,8 @@ fn problem(r: &Reading) -> Option<String> {
     None
 }
 
-/// For each labeller and cell, the latest reading (by `labelled_on`, then origin). Earlier ones
+/// For each labeller and cell, the latest reading by `labelled_on`; on the same date, the one
+/// that comes later in `readings` (as `load` returns them: by file path, then row). Earlier ones
 /// stay on disk; they are superseded, not deleted.
 pub fn latest(readings: &[Reading]) -> Vec<Reading> {
     let mut by: BTreeMap<(Cell, String), &Reading> = BTreeMap::new();
@@ -259,7 +261,7 @@ pub fn latest(readings: &[Reading]) -> Vec<Reading> {
         let key = (r.cell(), r.labeller.clone());
         let newer = by
             .get(&key)
-            .is_none_or(|old| (&r.labelled_on, &r.origin) >= (&old.labelled_on, &old.origin));
+            .is_none_or(|old| r.labelled_on >= old.labelled_on);
         if newer {
             by.insert(key, r);
         }
@@ -535,6 +537,8 @@ pub struct SourceAgreement {
     /// every field both sources state is equal
     pub agree: usize,
     pub differing: Vec<String>,
+    /// schemes where the two state no field in common besides `basis`
+    pub not_comparable: usize,
     /// schemes left out because the labellers disagree on a cell
     pub unsettled: usize,
 }
@@ -759,12 +763,15 @@ fn source_agreement(
                         schemes: 0,
                         agree: 0,
                         differing: vec![],
+                        not_comparable: 0,
                         unsettled: 0,
                     });
                 let (fa, fb) = (sources[a].fields(), sources[b].fields());
                 let shared: Vec<&String> = fa.keys().filter(|k| fb.contains_key(*k)).collect();
                 entry.schemes += 1;
-                if !shared.is_empty() && shared.iter().all(|k| fa[*k] == fb[*k]) {
+                if !shared.iter().any(|k| *k != "basis") {
+                    entry.not_comparable += 1;
+                } else if shared.iter().all(|k| fa[*k] == fb[*k]) {
                     entry.agree += 1;
                 } else {
                     entry.differing.push(format!(
@@ -783,6 +790,18 @@ fn source_agreement(
             .count();
     }
     pairs.into_values().collect()
+}
+
+/// Fields a producer reads for a variable, when it reads only some of the codebook's: the label's
+/// other fields are not held against it. The PLD mapping's V8 is the completion date only.
+pub fn reads_only(producer: &str, variable_id: &str) -> Option<&'static [&'static str]> {
+    match (
+        producer.starts_with(&format!("{MACHINE}pld-mapping/")),
+        variable_id,
+    ) {
+        (true, "V8") => Some(&["completed"]),
+        _ => None,
+    }
 }
 
 /// Statuses that say what a source holds; the rest (missing, unreadable, ambiguous, ...) can't
@@ -826,7 +845,15 @@ fn accuracy(
             a.not_scored += 1;
             continue;
         }
-        let (truth, got) = (label.fields(), m.fields());
+        let mut truth = label.fields();
+        if let Some(only) = reads_only(&m.labeller, &m.variable_id) {
+            truth.retain(|k, _| only.contains(&k.as_str()));
+        }
+        let mut got = m.fields();
+        // A basis is scored only where the label states one.
+        if !truth.contains_key("basis") {
+            got.remove("basis");
+        }
         let mut wrong = vec![];
         for (k, v) in &truth {
             match got.get(k) {
@@ -917,7 +944,8 @@ pub fn markdown(r: &Report) -> String {
     } else {
         s.push_str(
             "Field by field (`total`, `SR`, `share`, `basis`, ...). Cells where labellers disagree \
-             or a source wasn't read are not scored.\n\n\
+             or a source wasn't read are not scored. `basis` counts only where the label states \
+             one. The Datahub mapping's V8 scores the completion date only.\n\n\
              | producer | variable | source | cells | not scored | precision | recall |\n\
              |---|---|---|---|---|---|---|\n",
         );
@@ -980,12 +1008,13 @@ pub fn markdown(r: &Report) -> String {
         s.push_str(
             "Schemes where the labels have both sources as `found`; they agree when every field \
              both state is equal.\n\n\
-             | variable | sources | schemes | agree | labellers disagree |\n|---|---|---|---|---|\n",
+             | variable | sources | schemes | agree | nothing in common | labellers disagree |\n\
+             |---|---|---|---|---|---|\n",
         );
         for x in &r.sources {
             s.push_str(&format!(
-                "| {} | {} / {} | {} | {} | {} |\n",
-                x.variable_id, x.a, x.b, x.schemes, x.agree, x.unsettled
+                "| {} | {} / {} | {} | {} | {} | {} |\n",
+                x.variable_id, x.a, x.b, x.schemes, x.agree, x.not_comparable, x.unsettled
             ));
         }
         s.push('\n');

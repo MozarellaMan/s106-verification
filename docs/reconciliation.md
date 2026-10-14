@@ -125,6 +125,10 @@ When the deed splits affordable housing by tenure, affordable units delivered in
 tenure covers get their own "(not in deed)" row, marked "differs: review". A deed with only an
 affordable total gets no such rows.
 
+PLD permitted figures are not independent of the deed: the borough enters them from the decision
+and the deed. A deed figure equal to PLD permitted checks the borough's data entry, not the
+obligation; only delivered figures are an outcome, and they are borough-reported too.
+
 "Counts match" compares completed-unit counts only. It says nothing about tenure in use, rents or
 quality. "Differs: review" is never a finding that an obligation was unmet. PLD completions are
 borough-reported and not quality-checked on receipt, and tenure at completion is not tenure in

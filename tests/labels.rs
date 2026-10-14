@@ -217,3 +217,100 @@ fn datahub_record_read_in_codebook_format() {
         v1.value
     );
 }
+
+#[test]
+fn same_day_rows_resolve_by_row_order_not_text() {
+    let root = tempfile::tempdir().unwrap();
+    // the correction is on line 12, after a line 9 that would sort later as text
+    let mut rows = String::new();
+    for i in 2..=8 {
+        rows.push_str(&format!("EX/{i},V1,x,gla,,,,,not_stated,,,AB,2026-10-20\n"));
+    }
+    rows.push_str("EX/1,V1,x,deed,,total=10,units,3,found,,,AB,2026-10-20\n");
+    for i in 10..=11 {
+        rows.push_str(&format!("EX/{i},V1,x,gla,,,,,not_stated,,,AB,2026-10-20\n"));
+    }
+    rows.push_str("EX/1,V1,x,deed,,total=12,units,3,found,,,AB,2026-10-20\n");
+    submit(root.path(), "a.csv", &rows);
+    let (got, _) = labels::load(&root.path().join("labels")).unwrap();
+    let current = labels::latest(&got);
+    let deed = current.iter().find(|r| r.source == "deed").unwrap();
+    assert_eq!(deed.value, "total=12", "{}", deed.origin);
+    assert_eq!(deed.origin, "a.csv:12");
+}
+
+#[test]
+fn scheme_refs_match_the_pipeline_whatever_their_case() {
+    let root = tempfile::tempdir().unwrap();
+    submit(
+        root.path(),
+        "a.csv",
+        "ex/2,v1,x,Deed,,total=50,units,3,found,,,AB,2026-10-20\n",
+    );
+    let (got, rejected) = labels::load(&root.path().join("labels")).unwrap();
+    let r = labels::report(
+        &got,
+        rejected,
+        &[machine("EX/2", "V1", "deed", "total=50", "units")],
+        vec![],
+    );
+    assert_eq!(r.accuracy.len(), 1);
+    assert_eq!((r.accuracy[0].true_pos, r.accuracy[0].false_pos), (2, 0));
+}
+
+#[test]
+fn basis_scored_only_where_the_label_states_one() {
+    let root = tempfile::tempdir().unwrap();
+    submit(
+        root.path(),
+        "a.csv",
+        "EX/1,V2,x,deed,,share=35%,,3,found,,,AB,2026-10-20\n",
+    );
+    let (got, rejected) = labels::load(&root.path().join("labels")).unwrap();
+    let r = labels::report(
+        &got,
+        rejected,
+        &[machine(
+            "EX/1",
+            "V2",
+            "deed",
+            "share=35%",
+            "habitable_rooms",
+        )],
+        vec![],
+    );
+    let a = &r.accuracy[0];
+    assert_eq!((a.true_pos, a.false_pos, a.false_neg), (1, 0, 0));
+}
+
+#[test]
+fn sources_sharing_only_a_basis_are_not_comparable() {
+    let root = tempfile::tempdir().unwrap();
+    submit(
+        root.path(),
+        "a.csv",
+        "EX/1,V2,x,deed,,share=35%,units,3,found,,,AB,2026-10-20\n\
+         EX/1,V2,x,gla,,split=70:30 SR:INT,units,3,found,,,AB,2026-10-20\n",
+    );
+    let (got, rejected) = labels::load(&root.path().join("labels")).unwrap();
+    let r = labels::report(&got, rejected, &[], vec![]);
+    let s = &r.sources[0];
+    assert_eq!((s.schemes, s.agree, s.not_comparable), (1, 0, 1));
+    assert!(s.differing.is_empty());
+}
+
+#[test]
+fn datahub_v8_scored_on_the_date_only() {
+    let root = tempfile::tempdir().unwrap();
+    submit(
+        root.path(),
+        "a.csv",
+        "EX/1,V8,x,datahub,,completed=2025-07-19; completed_homes=120,,f,found,,,AB,2026-10-20\n",
+    );
+    let (got, rejected) = labels::load(&root.path().join("labels")).unwrap();
+    let mut m = machine("EX/1", "V8", "datahub", "completed=2025-07-19", "");
+    m.labeller = "machine:pld-mapping/v1".into();
+    let r = labels::report(&got, rejected, &[m], vec![]);
+    let a = &r.accuracy[0];
+    assert_eq!((a.true_pos, a.false_pos, a.false_neg), (1, 0, 0));
+}

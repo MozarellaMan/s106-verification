@@ -81,7 +81,7 @@ enum Cmd {
         #[arg(long)]
         check: Option<PathBuf>,
     },
-    /// Score OCR model sets against a hand-verified gold file (only the gold pages are read).
+    /// Score OCR model sets against a gold transcription file (only the gold pages are read).
     BenchOcr {
         /// a gold file (`gold/*.json` in the data repository)
         gold: PathBuf,

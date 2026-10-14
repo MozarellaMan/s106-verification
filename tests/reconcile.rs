@@ -268,6 +268,7 @@ fn shortfall_on_a_complete_scheme_goes_to_review_never_unmet() {
     assert_eq!(sr.status, RowStatus::DiffersReviewRequired);
     assert!(sr.reason.contains("check the borough's records"));
     assert!(markdown(&r).contains("never a finding that an obligation was unmet"));
+    assert!(markdown(&r).contains("checks the borough's data entry, not the obligation"));
 }
 
 #[test]
