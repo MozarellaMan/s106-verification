@@ -184,11 +184,28 @@ pub fn proposals(root: &Path) -> Result<(Vec<Reading>, Vec<Rejected>)> {
     files.sort();
     let mut readings = vec![];
     let mut rejected = vec![];
-    for f in &files {
+    for f in files.iter().filter(|f| !not_readings(f)) {
         let name = format!("proposals/{}", f.strip_prefix(&dir).unwrap_or(f).display());
         load_file(f, &name, true, &mut readings, &mut rejected)?;
     }
     Ok((readings, rejected))
+}
+
+/// A file in `proposals/` that holds no readings, so is skipped rather than reported: one with a
+/// `proposal_id` column and no `labeller` column (the audit rule's routing and card lists), or
+/// `superseded.csv` (the files that no longer vote, read by `accuracy`).
+fn not_readings(path: &Path) -> bool {
+    if path.file_name().is_some_and(|n| n == "superseded.csv") {
+        return true;
+    }
+    let Ok(mut r) = csv::Reader::from_path(path) else {
+        return false;
+    };
+    let Ok(headers) = r.headers() else {
+        return false;
+    };
+    let has = |c: &str| headers.iter().any(|h| h.trim() == c);
+    has("proposal_id") && !has("labeller")
 }
 
 fn proposal_problem(r: &Reading) -> Option<String> {
