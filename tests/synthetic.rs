@@ -1,4 +1,4 @@
-//! Tier 2: the gate end to end on invented deeds (`tests/synthetic/`), with no PDF, recorded
+//! Tier 1: the gate end to end on invented deeds (`tests/synthetic/`), with no PDF, recorded
 //! model response or network. Each deed is written to produce particular outcomes; the tests
 //! below name them, and `<id>/checks.json` pins every check so any change is a reviewable diff
 //! (after an intended change: `S106_BLESS=1 cargo test --test synthetic`).
