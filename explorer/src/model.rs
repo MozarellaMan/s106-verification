@@ -1,7 +1,7 @@
 //! The explorer's pure logic: colours, bins, sizes and number formats. No browser types, so the
 //! tests run on the host with `cargo test`.
 
-use crate::site::{Site, Status};
+use crate::site::{Check, Finding, Lineage, Reading, Retrieval, Site, Status};
 
 impl Site {
     /// Affordable share of homes with a recorded tenure; None when no tenure was recorded.
@@ -107,6 +107,187 @@ pub fn percent(part: u64, whole: u64) -> String {
     }
 }
 
+/// A check level in words.
+pub fn check_label(check: Check) -> &'static str {
+    match check {
+        Check::Independent => "read by a person",
+        Check::Anchored => "agent reading checked by a person",
+        Check::Proposed => "agent reading, not checked",
+        Check::Unsettled => "readers disagree",
+        Check::Unread => "not read",
+    }
+}
+
+/// The style class of a cell at this check level, so the whole cell shows how far it was checked.
+pub fn check_class(check: Check) -> &'static str {
+    match check {
+        Check::Independent => "independent",
+        Check::Anchored => "checked",
+        Check::Unsettled => "disagree",
+        Check::Proposed | Check::Unread => "unchecked",
+    }
+}
+
+/// A short tag shown before a value that no person has settled.
+pub fn check_tag(check: Check) -> Option<&'static str> {
+    match check {
+        Check::Unread | Check::Proposed => Some("unchecked"),
+        Check::Unsettled => Some("readers disagree"),
+        Check::Anchored | Check::Independent => None,
+    }
+}
+
+/// Counts of a scheme's cells by how far they were checked, e.g.
+/// "41 cells: 0 read by a person, 3 checked, 38 unchecked".
+pub fn check_counts(readings: &[Reading]) -> String {
+    let count = |f: &dyn Fn(Check) -> bool| readings.iter().filter(|r| f(r.check)).count();
+    let disagree = count(&|c| c == Check::Unsettled);
+    format!(
+        "{} cells: {} read by a person, {} checked, {} unchecked{}",
+        readings.len(),
+        count(&|c| c == Check::Independent),
+        count(&|c| c == Check::Anchored),
+        count(&|c| c < Check::Unsettled),
+        if disagree > 0 {
+            format!(", {disagree} where readers disagree")
+        } else {
+            String::new()
+        }
+    )
+}
+
+/// A ledger source in words.
+pub fn source_label(source: &str) -> String {
+    match source {
+        "committee_report" => "Committee report".into(),
+        "deed" => "Deed".into(),
+        "datahub" => "Datahub".into(),
+        "epc" => "EPC".into(),
+        "gla" => "GLA".into(),
+        "applicant_offer" => "Applicant's offer".into(),
+        "decision_notice" => "Decision notice".into(),
+        "viability" => "Viability".into(),
+        "s106_monitoring" => "S106 monitoring".into(),
+        other => other.replace('_', " "),
+    }
+}
+
+/// A ledger value in words: tenure codes spelled out and codebook words unsnaked, e.g.
+/// "total=84; SR=16; SO=7" -> "total 84; social rent 16; shared ownership 7".
+pub fn humanize(value: &str) -> String {
+    value
+        .split("; ")
+        .map(|part| match part.split_once('=') {
+            Some((key, v)) if key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') => {
+                let key = match key {
+                    "SR" => "social rent",
+                    "SO" => "shared ownership",
+                    "INT" => "intermediate",
+                    "AR" => "affordable rent",
+                    "LAR" => "London Affordable Rent",
+                    "LLR" => "London Living Rent",
+                    "DMS" => "discount market sale",
+                    "pil" => "payment in lieu",
+                    other => other,
+                };
+                format!("{key} {v}")
+            }
+            _ => part.to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
+        .replace('_', " ")
+}
+
+/// A basis worth printing next to a value: not "not stated", and not already in the value.
+pub fn basis_note(value: &str, basis: Option<&str>) -> Option<String> {
+    let b = basis?.replace('_', " ").replace("other:", "other: ");
+    (b != "not stated" && !value.contains(&b)).then(|| format!(" ({b})"))
+}
+
+/// V3 holds the policy target and the applicant's first offer in one cell; the target belongs
+/// to the Target stage and the rest to Offer. Returns (target part, the rest), each if present.
+pub fn split_target(value: &str) -> (Option<String>, Option<String>) {
+    let (target, rest): (Vec<&str>, Vec<&str>) =
+        value.split("; ").partition(|p| p.starts_with("target="));
+    let join = |v: Vec<&str>| (!v.is_empty()).then(|| v.join("; "));
+    (join(target), join(rest))
+}
+
+/// The lineage stage whose documents a retrieval source is; None for the Datahub record.
+pub fn retrieval_stage(source: &str) -> Option<Lineage> {
+    match source {
+        "applicant_offer" | "viability" => Some(Lineage::Offer),
+        "committee_report" | "decision_notice" | "gla" => Some(Lineage::Decision),
+        "deed" => Some(Lineage::Obligation),
+        "variation" | "s73" => Some(Lineage::Variation),
+        "epc" | "s106_monitoring" => Some(Lineage::Completion),
+        _ => None,
+    }
+}
+
+/// Documents not in hand, in words: "Viability: 13 listed, not fetched".
+pub fn not_in_hand(r: &Retrieval) -> Option<String> {
+    let raw = r.not_in_hand.as_deref()?;
+    let words = raw
+        .split(", ")
+        .map(|p| {
+            let (kind, n) = p.rsplit_once(" x").unwrap_or((p, "1"));
+            let kind = match kind {
+                "listed_not_fetched" => "listed, not fetched",
+                "not_found_planapps" => "not found on the planning register",
+                "not_retrieved" => "not retrieved",
+                other => other,
+            };
+            format!("{n} {kind}")
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(format!("{}: {words}", source_label(&r.source)))
+}
+
+/// A reading with something to show (a value, or a doubt about one), as against a status alone.
+pub fn has_value(r: &Reading) -> bool {
+    match r.status {
+        Finding::Found | Finding::Ambiguous | Finding::Inconsistent => true,
+        Finding::NotStated | Finding::SourceMissing | Finding::NotApplicable | Finding::Unread => {
+            false
+        }
+    }
+}
+
+/// A doubt worth printing next to a value; None for a plain finding.
+pub fn doubt(f: Finding) -> Option<&'static str> {
+    match f {
+        Finding::Ambiguous => Some("ambiguous"),
+        Finding::Inconsistent => Some("inconsistent"),
+        _ => None,
+    }
+}
+
+/// The other readings as one line per status, e.g. "Not stated: deed V5, gla V1".
+pub fn status_lines(readings: &[Reading]) -> Vec<String> {
+    let mut lines: Vec<(&str, Vec<String>)> = Vec::new();
+    for r in readings.iter().filter(|r| !has_value(r)) {
+        let status = match r.status {
+            Finding::NotStated => "Not stated",
+            Finding::SourceMissing => "No document",
+            Finding::NotApplicable => "Not applicable",
+            Finding::Unread => "Not read",
+            Finding::Found | Finding::Ambiguous | Finding::Inconsistent => continue,
+        };
+        let item = format!("{} {}", source_label(&r.source), r.variable);
+        match lines.iter_mut().find(|(s, _)| *s == status) {
+            Some((_, items)) => items.push(item),
+            None => lines.push((status, vec![item])),
+        }
+    }
+    lines
+        .into_iter()
+        .map(|(s, items)| format!("{s}: {}", items.join(", ")))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,6 +307,8 @@ mod tests {
             updated: "2026-01-02".into(),
             lat: 51.5,
             lon: -0.1,
+            readings: Vec::new(),
+            retrieval: Vec::new(),
         }
     }
 
@@ -165,6 +348,116 @@ mod tests {
         assert_eq!(thousands(1_234_567), "1,234,567");
         assert_eq!(percent(1, 3), "33.3%");
         assert_eq!(percent(5, 0), "n/a");
+    }
+
+    fn reading(source: &str, variable: &str, status: Finding) -> Reading {
+        Reading {
+            stage: Lineage::Decision,
+            variable: variable.into(),
+            name: "Total homes".into(),
+            source: source.into(),
+            status,
+            value: None,
+            basis: None,
+            pages: None,
+            check: Check::Proposed,
+        }
+    }
+
+    #[test]
+    fn statuses_without_a_value_share_a_line() {
+        let r = [
+            reading("deed", "V1", Finding::Found),
+            reading("gla", "V1", Finding::SourceMissing),
+            reading("deed", "V5", Finding::NotStated),
+            reading("committee_report", "V5", Finding::NotStated),
+            reading("datahub", "V2", Finding::Unread),
+        ];
+        assert!(has_value(&r[0]));
+        assert_eq!(
+            status_lines(&r),
+            [
+                "No document: GLA V1",
+                "Not stated: Deed V5, Committee report V5",
+                "Not read: Datahub V2"
+            ]
+        );
+        assert_eq!(check_label(Check::Proposed), "agent reading, not checked");
+    }
+
+    #[test]
+    fn checked_cells_look_checked() {
+        assert_eq!(check_class(Check::Unread), "unchecked");
+        assert_eq!(check_class(Check::Proposed), "unchecked");
+        assert_eq!(check_class(Check::Unsettled), "disagree");
+        assert_eq!(check_class(Check::Anchored), "checked");
+        assert_eq!(check_class(Check::Independent), "independent");
+        assert_eq!(check_tag(Check::Proposed), Some("unchecked"));
+        assert_eq!(check_tag(Check::Anchored), None);
+        assert!(Check::Proposed < Check::Anchored && Check::Unsettled < Check::Anchored);
+        let mut r = vec![reading("deed", "V1", Finding::Found); 3];
+        r[0].check = Check::Anchored;
+        r[1].check = Check::Unread;
+        assert_eq!(
+            check_counts(&r),
+            "3 cells: 0 read by a person, 1 checked, 2 unchecked"
+        );
+    }
+
+    #[test]
+    fn values_read_as_words() {
+        assert_eq!(
+            humanize("total=84; market=61; SR=16; SO=7"),
+            "total 84; market 61; social rent 16; shared ownership 7"
+        );
+        assert_eq!(
+            humanize("orig 2018-09-13 (not_stated)"),
+            "orig 2018-09-13 (not stated)"
+        );
+        assert_eq!(
+            basis_note("share 35.0% (habitable rooms)", Some("habitable_rooms")),
+            None
+        );
+        assert_eq!(
+            basis_note("total 84", Some("units")).as_deref(),
+            Some(" (units)")
+        );
+        assert_eq!(basis_note("total 84", Some("not_stated")), None);
+        assert_eq!(
+            basis_note("pil 1", Some("other:cash")).as_deref(),
+            Some(" (other: cash)")
+        );
+    }
+
+    #[test]
+    fn target_and_offer_split() {
+        assert_eq!(
+            split_target("target=35% habitable_rooms; first_offer=30%; offer_doc=x"),
+            (
+                Some("target=35% habitable_rooms".into()),
+                Some("first_offer=30%; offer_doc=x".into())
+            )
+        );
+        assert_eq!(
+            split_target("first_offer=30%"),
+            (None, Some("first_offer=30%".into()))
+        );
+    }
+
+    #[test]
+    fn missing_documents_in_words() {
+        let r = Retrieval {
+            source: "viability".into(),
+            documents: 13,
+            in_hand: 0,
+            not_in_hand: Some("listed_not_fetched x13".into()),
+        };
+        assert_eq!(
+            not_in_hand(&r).as_deref(),
+            Some("Viability: 13 listed, not fetched")
+        );
+        assert_eq!(retrieval_stage("viability"), Some(Lineage::Offer));
+        assert_eq!(retrieval_stage("datahub"), None);
     }
 
     #[test]

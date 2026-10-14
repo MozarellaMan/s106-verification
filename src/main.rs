@@ -137,7 +137,9 @@ enum Cmd {
         out: PathBuf,
     },
     /// Bake the results explorer's data (Datahub-derived only) into <out>/sites.json and
-    /// <out>/boroughs.geojson. Paths are relative to the data root.
+    /// <out>/boroughs.geojson. Paths are relative to the data root. With --results it is a private
+    /// build that also carries a results ledger's unreviewed readings: view it locally, never
+    /// publish it.
     Explore {
         /// a Datahub baseline run's applications table
         #[arg(
@@ -157,6 +159,9 @@ enum Cmd {
             default_value = "snapshots/ons/lad-2023-bgc-london/2026-10-14T14_06_00Z.geojson"
         )]
         boundaries: PathBuf,
+        /// a results folder (e.g. results/2026-10-14-batch1) whose ledger readings to add
+        #[arg(long)]
+        results: Option<PathBuf>,
         #[arg(long, default_value = "explorer/data")]
         out: PathBuf,
     },
@@ -553,6 +558,7 @@ fn main() -> Result<()> {
             applications,
             snapshot,
             boundaries,
+            results,
             out,
         } => {
             let root = s106::data::root();
@@ -560,6 +566,7 @@ fn main() -> Result<()> {
                 applications,
                 snapshot,
                 boundaries,
+                results,
             };
             let bundle = explore::bake(&root, &inputs)?;
             std::fs::create_dir_all(&out)?;
@@ -572,6 +579,17 @@ fn main() -> Result<()> {
                 bundle.sources.without_centroid,
                 out.display()
             );
+            if let Some(results) = &bundle.sources.results {
+                let read = bundle.sites.iter().filter(|s| !s.readings.is_empty());
+                eprintln!(
+                    "PRIVATE build: {} schemes carry readings from {} at data commit {} \
+                     (not matched: {:?}). View it locally; never publish it.",
+                    read.count(),
+                    results,
+                    bundle.sources.data_commit.as_deref().unwrap_or("unknown"),
+                    bundle.sources.unmatched
+                );
+            }
             Ok(())
         }
         Cmd::Labels { model } => {

@@ -46,10 +46,33 @@ aside { background: var(--panel); border: 1px solid var(--line); padding: 14px; 
 .lineage { display: grid; gap: 6px; }
 .stage { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; }
 .stage .name { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding-top: 6px; }
+.current.plain { background: var(--none); }
+.by-source { width: 100%; border-collapse: collapse; font-size: .84rem; margin: 6px 0; }
+.by-source caption { text-align: left; font-weight: 600; padding-bottom: 4px; }
+.by-source th, .by-source td { text-align: left; vertical-align: top; padding: 4px 6px; border-top: 1px solid var(--line); font-weight: normal; }
+.by-source th { width: 34%; }
+.by-source .src { display: block; font-family: var(--mono); font-size: .7rem; color: var(--muted); }
+.others.missing { color: var(--ink); }
+.cells { display: grid; gap: 4px; min-width: 0; }
+.chip.reading { background: var(--panel); border: 1px solid var(--line); color: var(--ink); }
+.chip .what { display: block; font-size: .72rem; color: var(--muted); }
+/* A cell's look follows how far it was checked; the words say it too. */
+.reading.unchecked { border-style: dashed; color: var(--muted); }
+.reading.disagree { border: 2px dotted var(--accent); }
+.reading.checked { border-color: var(--border); }
+.reading.independent { border-color: var(--border); box-shadow: inset 3px 0 0 var(--accent); }
+.tag { font-family: var(--mono); font-size: .66rem; text-transform: uppercase; letter-spacing: .04em;
+  border: 1px solid currentColor; border-radius: 3px; padding: 0 3px; margin-right: 5px; }
+.by-source tr.unchecked td, .by-source tr.unchecked th { color: var(--muted); }
+.by-source tr.independent th { box-shadow: inset 3px 0 0 var(--accent); }
+.counts { margin: 4px 0 0; font-size: .82rem; font-family: var(--mono); }
+.others { font-size: .74rem; color: var(--muted); }
+.private { margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 4px; font-size: .86rem; max-width: 90ch; }
 .chip { border-radius: 4px; padding: 6px 8px; font-size: .84rem; background: var(--none); border: 1px dashed var(--border); color: var(--muted); }
 .chip.found { background: var(--found); border: 1px solid transparent; color: var(--ink); }
 .chip .src { display: block; font-family: var(--mono); font-size: .7rem; color: var(--muted); margin-top: 2px; }
 .list { max-height: 240px; overflow: auto; border-top: 1px solid var(--line); }
+.list.all { max-height: none; }
 .list button { all: unset; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; width: 100%; box-sizing: border-box;
   padding: 5px 2px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: .82rem; }
 .list button:hover, .list button:focus-visible { background: var(--none); }

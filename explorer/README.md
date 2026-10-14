@@ -7,7 +7,8 @@ a server.
 
 **What it shows is public data only.** The data comes from `s106 explore`, which reads a Datahub
 baseline run in the data repository: Datahub figures (Open Government Licence) and ONS borough
-boundaries, nothing from deeds, proposals, labels or the results ledger. Stages the Datahub can't
+boundaries, nothing from deeds, proposals, labels or the results ledger (except in a private build,
+below). Stages the Datahub can't
 speak to (offer, obligation, variation) are drawn as "not collected". Anything scheme-level from
 the ledger stays out of this build until it has been reviewed and signed off.
 
@@ -26,6 +27,15 @@ cd explorer && trunk serve                           # http://127.0.0.1:8080
 `s106 explore` takes `--applications`, `--snapshot` and `--boundaries` (paths in the data
 repository) to point at a newer baseline run. `explorer/data/` and `explorer/dist/` are never
 committed.
+
+## A private build with results
+
+`--results` adds a results folder's ledger (for example
+`--results results/2026-10-14-batch1`, from `s106 results`) to the schemes it covers. Their Offer,
+Decision, Obligation, Variation and Completion stages then show each source's cell with its check
+level, a banner marks the page as private, and a list on the right finds those schemes. These are
+unreviewed readings: view the build locally with `trunk serve` and never publish it. The Pages
+workflow never passes `--results`, and refuses to deploy data that carries readings.
 
 ## Publish it
 
