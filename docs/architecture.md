@@ -42,9 +42,9 @@ flowchart LR
    be constructed; use explicit `--llm-mode replay` for reproducibility and no
    model calls. Live mode attaches the **entire PDF**, capped at 300 loaded pages.
    There is no source-page ranking or excerpt selection in the current live path.
-   Instrument/metadata/variations, housing, and contributions use three calls
-   because the combined output grammar exceeded the API limit. OCR text is not
-   sent as the extraction prompt. The PDF is not prompt-cached between schemas.
+   Instrument/metadata/variations, housing, and contributions use three calls,
+   made concurrently, because the combined output grammar exceeded the API limit.
+   OCR text is not sent as the extraction prompt. The PDF is not prompt-cached between schemas.
 
 4. **Deserialize and convert.** `llm::schema_for` makes Schemars output compatible
    with strict structured outputs. `llm::extract` delegates transport retry to the
@@ -130,6 +130,8 @@ A PASS only concerns that check's assertion and current grounding mechanism.
 | `evidence.rs`, `text.rs`, `triggers.rs` | `locate`: relocation; text normalisation; deterministic payment vocabulary |
 | `report.rs` | Terminal presentation, `gbp`, and borrowed `AuditJson` view; the JSON holds the agreement (with `run`) and `verification[].findings` |
 | `eval.rs`, `ocrbench.rs` | Register comparison/run agreement; OCR against transcribed gold |
+| `pld.rs`, `reconcile.rs` | Layer B: Datahub snapshots; obligations vs delivery (see `docs/reconciliation.md`) |
+| `labels.rs` | Human labels scored against the pipeline's readings; nothing else depends on it |
 
 The coupling is intentional: wire and verifier both use the domain enums, so
 vocabulary is defined once. Extraction depends on verification only for escalation;

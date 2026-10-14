@@ -122,6 +122,8 @@ s106 eval --replay --pages data/pages                              # the same fr
 s106 pages <pdf>... --check data/pages                             # read PDFs afresh and compare with the snapshots
 s106 eval --runs 3                                                 # live, three runs per deed (run-to-run agreement)
 s106 bench-ocr data/gold/<gold>.json data/raw/<id>.pdf --models ppocrv5-en-mobile,ppocrv4-mobile
+s106 pld get applications <borough>-<reference>                    # save a Datahub record under <data>/snapshots/pld/
+s106 reconcile <deed>... --development <borough>-<reference> --pld snapshots/pld/applications/<id>/<time>.json
 s106 labels                                                        # score everything against the human labels
 ```
 
@@ -130,8 +132,8 @@ s106 labels                                                        # score every
 `audit` prints a report and writes JSON to `data/processed/<stem>.audit.json`. Exit codes are `0`
 clean, `1` Parser Errors or REVIEW flags, and `2` Document Discrepancies.
 
-**What a run costs.** Extraction is three structured-output calls over the whole PDF. A single
-schema for everything compiles to a grammar the API rejects, and the PDF can't be cached across
+**What a run costs.** Extraction is three structured-output calls over the whole PDF, made at the
+same time. A single schema for everything compiles to a grammar the API rejects, and the PDF can't be cached across
 calls whose schemas differ. With Haiku 5.5 a 30-page deed costs a few cents; a 109-page scan
 costs about $0.30. Escalation to Opus 5.5 costs more and only runs with
 `--escalate`.
