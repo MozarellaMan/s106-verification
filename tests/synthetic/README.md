@@ -3,8 +3,8 @@
 Three deeds that describe no real site, council or planning application. Each has the page text
 a reader would produce (`pages.txt`), the extraction a model would return (`extraction.json`, in
 the same wire format as a recorded response) and the gate's pinned outcomes (`checks.json`).
-`tests/synthetic.rs` runs them in the default `cargo test`; `tests/common/synthetic.rs` documents
-the `pages.txt` format.
+`tests/synthetic.rs` runs all three in the default `cargo test`; `tests/common/synthetic.rs`
+documents the `pages.txt` format.
 
 | deed | built to show |
 |---|---|

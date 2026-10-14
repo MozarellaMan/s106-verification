@@ -1,18 +1,18 @@
 # Numeric parsing and findings
 
 Numbers enter the audit from two places: fields the extractor wrote (`amount_gbp`,
-`amount_in_words`, `share_pct`, ...) and prose quoted as evidence. Both are read by
-`quantity.rs`. The parser reads selected expressions; it does not decide that an extraction is
-supported by a PDF, what a covenant means, or repair source values. Nothing is guessed: a
-candidate that is not a clean number is reported with a cause and a span, never silently fixed.
+`amount_in_words`, `share_pct`, ...) and prose quoted as evidence. `quantity.rs` reads both. The
+parser reads selected expressions only; it does not decide whether a PDF supports an extraction,
+what a covenant means, or how to repair a source value. Nothing is guessed: a candidate that is
+not a clean number is reported with a cause and a span, never silently fixed.
 
 ## Tokenizer and grammar
 
-Text is lexed once into typed tokens with UTF-8 byte spans: digit runs, whitespace, number
+The lexer turns text into typed tokens with UTF-8 byte spans: digit runs, whitespace, number
 words from a fixed vocabulary (longest first, so `seventeen` is not `seven` + `teen`), other
-alphabetic runs, and symbols. A Winnow grammar over those tokens returns values, not
-booleans. `scan`, `decimal`, `integer` and `amount` share the tokenizer and grammar, so the
-prose path and the exact path cannot drift apart.
+alphabetic runs, and symbols. A Winnow grammar over those tokens returns values, not booleans.
+`scan`, `decimal`, `integer` and `amount` share the tokenizer and grammar, so the prose path and
+the exact path cannot drift apart.
 
 | Form | Supported | Reported as an error |
 | --- | --- | --- |
@@ -20,8 +20,8 @@ prose path and the exact path cannot drift apart.
 | Words | English cardinals up to millions: any ASCII case, joined words, hyphens, `and`, commas between scale groups | Billions, fractions in words, other languages, repeated or misplaced conjunctions (`one one`, `and and`), scales out of order (`one thousand two million`) |
 | Units | `£`, `pounds`, `%`, `per cent`, `percent` | Other currencies |
 
-Values are `rust_decimal::Decimal` from `from_str_exact`: overflow or over-precision fails
-(`UnrepresentableDecimal`), and nothing is rounded, saturated or clamped.
+Values are `rust_decimal::Decimal` from `from_str_exact`: overflow or excess precision fails
+with `UnrepresentableDecimal`, and nothing is rounded, saturated or clamped.
 
 ## Units
 
@@ -33,8 +33,8 @@ Grounding compares a value against quantities of the unit the field expects.
 
 OCR often swaps look-alike characters (`5o%`, `fif5ty`, `f10,058.60`). The scanner finds
 letter/digit mixes and reports `MixedLettersAndDigits`, or `OcrSubstitutionCandidate` with the
-normalised candidate when one exists. A candidate is a suggestion, never a reading: the
-quantity is not produced.
+normalised candidate when one exists. A candidate is a suggestion, never a reading: the scanner
+produces no quantity for it.
 
 ## Exact and prose paths
 
@@ -47,8 +47,8 @@ allowed; anything else outside the expression is an error.
   pence`). A dangling `and` or an unknown pence word is an error, never dropped.
 
 The prose path (`scan`) returns every quantity in running text and every rejected candidate,
-each with its span. A single sentence-final dot or comma is punctuation, not part of the
-number. Quantity spans never overlap.
+each with its span. A single dot or comma at the end of a sentence is punctuation, not part of
+the number. Quantity spans never overlap.
 
 ## Observed fields
 
@@ -63,8 +63,8 @@ scanned.
 ## Findings and codes
 
 Each numeric problem becomes one `audit::Finding`, built in one place and used by both the
-terminal report and the audit JSON (`verification[].findings`). Findings are additive facts;
-they do not change `status` or `error_class`.
+terminal report and the audit JSON (`verification[].findings`). Findings are added facts; they
+do not change `status` or `error_class`.
 
 A finding carries the check id, the field path, the code and category, the cause, what was
 expected, the observed input with its SHA-256 and span, the citation, and `extraction_sha256`.
@@ -89,12 +89,12 @@ For each numeric input the verifier locates the cited snippet on its page once
 among quantities of the right unit.
 
 `Located` gives the page, the matched byte range in the page text and `repairs`: the OCR digit
-substitutions the match relied on. A value is never verified against a page that had to be
-rewritten, so a match with repairs is `RelocationRequiresDigitSubstitution` (NUM005) and stays
+substitutions the match relied on. A value is never verified against a page the matcher had to
+rewrite, so a match with repairs is `RelocationRequiresDigitSubstitution` (NUM005) and stays
 REVIEW.
 
 A snippet whose numbers are unreadable yields one finding per unreadable number, in addition
-to the reason. Citation matching itself is unchanged and is not a fuzzy score.
+to the reason. Citation matching is exact after normalisation, not a fuzzy score.
 
 ## Provenance and the snapshot gate
 
@@ -118,31 +118,30 @@ base provenance untouched.
 
 The parser fingerprint is a hash of the parser's results on a selected corpus, diagnostics
 included. `fixtures/numeric-probes.txt` holds one probe per line, with newline, carriage return
-and backslash escaped. It contains every citation snippet and every `amount_in_words`,
+and backslash escaped. The probes are every citation snippet and every `amount_in_words`,
 `amount_gbp`, `share_pct` and `claimed_affordable_pct` string in the invented deeds'
-extractions (`tests/synthetic/*/extraction.json`), plus the constructed controls. Strings from
-real deeds are not in it: the code repository describes no real planning application.
+extractions (`tests/synthetic/*/extraction.json`), plus constructed controls. Strings from real
+deeds are not in the file: the code repository describes no real planning application.
 
 `audit::parser_fingerprint()` runs `scan`, `decimal` and `amount` over every probe and hashes
 the rendering: quantities with unit and span, errors with cause, spans and expected wording.
-A comment or refactor leaves it unchanged. It changes when results on the corpus change,
-including diagnostic wording, and when probes are added. A change in acceptance on input
-outside the corpus does not change it.
+A comment or refactor leaves the fingerprint unchanged. The fingerprint changes when results on
+the corpus change, including diagnostic wording, and when probes are added. A change in
+acceptance on input outside the corpus does not change it.
 
 `tests/numeric_snapshot.rs` snapshots the same rendering with `insta` (`tests/snapshots/`).
-This is the review gate: a change that accepts something previously rejected shows up as a
-snapshot diff, to be justified with a source example and a corrupted counterpart that must
+The snapshot is the review gate: a change that accepts something previously rejected shows up
+as a snapshot diff, to be justified with a source example and a corrupted counterpart that must
 still fail. The same file has a property test: `scan` never panics on arbitrary text, every
 span is on char boundaries and inside the text, and quantity spans do not overlap.
 
 `probes_cover_fixtures` fails when a string from an invented deed's extraction is missing from
-the probe file. The probe
-file is compiled into the tests, so updating it takes separate runs:
+the probe file. The probe file is compiled into the tests, so updating it takes separate runs:
 
 1. Add the missing strings:
    `S106_REGENERATE_PROBES=1 cargo test --test numeric_snapshot probes_cover_fixtures`.
-2. Rerun `cargo test --test numeric_snapshot`. This rebuilds the tests with the new probes, and
-   the snapshot test fails if the rendering changed.
+2. Rerun `cargo test --test numeric_snapshot`. The rerun rebuilds the tests with the new probes,
+   and the snapshot test fails if the rendering changed.
 3. Review the diff with `cargo insta review`, or accept it with
    `INSTA_UPDATE=always cargo test --test numeric_snapshot` and read the `.snap` diff in git.
 4. Commit the probe file and the snapshot together.
@@ -152,9 +151,9 @@ When comparing two audit files:
 - A changed PDF or page-text hash means the source changed.
 - A changed extraction hash means the extraction changed.
 - With source and extraction unchanged, a changed `parser_fingerprint` means the parser's
-  results on the probe corpus changed: values, diagnostics, or the corpus itself. Check the
-  snapshot diff between the two versions to see which. A field that now parses is not evidence
-  that the extraction was fixed.
+  results on the probe corpus changed: values, diagnostics, or the corpus itself. The snapshot
+  diff between the two versions shows which. A field that now parses is not evidence that the
+  extraction was fixed.
 - An unchanged fingerprint does not prove identical acceptance on input outside the corpus.
 
 Fixtures and cached page text are replay inputs, not independent legal ground truth.
