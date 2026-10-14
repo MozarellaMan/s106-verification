@@ -113,9 +113,10 @@ pub fn check_label(check: Check) -> &'static str {
         Check::Independent => "read by a person",
         Check::Anchored => "AI reading, checked by a person",
         Check::Proposed => "AI reading, not checked",
-        Check::Unsettled => "readers disagree",
+        Check::Unsettled => "needs a person's read",
         Check::Sampled => {
-            "two AI readings agree; not checked by a person (a sample of similar readings was)"
+            "AI reading, not checked itself; two readers agreed and a blind sample of its group was \
+             at least 90% right"
         }
         Check::Unread => "not read",
     }
@@ -136,8 +137,8 @@ pub fn check_tag(check: Check) -> &'static str {
     match check {
         Check::Unread => "not read",
         Check::Proposed => "unchecked AI reading",
-        Check::Unsettled => "readers disagree",
-        Check::Sampled => "unchecked, two AI readings agree",
+        Check::Unsettled => "needs a person's read",
+        Check::Sampled => "unchecked · two AI readings agree",
         Check::Anchored => "checked by a person",
         Check::Independent => "read by a person",
     }
@@ -153,7 +154,7 @@ pub fn check_counts(readings: &[Reading]) -> String {
         (Check::Sampled, "two AI readings agree"),
         (Check::Proposed, "AI reading only"),
         (Check::Unread, "not read"),
-        (Check::Unsettled, "where readers disagree"),
+        (Check::Unsettled, "needing a person's read"),
     ]
     .into_iter()
     .filter(|&(c, _)| count(c) > 0)
