@@ -182,7 +182,7 @@ cargo test-data               # tier 2, needs the data checkout
 cargo test-pdf && cargo test-corpus
 ```
 
-`S106_DATA` (or the global `--data <dir>` flag), `S106_MODELS` and `S106_OCR_CACHE` override locations. `S106_OCR_WORKERS=<n>` (default 1, opt-in) OCRs n pages at a time, each on its own engine and still one page per call; it uses about 0.3 GB more memory per extra worker and keeps its own cache (keyed by workers and threads), and `cargo test-pdf` on the real PDFs should pass with it before it becomes a default. Fixtures live
+`S106_DATA` (or the global `--data <dir>` flag), `S106_MODELS` and `S106_OCR_CACHE` override locations. `S106_OCR_WORKERS=<n>` (default 1, opt-in) OCRs n pages at a time, each on its own engine and still one page per call; it uses about 0.3 GB more memory per extra worker and keeps its own cache (keyed by workers and threads), and `cargo test-pdf` on the real PDFs should pass with it before it becomes a default. `S106_OCR_MODELS=ppocrv6-tiny` (opt-in; fetch it with `scripts/fetch-models.sh --bench`) reads scans with PP-OCRv6 tiny: 2.6x faster than the default on 15 recorded deeds (4 vCPUs), with different but not clearly worse text (see `docs/ocr-speed.md`). Its page text has its own cache key and does not match the committed snapshots. Fixtures live
 at `data/extractions/<stem>/<model>.extract.v2.json` and check PDF and prompt/schema
 hashes. When no v2 fixture exists, `extractions-v1` can replay through an adapter; it does
 not have the same prompt-hash validation. Page positions in old excerpts are mapped
