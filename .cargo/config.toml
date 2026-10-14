@@ -1,5 +1,5 @@
 # Shorthands for the slower test tiers (see README "Tests"). `cargo test` alone runs tier 1 (tier 2 is `cargo test-data`).
 [alias]
-test-data = "test --test replay --test golden_python_m1 -- --ignored"
+test-data = "test --test replay -- --ignored"
 test-pdf = "test --release --test pdf_regression -- --ignored"
 test-corpus = "test --release --test corpus -- --ignored --nocapture"

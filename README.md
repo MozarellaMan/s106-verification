@@ -128,7 +128,6 @@ s106 eval --replay                                                 # all candida
 s106 eval --replay --pages data/pages                              # the same from committed page text, no PDFs
 s106 pages <pdf>... --check data/pages                             # read PDFs afresh and compare with the snapshots
 s106 eval --runs 3                                                 # live, three runs per deed (run-to-run agreement)
-s106 bench-ocr data/gold/<gold>.json data/raw/<id>.pdf --models ppocrv6-tiny,ppocrv5-en-mobile
 s106 pld get applications <borough>-<reference>                    # save a Datahub record under <data>/snapshots/pld/
 s106 reconcile <deed>... --development <borough>-<reference> --pld snapshots/pld/applications/<id>/<time>.json
 s106 labels                                                        # score everything against the human labels
