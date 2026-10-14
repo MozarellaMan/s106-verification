@@ -45,6 +45,7 @@ src/
   ocrbench.rs   OCR scored against gold transcriptions (`gold/*.json` in the data repository)
   labels.rs     scored against human labels (`labels/` in the data repository)
   results.rs    a batch's scheme ledger, decision rules and claims, each with its check level
+  explore.rs    Datahub-only data for the public results explorer (`explorer/`)
 ```
 
 ## Setup
@@ -129,6 +130,7 @@ s106 pld get applications <borough>-<reference>                    # save a Data
 s106 reconcile <deed>... --development <borough>-<reference> --pld snapshots/pld/applications/<id>/<time>.json
 s106 labels                                                        # score everything against the human labels
 s106 results --sheet runs/<batch>/labels.csv --out results/<batch>  # a batch's ledger, rules and claims
+s106 explore                                                       # bake the results explorer's data (explorer/README.md)
 ```
 
 (`cargo run --release --` instead of `s106` without installing.)

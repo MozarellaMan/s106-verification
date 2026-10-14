@@ -1,0 +1,24 @@
+[package]
+name = "s106-explorer"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Built on its own for the browser (`trunk build`), not part of the s106 command line.
+[workspace]
+
+[dependencies]
+gloo-net = { version = "0.6", default-features = false, features = ["http", "json"] }
+js-sys = "0.3"
+leaflet = "0.5"
+leptos = { version = "0.8", features = ["csr"] }
+serde = { version = "1", features = ["derive"] }
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = ["Element", "HtmlElement", "MediaQueryList", "Window"] }
+
+# Smaller WASM for the browser (trunk's wasm-opt runs on top).
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"

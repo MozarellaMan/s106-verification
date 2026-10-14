@@ -18,6 +18,25 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+  # The results explorer is its own workspace, built for the browser; nothing else compiles it
+  # before a hand-started Pages deploy.
+  explorer:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: explorer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: explorer
+      - run: cargo fmt --check
+      - run: cargo clippy --target wasm32-unknown-unknown -- -D warnings
+      - run: cargo test
   data:
     runs-on: ubuntu-latest
     steps:

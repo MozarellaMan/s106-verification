@@ -2865,6 +2865,7 @@ dependencies = [
  "chrono",
  "clap",
  "csv",
+ "flate2",
  "image",
  "insta",
  "oar-ocr",
