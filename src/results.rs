@@ -1,5 +1,5 @@
-//! Results: what a batch's sources say, scheme by scheme, and how far a person has checked each
-//! reading.
+//! Results: what a batch's sources say, scheme by scheme, and how far each reading has been
+//! checked.
 //!
 //! `s106 results` reads a batch's blank labelling sheet (which cells exist), the human labels in
 //! `labels/` and the agents' proposals in `proposals/`, and writes one folder:
@@ -9,7 +9,8 @@
 //!   its check level: `independent` (a person read the source), `anchored` (a person confirmed or
 //!   corrected an agent's proposal), `sampled` (two readers agree and the blind sample of their
 //!   variable group passes the audit rule's gate), `proposed` (an agent only), `unsettled`
-//!   (labellers disagree, or the audit rule sends the cell to a person) or `unread`;
+//!   (readers disagree, a check failed or an external source differs, and no reading settles it
+//!   yet) or `unread`;
 //! - `rules.csv`: the batch's pre-registered decision rules worked out on the ledger, scheme by
 //!   scheme, each outcome carrying the lowest check level it rests on;
 //! - `retrieval.csv`: per scheme and source, which documents are in hand and which are not;
@@ -23,8 +24,8 @@
 //!
 //! Like `s106 labels`, `s106 results` does not wait for labels: with none, every cell is
 //! `proposed` or `unread`, and the note says so. A rule outcome or a claim at the `proposed`
-//! level is not a result. A difference between two sources is a cell for a person to check, never
-//! a breach.
+//! level is not a result. A difference between two sources is a discrepancy for another reader to
+//! settle, never a breach.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -238,7 +239,7 @@ pub fn ledger(
                 (None, p) => match (routes.get(&k), p) {
                     (Some(r), _) if r.route == "triage" => {
                         let mut e = blank(Check::Unsettled);
-                        e.value = format!("sent to a person ({}): {}", r.reasons, r.readings);
+                        e.value = format!("not settled ({}): {}", r.reasons, r.readings);
                         e
                     }
                     (Some(r), Some(p))
@@ -264,7 +265,7 @@ pub struct Route {
     pub route: String,
     /// the variable group: G1 counts and shares, G2 obligations, G3 lineage
     pub group: String,
-    /// why a triage cell goes to a person
+    /// why a triage cell is not settled
     pub reasons: String,
     /// both readers' readings, for a triage cell
     pub readings: String,
@@ -1013,9 +1014,9 @@ pub fn markdown(r: &Results) -> String {
          readers agree and a blind sample of their variable group passes the audit rule's gate, \
          which supports an aggregate statement carrying the measured error rate, never one about \
          a single scheme or developer. **proposed**: an agent only, which is not a result. \
-         **unsettled**: labellers disagree, or the audit rule sends the cell to a person. \
-         **unread**: nobody has read it. A difference between two sources is a cell for a person to check, never a breach; \
-         a deed figure is the original obligation, not what is due today.\n\n",
+         **unsettled**: readers disagree, a check failed or an external source differs, and no \
+         reading settles it yet. **unread**: nobody has read it. A difference between two sources \
+         is a discrepancy for another reader to settle, never a breach; a deed figure is the original obligation, not what is due today.\n\n",
         r.name
     );
 

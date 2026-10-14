@@ -182,8 +182,8 @@ scheme by scheme, retrieval per source, and a note that lists the hand-written c
 folder's `claims.csv`. Every cell, rule outcome and claim carries a check level: `independent` (a
 person read the source), `anchored` (a person confirmed or corrected a proposal), `sampled` (two
 readers agree and their variable group passed the blind-sample gate of the data repository's
-`docs/audit-rule.md`), `proposed` (an agent only, not a result), `unsettled` (labellers disagree,
-or the audit rule sends the cell to a person) or `unread`. A batch with no pre-registered rules
+`docs/audit-rule.md`), `proposed` (an agent only, not a result), `unsettled` (readers disagree,
+a check failed or an external source differs, and no reading settles it yet) or `unread`. A batch with no pre-registered rules
 runs with `--no-rules`. A rule or claim stands at
 the weakest level of the cells it rests on, so the note moves from proposed to checked on its own
 as labels arrive. Like `s106 labels`, `s106 results` never waits for labels.
