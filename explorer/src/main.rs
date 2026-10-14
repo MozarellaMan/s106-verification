@@ -106,16 +106,12 @@ fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
     let deed_only = sources.deed_cells.is_some() && sources.results.is_none();
     provide_context(DeedOnly(deed_only));
     let deed_note = deed_only.then(|| {
-        let unmatched = (!sources.unmatched.is_empty()).then(|| {
+        (!sources.unmatched.is_empty()).then(|| {
             format!(
                 " Not on the map (no single matching Datahub record): {}.",
                 sources.unmatched.join(", ")
             )
-        });
-        (
-            sources.data_commit.clone().unwrap_or("unknown".into()),
-            unmatched,
-        )
+        })
     });
     let sites = StoredValue::new(sites);
     let (from, set_from) = signal(DEFAULT_YEARS.0);
@@ -174,20 +170,23 @@ fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
             <p class="private">
                 <b>"Private build, not for publication. "</b>
                 "Schemes with readings carry cells from " <code>{results}</code>
-                " at s106-data commit " <code>{commit}</code> ". Each says how far it has been checked; an agent reading nobody has checked is not a result, "
+                " at s106-data commit " <code>{commit}</code> ". Each says how far it has been checked; an AI reading nobody has checked is not a result, "
                 "and a difference between two sources is a prompt to read them, never a finding."
                 {unmatched}
             </p>
         })}
-        {deed_note.map(|(commit, unmatched)| view! {
+        {deed_note.map(|unmatched| view! {
             <p class="private deed">
                 <b>"Deed figures. "</b>
-                "For the schemes in the list on the right, figures transcribed from each S106 agreement are "
-                "shown with the deed pages cited. Most were read by an agent and are not yet checked by a person: "
-                "those are marked UNCHECKED, and the ones a person has checked stand apart. A deed figure is the "
-                "obligation as first signed, not what is due today or what was built, and no figure here is a "
-                "finding about a scheme. "
-                <span class="src">"s106-data commit " {commit}</span>
+                "The schemes under \"schemes with deed figures\" show figures transcribed from their S106 "
+                "agreements, with the deed pages cited. Most were transcribed by an AI model and have not been "
+                "checked by a person: those are marked UNCHECKED and drawn dashed. A deed figure is the obligation "
+                "as first signed, not what is due today or what was built. Only variations in the documents we "
+                "hold are shown: no search of the Local Land Charges register or council records has been made, "
+                "so later variations may exist. Deed and Datahub figures often differ for ordinary reasons (later "
+                "variations, phasing, counting habitable rooms rather than homes, boroughs updating records), so a "
+                "difference is a prompt to read the documents, never evidence that an obligation was breached. "
+                "No figure here is a finding about a scheme."
                 {unmatched}
             </p>
         })}
@@ -524,7 +523,7 @@ fn Detail(
                     <caption>
                         {if deed_only { "Homes in the deed" } else { "Homes by source" }}
                         <span class="src">{if deed_only {
-                            "The obligation as first signed; not what is due today or what was built."
+                            "The obligation as first signed; not what is due today or what was built. A difference from the Datahub record below is a prompt to read the documents, never evidence of a breach."
                         } else {
                             "Different stages and bases: a difference is a prompt to read the documents, not a finding."
                         }}</span>
@@ -534,7 +533,7 @@ fn Detail(
                         let basis = basis_note(&value, r.basis.as_deref());
                         view! {
                             <tr class=check_class(r.check)>
-                                <th>{source_label(&r.source)}<span class="src">{format!("{:?} · {}", r.stage, r.variable)}</span></th>
+                                <th>{source_label(&r.source)}<span class="src">{r.name.clone()}</span></th>
                                 <td>{check_tag(r.check).map(|t| view! { <span class="tag">{t}</span> })}{value}{basis}<span class="src">{check_label(r.check)}</span></td>
                             </tr>
                         }
@@ -548,7 +547,8 @@ fn Detail(
                 <Stage name="Offer" known=Known::NotCollected { from: "committee report" } readings=at(Lineage::Offer) missing=missing(Lineage::Offer) />
                 <Stage name="Decision" known=Known::NotCollected { from: "committee report, decision notice" } readings=at(Lineage::Decision) missing=missing(Lineage::Decision) />
                 <Stage name="Obligation" known=Known::NotCollected { from: "S106 agreement" } readings=at(Lineage::Obligation) missing=missing(Lineage::Obligation) />
-                <Stage name="Variation" known=Known::NotCollected { from: "deeds of variation, section 73" } readings=at(Lineage::Variation) missing=missing(Lineage::Variation) />
+                <Stage name="Variation" known=Known::NotCollected { from: "deeds of variation, section 73" } readings=at(Lineage::Variation) missing=missing(Lineage::Variation)
+                    note=(deed_only && read).then_some("Only variations found in the documents held. No search of the Local Land Charges register or council records has been made yet, so later variations may exist.") />
                 <Stage name="Completion" known=completion readings=at(Lineage::Completion) missing=missing(Lineage::Completion) />
             </div>
         }
@@ -578,6 +578,9 @@ fn Stage(
     /// documents of this stage listed for the scheme but not in hand (private builds only)
     #[prop(optional)]
     missing: Vec<String>,
+    /// a fixed caveat shown under the stage's cells
+    #[prop(default = None)]
+    note: Option<&'static str>,
 ) -> impl IntoView {
     let chip = match known {
         Known::Recorded { text, source } => Some((true, text, source)),
@@ -603,7 +606,7 @@ fn Stage(
                     let pages = r.pages.map(|p| format!(" · pages {p}"));
                     view! {
                         <div class=class>
-                            <span class="what">{format!("{} {}", source_label(&r.source), r.variable)}{doubt}</span>
+                            <span class="what">{format!("{}: {}", source_label(&r.source), r.name)}{doubt}</span>
                             {check_tag(r.check).map(|t| view! { <span class="tag">{t}</span> })}
                             {value}{basis}
                             <span class="src">
@@ -616,6 +619,7 @@ fn Stage(
                 }).collect_view()}
                 {others.into_iter().map(|l| view! { <div class="others">{l}</div> }).collect_view()}
                 {missing.into_iter().map(|l| view! { <div class="others missing">"Not in hand: " {l}</div> }).collect_view()}
+                {note.map(|n| view! { <div class="others">{n}</div> })}
             </div>
         </div>
     }

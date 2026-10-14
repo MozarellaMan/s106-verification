@@ -136,7 +136,6 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
         (None, Some(dir)) => add_results(&root.join(dir), &mut sites, Keep::DeedCells)?,
         (None, None) => Vec::new(),
     };
-    let from = inputs.results.as_ref().or(inputs.deed_cells.as_ref());
     let name = |p: &Path| p.display().to_string();
     Ok(Bundle {
         sources: Sources {
@@ -152,7 +151,8 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
             results: inputs.results.as_deref().map(name),
             deed_cells: inputs.deed_cells.as_deref().map(name),
             unmatched,
-            data_commit: from.and_then(|_| commit(root)),
+            // The data repo is private, so only a private build names its commit.
+            data_commit: inputs.results.as_ref().and_then(|_| commit(root)),
         },
         sites,
     })
@@ -163,8 +163,9 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
 enum Keep {
     /// every ledger cell and retrieval row: a private build
     All,
-    /// only cells read from the deed, at whatever check level, and no retrieval rows: the public
-    /// build's whitelist
+    /// only cells read from the deed, at whatever check level, for the stages a deed settles
+    /// (obligation, variation, completion), and no retrieval rows: the public build's whitelist.
+    /// A deed's offer cells only recite what the committee report or policy set, so they stay out.
     DeedCells,
 }
 
@@ -172,7 +173,13 @@ impl Keep {
     fn reading(self, r: &Reading) -> bool {
         match self {
             Keep::All => true,
-            Keep::DeedCells => r.source == "deed",
+            Keep::DeedCells => {
+                r.source == "deed"
+                    && matches!(
+                        r.stage,
+                        Lineage::Obligation | Lineage::Variation | Lineage::Completion
+                    )
+            }
         }
     }
 }
@@ -421,6 +428,7 @@ mod tests {
             "scheme,stage,variable_id,variable,source,status,value,basis,doc_ids,pages,check,reader,origin\n\
              1,obligation,V1,Total homes,deed,found,total=40; SR=10,units,D-1,D-1:3,anchored,human:AB,l.csv:2\n\
              1,obligation,V2,Share,deed,found,share=25%,units,D-1,D-1:4,proposed,machine:x,p.csv:3\n\
+             1,offer,V3,Target,deed,found,target=35%,,D-1,D-1:2,proposed,machine:x,p.csv:6\n\
              1,decision,V1,Total homes,committee_report,found,total=40,units,C-1,C-1:2,anchored,human:AB,l.csv:4\n\
              9,obligation,V1,Total homes,deed,found,total=9,units,D-9,D-9:1,proposed,machine:x,p.csv:5\n",
         )
@@ -438,7 +446,11 @@ mod tests {
             "9's deed cell matches no site"
         );
         let r = &bundle.sites[0].readings;
-        assert_eq!(r.len(), 2, "both deed cells, not the committee report's");
+        assert_eq!(
+            r.len(),
+            2,
+            "both obligation deed cells, not the deed's offer cell or the committee report's"
+        );
         assert!(r.iter().all(|r| r.source == "deed"));
         assert_eq!(r[1].check, Check::Proposed);
         assert_eq!(

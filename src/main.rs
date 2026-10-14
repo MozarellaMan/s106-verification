@@ -136,11 +136,11 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
-    /// Bake the results explorer's data (Datahub-derived only) into <out>/sites.json and
-    /// <out>/boroughs.geojson. Paths are relative to the data root. With --results it is a private
+    /// Bake the results explorer's data into <out>/sites.json and <out>/boroughs.geojson: Datahub
+    /// figures only, unless one of the flags below adds ledger cells. Paths are relative to the data root. With --results it is a private
     /// build that also carries a results ledger's unreviewed readings: view it locally, never
-    /// publish it. With --deed-cells it adds only the deed cells a person has checked, which the
-    /// public site may carry.
+    /// publish it. With --deed-cells it adds every deed cell for the obligation, variation and
+    /// completion stages, each labelled with its check level, which the public site may carry.
     Explore {
         /// a Datahub baseline run's applications table
         #[arg(
@@ -601,9 +601,9 @@ fn main() -> Result<()> {
                 let cells: usize = bundle.sites.iter().map(|s| s.readings.len()).sum();
                 let read = bundle.sites.iter().filter(|s| !s.readings.is_empty());
                 eprintln!(
-                    "{cells} deed cells on {} schemes from {from} at data commit {}",
+                    "{cells} deed cells on {} schemes from {from} (not matched: {:?})",
                     read.count(),
-                    bundle.sources.data_commit.as_deref().unwrap_or("unknown"),
+                    bundle.sources.unmatched
                 );
             }
             Ok(())
