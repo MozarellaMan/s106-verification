@@ -7,13 +7,19 @@
 //! - `ledger.csv`: one row per scheme × variable × source, set out along the scheme's lineage
 //!   (offer, decision, obligation, variation, completion), with the best reading of each cell and
 //!   its check level: `independent` (a person read the source), `anchored` (a person confirmed or
-//!   corrected an agent's proposal), `proposed` (an agent only), `unsettled` (labellers disagree)
-//!   or `unread`;
+//!   corrected an agent's proposal), `sampled` (two readers agree and the blind sample of their
+//!   variable group passes the audit rule's gate), `proposed` (an agent only), `unsettled`
+//!   (labellers disagree, or the audit rule sends the cell to a person) or `unread`;
 //! - `rules.csv`: the batch's pre-registered decision rules worked out on the ledger, scheme by
 //!   scheme, each outcome carrying the lowest check level it rests on;
 //! - `retrieval.csv`: per scheme and source, which documents are in hand and which are not;
 //! - `README.md`: the note, including the written claims from the folder's hand-kept `claims.csv`,
 //!   grouped by the check level of the cells each one cites.
+//!
+//! Cells read under `docs/audit-rule.md` (batch 2 onwards) also have a row in a routing file in
+//! `proposals/` (a CSV with `proposal_id`, `group` and `route` columns): `triage` cells are
+//! `unsettled` until a label settles them, and `agreed` and `sample` cells are `sampled` once
+//! their group passes the gate in section 6 of the rule.
 //!
 //! Like `s106 labels`, `s106 results` does not wait for labels: with none, every cell is
 //! `proposed` or `unread`, and the note says so. A rule outcome or a claim at the `proposed`
@@ -36,6 +42,7 @@ pub enum Check {
     Unread,
     Unsettled,
     Proposed,
+    Sampled,
     Anchored,
     Independent,
 }
@@ -46,6 +53,7 @@ impl Check {
             Check::Unread => "unread",
             Check::Unsettled => "unsettled",
             Check::Proposed => "proposed",
+            Check::Sampled => "sampled",
             Check::Anchored => "anchored",
             Check::Independent => "independent",
         }
@@ -142,11 +150,15 @@ fn sheet_cells(path: &Path) -> Result<BTreeMap<Key, String>> {
 /// The best reading of every cell. The sheet's cells all appear; a cell that only labels or
 /// proposals name (a source carrying a variable nobody expected) is added for the sheet's schemes.
 /// Labels outrank proposals; among proposals, the one in the later file (by path) wins, which is
-/// how a newer producer's file supersedes an older one.
+/// how a newer producer's file supersedes an older one. A cell the audit rule routes to triage is
+/// `unsettled` until a label settles it; an agreed or sampled cell of a group in `gated` is
+/// `sampled`.
 pub fn ledger(
     sheet: &BTreeMap<Key, String>,
     submitted: &[Reading],
     proposed: &[Reading],
+    routes: &BTreeMap<Key, Route>,
+    gated: &BTreeSet<String>,
 ) -> Vec<Entry> {
     let schemes: BTreeSet<&String> = sheet.keys().map(|k| &k.0).collect();
     let names: BTreeMap<&str, &str> = sheet
@@ -223,9 +235,164 @@ pub fn ledger(
                     };
                     shown(best, check)
                 }
-                (None, Some(p)) => shown(p, Check::Proposed),
-                (None, None) => blank(Check::Unread),
+                (None, p) => match (routes.get(&k), p) {
+                    (Some(r), _) if r.route == "triage" => {
+                        let mut e = blank(Check::Unsettled);
+                        e.value = format!("sent to a person ({}): {}", r.reasons, r.readings);
+                        e
+                    }
+                    (Some(r), Some(p)) if gated.contains(&r.group) => shown(p, Check::Sampled),
+                    (_, Some(p)) => shown(p, Check::Proposed),
+                    (_, None) => blank(Check::Unread),
+                },
             }
+        })
+        .collect()
+}
+
+// ------------------------------------------------------------------------- audit rule routes
+
+/// One cell's route under `docs/audit-rule.md`, from a routing file in `proposals/`.
+#[derive(Debug, Clone)]
+pub struct Route {
+    /// `agreed`, `sample` or `triage`
+    pub route: String,
+    /// the variable group: G1 counts and shares, G2 obligations, G3 lineage
+    pub group: String,
+    /// why a triage cell goes to a person
+    pub reasons: String,
+    /// both readers' readings, for a triage cell
+    pub readings: String,
+}
+
+/// The cell a `proposal_id` (`<scheme>/<variable_id>/<source>`) names.
+fn proposal_key(id: &str) -> Option<Key> {
+    let mut parts = id.trim().rsplitn(3, '/');
+    let source = parts.next()?.to_lowercase();
+    let variable_id = parts.next()?.to_uppercase();
+    let scheme = parts.next()?.to_uppercase();
+    Some((scheme, variable_id, source))
+}
+
+/// Every routing file in `proposals/`: a CSV with `proposal_id`, `group` and `route` columns.
+/// Returns the routes by cell and the files read. A cell routed twice keeps the later file's route.
+fn routes(root: &Path) -> Result<(BTreeMap<Key, Route>, Vec<PathBuf>)> {
+    let mut files = vec![];
+    csv_files(&root.join("proposals"), &mut files);
+    files.sort();
+    let mut out = BTreeMap::new();
+    let mut read = vec![];
+    for f in files {
+        let mut r = csv::Reader::from_path(&f)?;
+        let headers = r.headers()?.clone();
+        if !["proposal_id", "group", "route"]
+            .iter()
+            .all(|c| headers.iter().any(|h| h.trim() == *c))
+        {
+            continue;
+        }
+        for row in r.deserialize::<BTreeMap<String, String>>() {
+            let row = row?;
+            let get = |c: &str| row.get(c).map(|v| v.trim().to_string()).unwrap_or_default();
+            let Some(k) = proposal_key(&get("proposal_id")) else {
+                continue;
+            };
+            let reader = |n: &str| {
+                format!(
+                    "{n} {} `{}`",
+                    get(&format!("{}_status", n.to_lowercase())),
+                    get(&format!("{}_value", n.to_lowercase()))
+                )
+            };
+            out.insert(
+                k,
+                Route {
+                    route: get("route"),
+                    group: get("group"),
+                    reasons: get("reasons"),
+                    readings: format!("{} / {}", reader("R1"), reader("R2")),
+                },
+            );
+        }
+        read.push(f);
+    }
+    Ok((out, read))
+}
+
+/// The blind sample of one variable group, pooled over every routing file (section 6 of the
+/// audit rule).
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct Sample {
+    pub group: String,
+    /// the person's typed reading was the readers' value
+    pub same: usize,
+    pub differs: usize,
+    /// sample cells with no label yet; a can't-tell produces no label, so it counts here
+    pub pending: usize,
+    /// the Wilson 95% lower bound of same / (same + differs)
+    pub lower: Option<f64>,
+    /// the lower bound is at least 90%, so the group's agreed cells are `sampled`
+    pub passes: bool,
+}
+
+/// The gate's threshold on the Wilson lower bound (section 6 of the audit rule).
+pub const GATE: f64 = 0.90;
+
+/// The Wilson score interval's lower bound at 95%.
+pub fn wilson_lower(k: usize, n: usize) -> Option<f64> {
+    if n == 0 {
+        return None;
+    }
+    let (k, n, z) = (k as f64, n as f64, 1.96_f64);
+    let p = k / n;
+    let centre = (p + z * z / (2.0 * n)) / (1.0 + z * z / n);
+    let half = z * (p * (1.0 - p) / n + z * z / (4.0 * n * n)).sqrt() / (1.0 + z * z / n);
+    Some((centre - half).max(0.0))
+}
+
+/// Tallies each group's sample cells from the labels. A `blind` label means the typed reading was
+/// the readers' value; `audited` or `corrected` on a sample card means it wasn't (labels/README.md,
+/// "Auditing proposals"); a `read` label is compared with the readers' value field by field.
+/// Labellers who disagree leave the cell pending.
+pub fn samples(
+    routes: &BTreeMap<Key, Route>,
+    submitted: &[Reading],
+    proposed: &[Reading],
+) -> Vec<Sample> {
+    let mut labels: BTreeMap<Key, Vec<Reading>> = BTreeMap::new();
+    for r in labels::latest(submitted) {
+        labels.entry(key(&r)).or_default().push(r);
+    }
+    let mut proposals: BTreeMap<Key, &Reading> = BTreeMap::new();
+    for r in proposed {
+        proposals.insert(key(r), r);
+    }
+    let mut by: BTreeMap<String, Sample> = BTreeMap::new();
+    for (k, r) in routes.iter().filter(|(_, r)| r.route == "sample") {
+        let t = by.entry(r.group.clone()).or_insert_with(|| Sample {
+            group: r.group.clone(),
+            ..Sample::default()
+        });
+        let same = |l: &Reading| match l.method.as_str() {
+            "blind" => Some(true),
+            "audited" | "corrected" => Some(false),
+            _ => proposals
+                .get(k)
+                .map(|p| p.status == l.status && p.fields() == l.fields()),
+        };
+        let verdicts: BTreeSet<Option<bool>> =
+            labels.get(k).into_iter().flatten().map(same).collect();
+        match verdicts.into_iter().collect::<Vec<_>>()[..] {
+            [Some(true)] => t.same += 1,
+            [Some(false)] => t.differs += 1,
+            _ => t.pending += 1,
+        }
+    }
+    by.into_values()
+        .map(|mut t| {
+            t.lower = wilson_lower(t.same, t.same + t.differs);
+            t.passes = t.lower.is_some_and(|l| l >= GATE);
+            t
         })
         .collect()
 }
@@ -268,7 +435,7 @@ pub struct Rule {
     pub needed: usize,
     pub met: bool,
     /// the weakest check level among all outcomes: the rule's verdict is a result only when this
-    /// is `anchored` or `independent`
+    /// is `anchored` or `independent`; `sampled` supports only aggregate statements
     pub check: Check,
     pub schemes: Vec<SchemeOutcome>,
 }
@@ -817,14 +984,17 @@ pub struct Results {
     pub rules: Vec<Rule>,
     pub retrieval: Vec<Retrieval>,
     pub claims: Vec<Claim>,
+    /// the blind sample per variable group, for cells read under the audit rule
+    pub samples: Vec<Sample>,
     /// every file read, relative to the data root, with its SHA-256
     pub inputs: Vec<(String, String)>,
     pub rejected: Vec<labels::Rejected>,
 }
 
-const CHECKS: [Check; 5] = [
+const CHECKS: [Check; 6] = [
     Check::Independent,
     Check::Anchored,
+    Check::Sampled,
     Check::Proposed,
     Check::Unsettled,
     Check::Unread,
@@ -840,9 +1010,12 @@ pub fn markdown(r: &Results) -> String {
          Generated by `s106 results`. Do not edit; `claims.csv` is the only hand-kept file here. \
          Rerun to rebuild.\n\n\
          Every cell below carries its check level. **independent**: a person read the source. \
-         **anchored**: a person confirmed or corrected an agent's proposal. **proposed**: an agent \
-         only, which is not a result. **unsettled**: labellers disagree. **unread**: nobody has \
-         read it. A difference between two sources is a cell for a person to check, never a breach; \
+         **anchored**: a person confirmed or corrected an agent's proposal. **sampled**: two \
+         readers agree and a blind sample of their variable group passes the audit rule's gate, \
+         which supports an aggregate statement carrying the measured error rate, never one about \
+         a single scheme or developer. **proposed**: an agent only, which is not a result. \
+         **unsettled**: labellers disagree, or the audit rule sends the cell to a person. \
+         **unread**: nobody has read it. A difference between two sources is a cell for a person to check, never a breach; \
          a deed figure is the original obligation, not what is due today.\n\n",
         r.name
     );
@@ -854,10 +1027,36 @@ pub fn markdown(r: &Results) -> String {
         s += &format!("| {} | {} | {found} |\n", c.as_str(), all.len());
     }
 
-    s += "\n## Decision rules\n\nFixed before any value was read (the batch README), to be applied \
+    if !r.samples.is_empty() {
+        s += &format!(
+            "\n## Blind sample\n\nPer variable group, pooled over every routing file in \
+             `proposals/` (`docs/audit-rule.md`, section 6). A group's agreed cells are `sampled` \
+             when the Wilson 95% lower bound is at least {:.0}%. Pending cells have no label yet, \
+             including can't-tells.\n\n\
+             | group | same | differs | pending | lower bound | gate |\n|---|---|---|---|---|---|\n",
+            GATE * 100.0
+        );
+        for t in &r.samples {
+            s += &format!(
+                "| {} | {} | {} | {} | {} | {} |\n",
+                t.group,
+                t.same,
+                t.differs,
+                t.pending,
+                t.lower.map_or("-".into(), |l| format!("{:.1}%", l * 100.0)),
+                if t.passes { "passes" } else { "not passed" }
+            );
+        }
+    }
+
+    s += if r.rules.is_empty() {
+        "\n## Decision rules\n\nThis batch has no pre-registered decision rules.\n"
+    } else {
+        "\n## Decision rules\n\nFixed before any value was read (the batch README), to be applied \
           to human labels. Until every deciding cell is anchored or independent the counts below are \
           provisional pipeline output on agent readings, not a finding about any scheme or about \
-          the rule.\n";
+          the rule.\n"
+    };
     for rule in &r.rules {
         s += &format!(
             "\n### Rule {}: {}\n\n**{}** ({} level): {} of {} schemes counted meet it, {} \
@@ -951,8 +1150,12 @@ pub fn markdown(r: &Results) -> String {
     }
 
     s += "\n## Retrieval\n\nEvery document listed for each scheme and source, and which are in \
-          hand. A gap here is recorded, not dropped, so the sample's selection can be checked.\n\n\
-          | scheme | source | documents | in hand | not in hand |\n|---|---|---|---|---|\n";
+          hand. A gap here is recorded, not dropped, so the sample's selection can be checked.\n\n";
+    s += if r.retrieval.is_empty() {
+        "Retrieval is not recorded for this batch yet: it has no `sources.csv` next to its sheet.\n"
+    } else {
+        "| scheme | source | documents | in hand | not in hand |\n|---|---|---|---|---|\n"
+    };
     for x in &r.retrieval {
         s += &format!(
             "| {} | {} | {} | {} | {} |\n",
@@ -1054,7 +1257,9 @@ fn datahub_records(
 
 /// Builds the results for `sheet` (a batch's blank labelling sheet, relative to `root`) into
 /// `out` (relative to `root`), reading `<out>/claims.csv` if there is one.
-pub fn run(root: &Path, sheet: &Path, out: &Path) -> Result<Results> {
+/// Builds the folder. `with_rules` is false for a batch with no pre-registered decision rules;
+/// the rules worked out here are batch 1's.
+pub fn run(root: &Path, sheet: &Path, out: &Path, with_rules: bool) -> Result<Results> {
     let sheet_path = root.join(sheet);
     let out_dir = root.join(out);
     let cells = sheet_cells(&sheet_path)?;
@@ -1062,9 +1267,29 @@ pub fn run(root: &Path, sheet: &Path, out: &Path) -> Result<Results> {
     let (proposed, bad) = labels::proposals(root)?;
     rejected.extend(bad);
 
-    let mut ledger = ledger(&cells, &submitted, &proposed);
+    let (routed, routing_files) = routes(root)?;
+    // a routing file has no labeller column, so `labels::proposals` refuses it as a proposals file
+    rejected.retain(|x| {
+        !routing_files.iter().any(|f| {
+            f.strip_prefix(root)
+                .is_ok_and(|f| x.origin == f.display().to_string())
+        })
+    });
+    let mut samples = samples(&routed, &submitted, &proposed);
+    let gated: BTreeSet<String> = samples
+        .iter()
+        .filter(|t| t.passes)
+        .map(|t| t.group.clone())
+        .collect();
+
+    let mut ledger = ledger(&cells, &submitted, &proposed, &routed, &gated);
     let snapshots = datahub_records(root, &mut ledger, &mut rejected);
-    let rules = rules(&ledger);
+    let rules = if with_rules { rules(&ledger) } else { vec![] };
+    // the sample table belongs to batches read under the audit rule; batch 1's cells are never
+    // routed and never count towards it
+    if !cells.keys().any(|k| routed.contains_key(k)) {
+        samples.clear();
+    }
     let sources = sheet_path.with_file_name("sources.csv");
     let retrieval = retrieval(&sources)?;
     let claims_path = out_dir.join("claims.csv");
@@ -1092,6 +1317,7 @@ pub fn run(root: &Path, sheet: &Path, out: &Path) -> Result<Results> {
         rules,
         retrieval,
         claims,
+        samples,
         inputs,
         rejected,
     };
@@ -1102,11 +1328,17 @@ pub fn run(root: &Path, sheet: &Path, out: &Path) -> Result<Results> {
     }
     w.flush()?;
     let mut w = csv::Writer::from_path(out_dir.join("rules.csv"))?;
+    if r.rules.is_empty() {
+        w.write_record(["rule", "scheme", "outcome", "reason", "check"])?;
+    }
     for o in r.rules.iter().flat_map(|x| &x.schemes) {
         w.serialize(o)?;
     }
     w.flush()?;
     let mut w = csv::Writer::from_path(out_dir.join("retrieval.csv"))?;
+    if r.retrieval.is_empty() {
+        w.write_record(["scheme", "source", "documents", "in_hand", "not_in_hand"])?;
+    }
     for x in &r.retrieval {
         w.serialize(x)?;
     }

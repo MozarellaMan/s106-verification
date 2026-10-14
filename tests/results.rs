@@ -55,7 +55,13 @@ fn label(
 }
 
 fn run(root: &Path) -> results::Results {
-    results::run(root, Path::new("runs/b/labels.csv"), Path::new("results/b")).unwrap()
+    results::run(
+        root,
+        Path::new("runs/b/labels.csv"),
+        Path::new("results/b"),
+        true,
+    )
+    .unwrap()
 }
 
 fn entry<'a>(r: &'a results::Results, scheme: &str, v: &str, src: &str) -> &'a results::Entry {
@@ -556,4 +562,134 @@ fn variation_sources_sit_in_the_variation_stage() {
     assert_eq!(results::stage("V1", "deed"), "obligation");
     assert_eq!(results::stage("V1", "committee_report"), "decision");
     assert_eq!(results::stage("V8", "variation"), "completion");
+}
+
+const ROUTING: &str = "proposal_id,scheme,variable_id,group,route,reasons,sha1,r1_status,r1_value,r2_status,r2_value,external\n";
+
+fn route(id: &str, group: &str, route: &str, reasons: &str) -> String {
+    format!("{id},,,{group},{route},{reasons},,found,total=10,found,total=12,\n")
+}
+
+#[test]
+fn a_triage_cell_is_unsettled_until_a_label_settles_it() {
+    let root = tempfile::tempdir().unwrap();
+    sheet(root.path(), &["EX/1"]);
+    write(
+        root.path(),
+        "proposals/p.csv",
+        &format!(
+            "{}{}{}",
+            HEADER,
+            proposal("EX/1", "V1", "deed", "total=12", "units", "found"),
+            proposal("EX/1", "V2", "deed", "share=35%", "units", "found"),
+        ),
+    );
+    write(
+        root.path(),
+        "proposals/routing.csv",
+        &format!(
+            "{ROUTING}{}{}",
+            route("EX/1/V1/deed", "G1", "triage", "compared fields differ"),
+            route("EX/1/V2/deed", "G1", "agreed", ""),
+        ),
+    );
+    let r = run(root.path());
+    let v1 = entry(&r, "EX/1", "V1", "deed");
+    assert_eq!(v1.check, Check::Unsettled);
+    assert!(v1.value.contains("compared fields differ"), "{}", v1.value);
+    assert!(v1.value.contains("R1 found `total=10`"), "{}", v1.value);
+    // no sample labels yet, so the agreed cell stays proposed
+    assert_eq!(entry(&r, "EX/1", "V2", "deed").check, Check::Proposed);
+    // the routing file is read as routes, not reported as a bad proposals file
+    assert!(r.rejected.iter().all(|x| !x.origin.contains("routing")));
+
+    write(
+        root.path(),
+        "labels/l.csv",
+        &format!(
+            "{HEADER}{}",
+            label("EX/1", "V1", "deed", "total=12", "found", "AB", "blind")
+        ),
+    );
+    let r = run(root.path());
+    assert_eq!(entry(&r, "EX/1", "V1", "deed").check, Check::Independent);
+}
+
+#[test]
+fn agreed_cells_are_sampled_once_their_group_passes_the_gate() {
+    let root = tempfile::tempdir().unwrap();
+    sheet(root.path(), &["EX/1"]);
+    let mut props = HEADER.to_string();
+    let mut routes = String::from(ROUTING);
+    let mut labels = String::from(HEADER);
+    props += &proposal("EX/1", "V2", "deed", "share=35%", "units", "found");
+    props += &proposal("EX/1", "V4", "deed", "route=fixed", "", "found");
+    routes += &route("EX/1/V2/deed", "G1", "agreed", "");
+    routes += &route("EX/1/V4/deed", "G2", "agreed", "");
+    // 35 blind G1 sample cards, all the same: the lower bound is just over 90%
+    for i in 0..35 {
+        let s = format!("S/{i}");
+        props += &proposal(&s, "V1", "deed", "total=10", "units", "found");
+        routes += &route(&format!("{s}/V1/deed"), "G1", "sample", "");
+        labels += &label(&s, "V1", "deed", "total=10", "found", "AB", "blind");
+    }
+    write(root.path(), "proposals/p.csv", &props);
+    write(root.path(), "proposals/routing.csv", &routes);
+    write(root.path(), "labels/l.csv", &labels);
+    let r = run(root.path());
+    let g1 = r.samples.iter().find(|t| t.group == "G1").unwrap();
+    assert_eq!((g1.same, g1.differs, g1.pending), (35, 0, 0));
+    assert!(g1.passes);
+    assert_eq!(entry(&r, "EX/1", "V2", "deed").check, Check::Sampled);
+    // G2 has no sample, so its agreed cell stays proposed
+    assert_eq!(entry(&r, "EX/1", "V4", "deed").check, Check::Proposed);
+
+    // one card where the typed reading differed and the person corrected it: below the gate
+    labels += &label("S/0", "V1", "deed", "total=11", "found", "AB", "corrected")
+        .replace("2026-10-20", "2026-10-21");
+    write(root.path(), "labels/l.csv", &labels);
+    let r = run(root.path());
+    let g1 = r.samples.iter().find(|t| t.group == "G1").unwrap();
+    assert_eq!((g1.same, g1.differs), (34, 1));
+    assert!(!g1.passes);
+    assert_eq!(entry(&r, "EX/1", "V2", "deed").check, Check::Proposed);
+}
+
+#[test]
+fn the_gate_matches_the_audit_rule() {
+    // section 6: 55 cells with at most 1 error, or 35 with none
+    assert!(results::wilson_lower(35, 35).unwrap() >= results::GATE);
+    assert!(results::wilson_lower(34, 35).unwrap() < results::GATE);
+    assert!(results::wilson_lower(54, 55).unwrap() >= results::GATE);
+    assert!(results::wilson_lower(53, 55).unwrap() < results::GATE);
+    assert!(results::wilson_lower(0, 0).is_none());
+}
+
+#[test]
+fn a_batch_without_rules_says_so() {
+    let root = tempfile::tempdir().unwrap();
+    sheet(root.path(), &["EX/1"]);
+    let r = results::run(
+        root.path(),
+        Path::new("runs/b/labels.csv"),
+        Path::new("results/b"),
+        false,
+    )
+    .unwrap();
+    assert!(r.rules.is_empty());
+    let note = std::fs::read_to_string(root.path().join("results/b/README.md")).unwrap();
+    assert!(note.contains("no pre-registered decision rules"));
+    assert!(note.contains("Retrieval is not recorded for this batch yet"));
+    // no routed cells, so no blind-sample table
+    assert!(!note.contains("## Blind sample"));
+    for (f, header) in [
+        ("rules.csv", "rule,scheme,outcome,reason,check"),
+        (
+            "retrieval.csv",
+            "scheme,source,documents,in_hand,not_in_hand",
+        ),
+    ] {
+        let body = std::fs::read_to_string(root.path().join("results/b").join(f)).unwrap();
+        assert_eq!(body.trim(), header, "{f}");
+    }
 }
