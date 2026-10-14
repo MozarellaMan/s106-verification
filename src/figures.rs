@@ -66,7 +66,9 @@ pub fn check(root: &Path) -> Result<Report> {
             report.cited += 1;
             let why = match std::fs::read_to_string(root.join(&src)) {
                 Err(e) => format!("cites {src}, which cannot be read: {e}"),
-                Ok(cited) if !contains_figure(&cited, &figure) => format!("is not in {src}"),
+                Ok(cited) if !source_contains(&src, &cited, &figure) => {
+                    format!("is not in {src}")
+                }
                 Ok(_) => continue,
             };
             report.problems.push(Problem {
@@ -108,6 +110,24 @@ fn strip_inline_code(line: &str) -> String {
         .map(|(i, part)| if i % 2 == 0 { part } else { "" })
         .collect::<Vec<_>>()
         .join("``")
+}
+
+/// Whether the cited file holds `figure`. A CSV or TSV is read field by field, so a comma between
+/// two numeric fields (`668,394,`) separates them rather than joining them into one number.
+pub fn source_contains(src: &str, text: &str, figure: &str) -> bool {
+    let delimiter = match Path::new(src).extension().and_then(|e| e.to_str()) {
+        Some("csv") => b',',
+        Some("tsv") => b'\t',
+        _ => return contains_figure(text, figure),
+    };
+    csv::ReaderBuilder::new()
+        .delimiter(delimiter)
+        .has_headers(false)
+        .flexible(true)
+        .from_reader(text.as_bytes())
+        .records()
+        .flatten()
+        .any(|record| record.iter().any(|field| contains_figure(field, figure)))
 }
 
 /// Whether `figure` appears in `text` as a whole number: not part of a longer number, so 29.8
@@ -181,6 +201,18 @@ mod tests {
         assert!(!contains_figure("29.7%", "29.8%"));
         assert!(contains_figure("units\n34233\n", "34,233"));
         assert!(!contains_figure("341233", "34,233"));
+    }
+
+    #[test]
+    fn csv_fields_are_read_one_at_a_time() {
+        let csv = "scheme,units,affordable,\n09/AP/1870,668,394,\nx,\"1,234\",5\n";
+        assert!(source_contains("t.csv", csv, "394"));
+        assert!(source_contains("t.csv", csv, "668"));
+        assert!(source_contains("t.csv", csv, "1,234"));
+        assert!(!source_contains("t.csv", csv, "39"));
+        assert!(source_contains("t.tsv", "a\t668\t394\n", "394"));
+        // in markdown the same text reads as one number
+        assert!(!source_contains("t.md", "668,394,", "394"));
     }
 
     #[test]
