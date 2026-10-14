@@ -59,7 +59,7 @@ pub struct Site {
 pub enum Status {
     Completed,
     Commenced,
-    /// approved or allowed on appeal, not started
+    /// approved or allowed on appeal, with no start recorded
     Approved,
     Lapsed,
     Superseded,
@@ -83,7 +83,7 @@ impl Status {
         match self {
             Status::Completed => "Completed",
             Status::Commenced => "Commenced",
-            Status::Approved => "Approved, not started",
+            Status::Approved => "Approved, no start recorded",
             Status::Lapsed => "Lapsed",
             Status::Superseded => "Superseded",
             Status::Other => "Other or blank",

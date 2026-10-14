@@ -4,6 +4,7 @@
 //! Leptos draws the page; Leaflet (loaded by index.html) draws the map through the `leaflet`
 //! crate's bindings. Everything runs in the browser from static files.
 
+mod model;
 mod site;
 
 use leaflet::{
@@ -11,7 +12,8 @@ use leaflet::{
 };
 use leptos::html;
 use leptos::prelude::*;
-use site::{Bundle, Site, Sources, Status};
+use model::{Colour, colour, legend, percent, radius, thousands};
+use site::{Bundle, Site, Sources};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
@@ -23,105 +25,6 @@ const TENURE_RECORDED_FROM: i32 = 2003;
 
 /// Narrower than this the map and the panel stack (keep in step with style.css).
 const NARROW: &str = "(max-width: 820px)";
-
-impl Site {
-    /// Affordable share of homes with a recorded tenure; None when no tenure was recorded.
-    fn affordable_share(&self) -> Option<f64> {
-        (self.known > 0).then(|| self.affordable as f64 / self.known as f64)
-    }
-
-    fn name(&self) -> &str {
-        self.site.as_deref().unwrap_or("(no site name)")
-    }
-}
-
-#[derive(Clone, Copy, PartialEq)]
-enum Colour {
-    Affordable,
-    Status,
-}
-
-/// Affordable share: one hue, light to dark, in even 10-point bins. No bin edge sits on a policy
-/// threshold, so no colour reads as a pass or a fail.
-const SHARE: [(&str, &str); 5] = [
-    ("#d3e4ec", "under 10%"),
-    ("#a3c6d6", "10 to 20%"),
-    ("#6fa3bd", "20 to 30%"),
-    ("#3f7f9f", "30 to 40%"),
-    ("#1d5674", "40% or more"),
-];
-const UNKNOWN: &str = "#9a9aa3";
-
-/// Datahub status: neutral hues, none red or green.
-fn status_colour(s: Status) -> &'static str {
-    match s {
-        Status::Completed => "#4e79a7",
-        Status::Commenced => "#e0b445",
-        Status::Approved => "#b07aa1",
-        Status::Lapsed => "#9c755f",
-        Status::Superseded => "#7fb7c9",
-        Status::Other => UNKNOWN,
-    }
-}
-
-const STATUSES: [Status; 6] = [
-    Status::Completed,
-    Status::Commenced,
-    Status::Approved,
-    Status::Lapsed,
-    Status::Superseded,
-    Status::Other,
-];
-
-fn colour(site: &Site, by: Colour) -> &'static str {
-    match by {
-        Colour::Affordable => match site.affordable_share() {
-            None => UNKNOWN,
-            Some(a) => SHARE[((a * 10.0) as usize).min(4)].0,
-        },
-        Colour::Status => status_colour(site.status),
-    }
-}
-
-fn legend(by: Colour) -> Vec<(&'static str, &'static str)> {
-    match by {
-        Colour::Affordable => SHARE
-            .into_iter()
-            .chain([(UNKNOWN, "tenure not recorded")])
-            .collect(),
-        Colour::Status => STATUSES
-            .into_iter()
-            .map(|s| (status_colour(s), s.label()))
-            .collect(),
-    }
-}
-
-/// Dot radius in pixels: area scales with homes; every site under about 30 homes shares the
-/// smallest size so it stays visible.
-fn radius(homes: u32) -> f64 {
-    (homes as f64).sqrt().max(5.5) / 2.2
-}
-
-/// 12345 -> "12,345"
-fn thousands(n: u64) -> String {
-    let s = n.to_string();
-    let mut out = String::new();
-    for (i, c) in s.chars().enumerate() {
-        if i > 0 && (s.len() - i).is_multiple_of(3) {
-            out.push(',');
-        }
-        out.push(c);
-    }
-    out
-}
-
-fn percent(part: u64, whole: u64) -> String {
-    if whole == 0 {
-        "n/a".into()
-    } else {
-        format!("{:.1}%", 100.0 * part as f64 / whole as f64)
-    }
-}
 
 fn matches_media(query: &str) -> bool {
     window()
@@ -345,13 +248,14 @@ fn MapView(
     on_pick: WriteSignal<Option<(usize, bool)>>,
 ) -> impl IntoView {
     let node = NodeRef::<html::Div>::new();
-    // The map, its dots, and the ring that marks the picked site.
-    let layers = StoredValue::new_local(None::<(Map, LayerGroup, LayerGroup)>);
+    // The map, its dots, and the ring that marks the picked site, once the map exists. A signal,
+    // so the drawing effects rerun when it appears, whatever order the effects first run in.
+    let layers = RwSignal::new_local(None::<(Map, LayerGroup, LayerGroup)>);
 
     // Create the map once the element exists.
     Effect::new(move |_| {
         let Some(el) = node.get() else { return };
-        if layers.with_value(|l| l.is_some()) {
+        if layers.with_untracked(|l| l.is_some()) {
             return;
         }
         let options = MapOptions::new();
@@ -378,7 +282,7 @@ fn MapView(
         dots.add_to(&map);
         let ring = LayerGroup::new();
         ring.add_to(&map);
-        layers.set_value(Some((map, dots, ring)));
+        layers.set(Some((map, dots, ring)));
     });
 
     // Redraw the dots whenever the filters or the colouring change.
@@ -387,7 +291,7 @@ fn MapView(
         let mut keep = visible.get();
         // Largest first, so smaller sites draw on top and stay clickable.
         sites.with_value(|s| keep.sort_by_key(|&i| std::cmp::Reverse(s[i].homes)));
-        layers.with_value(|l| {
+        layers.with(|l| {
             let Some((_, dots, _)) = l else { return };
             dots.clear_layers();
             sites.with_value(|s| {
@@ -419,7 +323,7 @@ fn MapView(
     // Ring the picked site; move the map to it when it was picked from the list.
     Effect::new(move |_| {
         let picked = selected.get();
-        layers.with_value(|l| {
+        layers.with(|l| {
             let Some((map, _, ring)) = l else { return };
             ring.clear_layers();
             let Some((i, go)) = picked else { return };
@@ -488,50 +392,63 @@ fn Detail(
                 x.status.label()
             ),
         };
+        let as_of = format!("current Datahub record, as of {}", x.updated);
         let completion = if x.completed > 0 {
             let date = x
                 .completion_date
                 .as_deref()
                 .map(|d| format!(", completion date on record {d}"))
                 .unwrap_or_default();
-            format!(
-                "{} of {} homes have a completion date{date}",
-                thousands(x.completed as u64),
-                thousands(x.homes as u64)
-            )
+            Known::Recorded {
+                text: format!(
+                    "{} of {} homes have a completion date{date}",
+                    thousands(x.completed as u64),
+                    thousands(x.homes as u64)
+                ),
+                source: as_of.clone(),
+            }
         } else {
-            "No completion date recorded".into()
+            Known::Recorded {
+                text: "No completion date recorded".into(),
+                source: as_of.clone(),
+            }
         };
-        let as_of = format!("current Datahub record, as of {}", x.updated);
         view! {
             <h2>{x.name().to_string()}</h2>
             <div class="ref">{format!("{} · {} · decided {}", x.borough, x.reference, x.year)}</div>
             <p class="current">{current}<span class="src">{as_of.clone()}</span></p>
             <p class="hint">"The Datahub keeps one record per permission and updates it in place, so this is the record as it stands now, not what was decided."</p>
             <div class="lineage">
-                <Stage name="Target" found=false body="Not collected" source="policy target" />
-                <Stage name="Offer" found=false body="Not collected" source="committee report" />
-                <Stage name="Decision" found=false body="Not collected" source="committee report, decision notice" />
-                <Stage name="Obligation" found=false body="Not collected" source="S106 agreement" />
-                <Stage name="Variation" found=false body="Not collected" source="deeds of variation, section 73" />
-                <Stage name="Completion" found={x.completed > 0} body=completion source=as_of />
+                <Stage name="Target" known=Known::NotCollected { from: "policy target" } />
+                <Stage name="Offer" known=Known::NotCollected { from: "committee report" } />
+                <Stage name="Decision" known=Known::NotCollected { from: "committee report, decision notice" } />
+                <Stage name="Obligation" known=Known::NotCollected { from: "S106 agreement" } />
+                <Stage name="Variation" known=Known::NotCollected { from: "deeds of variation, section 73" } />
+                <Stage name="Completion" known=completion />
             </div>
         }
         .into_any()
     }
 }
 
+/// What the explorer knows about one stage of a permission.
+enum Known {
+    /// A figure on record, and where it was read.
+    Recorded { text: String, source: String },
+    /// Not gathered yet; `from` names the documents that would hold it.
+    NotCollected { from: &'static str },
+}
+
 #[component]
-fn Stage(
-    name: &'static str,
-    found: bool,
-    #[prop(into)] body: String,
-    #[prop(into)] source: String,
-) -> impl IntoView {
+fn Stage(name: &'static str, known: Known) -> impl IntoView {
+    let (found, text, source) = match known {
+        Known::Recorded { text, source } => (true, text, source),
+        Known::NotCollected { from } => (false, "Not collected".to_string(), from.to_string()),
+    };
     view! {
         <div class="stage">
             <div class="name">{name}</div>
-            <div class="chip" class:found=found>{body}<span class="src">{source}</span></div>
+            <div class="chip" class:found=found>{text}<span class="src">{source}</span></div>
         </div>
     }
 }
