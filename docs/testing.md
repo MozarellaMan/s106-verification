@@ -70,7 +70,7 @@ lets ONNX Runtime load at run time (the container cannot reach its build-time do
 | `s106 audit data/pages/<id>.pages.json` (same deed) | not available | | 0.05 s | same |
 | Writing all ten snapshots (`s106 pages --write`) | | | 504 s (484 s with batches of six) | |
 
-Default `cargo test` (debug), tiers 1-2: 131 s from an empty `target/` (almost all compiling
+`cargo test` (debug), measured when it still ran tiers 1-2 (tier 2 is now `cargo test-data`): 131 s from an empty `target/` (almost all compiling
 dependencies; 146 s before, with no replay tests), 19 s after touching `src/verify.rs`, 2.6 s with
 nothing changed. The test binaries themselves take about 1.5 s in debug, of which tier 2 is about 1 s (0.2 s in a release build).
 
