@@ -72,6 +72,7 @@ aside { background: var(--panel); border: 1px solid var(--line); padding: 14px; 
 .chip.found { background: var(--found); border: 1px solid transparent; color: var(--ink); }
 .chip .src { display: block; font-family: var(--mono); font-size: .7rem; color: var(--muted); margin-top: 2px; }
 .list { max-height: 240px; overflow: auto; border-top: 1px solid var(--line); }
+.list.all { max-height: none; }
 .list button { all: unset; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; width: 100%; box-sizing: border-box;
   padding: 5px 2px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: .82rem; }
 .list button:hover, .list button:focus-visible { background: var(--none); }

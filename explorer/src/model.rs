@@ -201,7 +201,7 @@ pub fn humanize(value: &str) -> String {
 
 /// A basis worth printing next to a value: not "not stated", and not already in the value.
 pub fn basis_note(value: &str, basis: Option<&str>) -> Option<String> {
-    let b = basis?.replace('_', " ");
+    let b = basis?.replace('_', " ").replace("other:", "other: ");
     (b != "not stated" && !value.contains(&b)).then(|| format!(" ({b})"))
 }
 
@@ -423,6 +423,10 @@ mod tests {
             Some(" (units)")
         );
         assert_eq!(basis_note("total 84", Some("not_stated")), None);
+        assert_eq!(
+            basis_note("pil 1", Some("other:cash")).as_deref(),
+            Some(" (other: cash)")
+        );
     }
 
     #[test]

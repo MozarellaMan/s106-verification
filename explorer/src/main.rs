@@ -589,7 +589,7 @@ fn ReadSchemes(
     (!read.is_empty()).then(|| {
         view! {
             <div class="hint">{format!("{} schemes with ledger readings", read.len())}</div>
-            <div class="list">
+            <div class="list all">
                 {read.into_iter().map(|(i, x)| view! {
                     // Widen the years if the scheme is outside them, so its dot is on the map.
                     <button on:click=move |_| {
