@@ -68,7 +68,8 @@ KINDS = [
 ]
 # Drafts, heads of terms and correspondence about an agreement are not the executed deed.
 NOT_DEED = re.compile(r"(?i)\bdraft\b|heads of terms|\bHoTs?\b|letter|e-?mail|correspondence|report|"
-                      r"statement|viability|consultation|comments?|memo|monitoring|invoice|discharge")
+                      r"statement|viability|consultation|comments?|memo|monitoring|invoice|discharge|"
+                      r"enquiry|inqui?e?ry|confirmation|notice|decision")
 
 
 class Session:
@@ -99,7 +100,7 @@ class Session:
             raise
         finally:
             self.last = time.monotonic()
-        if re.search(rb"(?i)unusual traffic|too many requests|captcha", out[1][:20000]):
+        if re.search(rb"(?i)unusual traffic|too many requests", out[1][:20000]):
             raise Blocked(f"block page from {url}", out[1])
         return out
 
@@ -123,6 +124,10 @@ def find_key_val(sess, ref):
     if m:
         return m.group(1), ""
     body = text(page)
+    # Southwark shows the application itself (no redirect) when exactly one matches.
+    m = re.search(r"activeTab=summary&(?:amp;)?keyVal=([A-Z0-9]+)", body)
+    if m and 'id="searchresults"' not in body:
+        return m.group(1), ""
     # Results list: keep entries whose shown reference is exactly ours.
     hits = []
     for li in re.findall(r'(?s)<li class="searchresult">.*?</li>', body):
