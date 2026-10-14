@@ -178,6 +178,20 @@ fn read_deed(
     }
 }
 
+/// The stem of a deed's audit JSON: its PDF's, or for a snapshot the PDF it was read from.
+fn output_stem(pdf: &Path) -> Result<String> {
+    let source = if pdf.to_string_lossy().ends_with(".pages.json") {
+        PathBuf::from(Snapshot::read(pdf)?.source_file)
+    } else {
+        pdf.to_path_buf()
+    };
+    Ok(source
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .into_owned())
+}
+
 /// Extract, verify and write the audit JSON for one deed; returns the report text and exit code.
 fn audit(
     doc: &Document,
@@ -199,12 +213,10 @@ fn audit(
         results = verify::verify(&agreement, &pages);
     }
     agreement.warnings.extend(info.usage_note());
-    let out = out.unwrap_or_else(|| {
-        s106::data::processed().join(format!(
-            "{}.audit.json",
-            doc.path.file_stem().unwrap_or_default().to_string_lossy()
-        ))
-    });
+    let out = match out {
+        Some(out) => out,
+        None => s106::data::processed().join(format!("{}.audit.json", output_stem(&doc.path)?)),
+    };
     std::fs::create_dir_all(out.parent().unwrap())?;
     std::fs::write(
         &out,
@@ -274,6 +286,19 @@ fn main() -> Result<()> {
                 let (report, code) = audit(&doc, mode, client.as_ref(), &opts, out)?;
                 print!("{report}");
                 std::process::exit(code);
+            }
+            // Each deed's JSON is named by its stem, so two inputs sharing one would overwrite
+            // each other's (a PDF and its snapshot, or the same file twice).
+            let mut stems = std::collections::BTreeMap::new();
+            for pdf in &pdfs {
+                if let Some(other) = stems.insert(output_stem(pdf)?, pdf) {
+                    bail!(
+                        "{} and {} would both write <data>/processed/{}.audit.json; audit them separately",
+                        other.display(),
+                        pdf.display(),
+                        output_stem(pdf)?
+                    );
+                }
             }
             // This thread reads each deed in turn (the slow OCR) while up to AUDITS_IN_FLIGHT
             // earlier deeds wait on the model in their own threads. Reports print in input order.
