@@ -23,7 +23,7 @@ use serde_json::Value;
 // The file format, shared with the explorer so the two can't drift apart.
 #[path = "../explorer/src/site.rs"]
 mod site;
-pub use site::{Bundle, Reading, Site, Sources, Stage, Status};
+pub use site::{Bundle, Check, Finding, Lineage, Reading, Retrieval, Site, Sources, Status};
 
 /// One row of the baseline run's `tables/applications.csv` (only the columns used here).
 #[derive(Deserialize)]
@@ -44,6 +44,16 @@ struct Application {
     site: String,
 }
 
+/// One row of a results folder's `retrieval.csv`.
+#[derive(Deserialize)]
+struct RetrievalRow {
+    scheme: String,
+    source: String,
+    documents: u32,
+    in_hand: u32,
+    not_in_hand: String,
+}
+
 /// Paths are relative to the data root, so the footer names them as the data repository does.
 pub struct Inputs {
     pub applications: PathBuf,
@@ -57,7 +67,7 @@ pub struct Inputs {
 #[derive(Deserialize)]
 struct LedgerRow {
     scheme: String,
-    stage: Stage,
+    stage: Lineage,
     variable_id: String,
     variable: String,
     source: String,
@@ -65,7 +75,7 @@ struct LedgerRow {
     value: String,
     basis: String,
     pages: String,
-    check: String,
+    check: Check,
 }
 
 pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
@@ -110,13 +120,14 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
             lat,
             lon,
             readings: Vec::new(),
+            retrieval: Vec::new(),
         });
     }
     if sites.is_empty() {
         bail!("no permitted sites with a centroid in {}", path.display());
     }
     let unmatched = match &inputs.results {
-        Some(dir) => add_readings(&root.join(dir).join("ledger.csv"), &mut sites)?,
+        Some(dir) => add_results(&root.join(dir), &mut sites)?,
         None => Vec::new(),
     };
     let name = |p: &Path| p.display().to_string();
@@ -133,41 +144,79 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
             without_centroid,
             results: inputs.results.as_deref().map(name),
             unmatched,
+            data_commit: inputs.results.as_ref().and_then(|_| commit(root)),
         },
         sites,
     })
 }
 
-/// Attach each scheme's ledger cells to the one site with that reference; returns the schemes
-/// that matched no site, or more than one.
-fn add_readings(ledger: &Path, sites: &mut [Site]) -> Result<Vec<String>> {
+/// Attach each scheme's ledger cells, and its retrieval rows if the folder has them, to the one
+/// site with that reference; returns the schemes that matched no site, or more than one.
+fn add_results(dir: &Path, sites: &mut [Site]) -> Result<Vec<String>> {
+    let mut by_scheme: HashMap<String, (Vec<Reading>, Vec<Retrieval>)> = HashMap::new();
+    let ledger = dir.join("ledger.csv");
     let mut reader =
-        csv::Reader::from_path(ledger).with_context(|| format!("reading {}", ledger.display()))?;
-    let mut by_scheme: HashMap<String, Vec<Reading>> = HashMap::new();
+        csv::Reader::from_path(&ledger).with_context(|| format!("reading {}", ledger.display()))?;
     for row in reader.deserialize() {
         let r: LedgerRow = row.with_context(|| format!("parsing {}", ledger.display()))?;
-        by_scheme.entry(r.scheme).or_default().push(Reading {
+        let status = Finding::from_ledger(&r.status).with_context(|| {
+            format!(
+                "{}: unknown status {:?} for {}",
+                ledger.display(),
+                r.status,
+                r.scheme
+            )
+        })?;
+        by_scheme.entry(r.scheme).or_default().0.push(Reading {
             stage: r.stage,
             variable: r.variable_id,
             name: r.variable,
             source: r.source,
-            status: r.status,
+            status,
             value: non_empty(r.value),
             basis: non_empty(r.basis),
             pages: non_empty(r.pages),
             check: r.check,
         });
     }
+    let retrieval = dir.join("retrieval.csv");
+    if retrieval.exists() {
+        let mut reader = csv::Reader::from_path(&retrieval)
+            .with_context(|| format!("reading {}", retrieval.display()))?;
+        for row in reader.deserialize() {
+            let r: RetrievalRow =
+                row.with_context(|| format!("parsing {}", retrieval.display()))?;
+            by_scheme.entry(r.scheme).or_default().1.push(Retrieval {
+                source: r.source,
+                documents: r.documents,
+                in_hand: r.in_hand,
+                not_in_hand: non_empty(r.not_in_hand),
+            });
+        }
+    }
     let mut unmatched = Vec::new();
-    for (scheme, readings) in by_scheme {
+    for (scheme, (readings, retrieval)) in by_scheme {
         let mut found = sites.iter_mut().filter(|s| s.reference == scheme);
         match (found.next(), found.next()) {
-            (Some(site), None) => site.readings = readings,
+            (Some(site), None) => (site.readings, site.retrieval) = (readings, retrieval),
             _ => unmatched.push(scheme),
         }
     }
     unmatched.sort();
     Ok(unmatched)
+}
+
+/// The data repository's short commit, so a private build's screenshots can be traced.
+fn commit(root: &Path) -> Option<String> {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["rev-parse", "--short", "HEAD"])
+        .output()
+        .ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
 fn non_empty(s: String) -> Option<String> {
@@ -305,6 +354,13 @@ mod tests {
              9,decision,V1,Total homes,deed,,,,,,unread,,\n",
         )
         .unwrap();
+        std::fs::write(
+            root.join("results/retrieval.csv"),
+            "scheme,source,documents,in_hand,not_in_hand\n\
+             1,viability,3,0,listed_not_fetched x3\n\
+             1,deed,1,1,\n",
+        )
+        .unwrap();
         let private = Inputs {
             results: Some("results".into()),
             ..inputs
@@ -314,12 +370,17 @@ mod tests {
         assert_eq!(bundle.sources.unmatched, ["9"]);
         let r = &bundle.sites[0].readings;
         assert_eq!(r.len(), 2);
-        assert_eq!(r[0].stage, Stage::Obligation);
+        assert_eq!(r[0].stage, Lineage::Obligation);
+        assert_eq!(r[1].status, Finding::SourceMissing);
         assert_eq!(
-            (r[0].value.as_deref(), r[0].check.as_str()),
-            (Some("total=40; SR=10"), "proposed")
+            (r[0].value.as_deref(), r[0].check),
+            (Some("total=40; SR=10"), Check::Proposed)
         );
         assert_eq!(r[1].value, None);
+        let got = &bundle.sites[0].retrieval;
+        assert_eq!(got.len(), 2);
+        assert_eq!(got[0].not_in_hand.as_deref(), Some("listed_not_fetched x3"));
+        assert_eq!(got[1].not_in_hand, None);
         assert!(bundle.sites[1].readings.is_empty());
     }
 }

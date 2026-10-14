@@ -582,10 +582,11 @@ fn main() -> Result<()> {
             if let Some(results) = &bundle.sources.results {
                 let read = bundle.sites.iter().filter(|s| !s.readings.is_empty());
                 eprintln!(
-                    "PRIVATE build: {} schemes carry readings from {} (not matched: {:?}). \
-                     View it locally; never publish it.",
+                    "PRIVATE build: {} schemes carry readings from {} at data commit {} \
+                     (not matched: {:?}). View it locally; never publish it.",
                     read.count(),
                     results,
+                    bundle.sources.data_commit.as_deref().unwrap_or("unknown"),
                     bundle.sources.unmatched
                 );
             }

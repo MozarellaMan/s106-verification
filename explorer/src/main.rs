@@ -13,10 +13,11 @@ use leaflet::{
 use leptos::html;
 use leptos::prelude::*;
 use model::{
-    Colour, check_label, colour, has_value, legend, percent, radius, source_label, status_lines,
-    thousands,
+    Colour, basis_note, check_class, check_counts, check_label, check_tag, colour, doubt,
+    has_value, humanize, legend, not_in_hand, percent, radius, retrieval_stage, source_label,
+    split_target, status_lines, thousands,
 };
-use site::{Bundle, Reading, Site, Sources, Stage};
+use site::{Bundle, Lineage, Reading, Site, Sources};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
@@ -91,7 +92,16 @@ fn App() -> impl IntoView {
 #[component]
 fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
     let Bundle { sources, sites } = bundle;
-    let private = sources.results.clone();
+    let private = sources.results.clone().map(|r| {
+        let commit = sources.data_commit.clone().unwrap_or("unknown".into());
+        let unmatched = (!sources.unmatched.is_empty()).then(|| {
+            format!(
+                " Not on the map (no single matching Datahub record): {}.",
+                sources.unmatched.join(", ")
+            )
+        });
+        (r, commit, unmatched)
+    });
     let sites = StoredValue::new(sites);
     let (from, set_from) = signal(DEFAULT_YEARS.0);
     let (to, set_to) = signal(DEFAULT_YEARS.1);
@@ -145,12 +155,13 @@ fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
     };
 
     view! {
-        {private.map(|results| view! {
+        {private.map(|(results, commit, unmatched)| view! {
             <p class="private">
                 <b>"Private build, not for publication. "</b>
                 "Schemes with readings carry cells from " <code>{results}</code>
-                ". Each says how far it has been checked; an agent reading nobody has checked is not a result, "
+                " at s106-data commit " <code>{commit}</code> ". Each says how far it has been checked; an agent reading nobody has checked is not a result, "
                 "and a difference between two sources is a prompt to read them, never a finding."
+                {unmatched}
             </p>
         })}
         <div class="controls">
@@ -198,7 +209,7 @@ fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
             </div>
             <aside node_ref=panel>
                 <Detail sites selected />
-                <ReadSchemes sites on_pick=set_selected />
+                <ReadSchemes sites on_pick=set_selected from=(from, set_from) to=(to, set_to) />
                 <Largest sites visible on_pick=set_selected />
             </aside>
         </div>
@@ -406,13 +417,49 @@ fn Detail(
             ),
         };
         let as_of = format!("current Datahub record, as of {}", x.updated);
-        let at = |stage: Stage| -> Vec<Reading> {
+        let at = |stage: Lineage| -> Vec<Reading> {
             x.readings
                 .iter()
                 .filter(|r| r.stage == stage)
                 .cloned()
+                .map(|mut r| {
+                    // V3's policy target goes under Target; the first offer stays here.
+                    if r.variable == "V3"
+                        && let Some(v) = &r.value
+                    {
+                        r.value = split_target(v).1;
+                    }
+                    r
+                })
                 .collect()
         };
+        let targets: Vec<Reading> = x
+            .readings
+            .iter()
+            .filter(|r| r.variable == "V3" && has_value(r))
+            .filter_map(|r| {
+                let target = split_target(r.value.as_deref()?).0?;
+                Some(Reading {
+                    value: Some(target),
+                    ..r.clone()
+                })
+            })
+            .collect();
+        let missing = |stage: Lineage| -> Vec<String> {
+            x.retrieval
+                .iter()
+                .filter(|r| retrieval_stage(&r.source) == Some(stage))
+                .filter_map(not_in_hand)
+                .collect()
+        };
+        // Homes by tenure from every source, side by side: the comparison a scheme is opened for.
+        let by_source: Vec<Reading> = x
+            .readings
+            .iter()
+            .filter(|r| (r.variable == "V1" || r.variable == "V8") && has_value(r))
+            .cloned()
+            .collect();
+        let read = !x.readings.is_empty();
         let completion = if x.completed > 0 {
             let date = x
                 .completion_date
@@ -435,16 +482,32 @@ fn Detail(
         };
         view! {
             <h2>{x.name().to_string()}</h2>
-            <div class="ref">{format!("{} · {} · decided {}", x.borough, x.reference, x.year)}</div>
-            <p class="current">{current}<span class="src">{as_of.clone()}</span></p>
+            <div class="ref">{format!("{} · {} · Datahub permission year {}", x.borough, x.reference, x.year)}</div>
+            {read.then(|| view! { <p class="counts">{check_counts(&x.readings)}</p> })}
+            {(!by_source.is_empty()).then(|| view! {
+                <table class="by-source">
+                    <caption>"Homes by source"</caption>
+                    {by_source.into_iter().map(|r| {
+                        let value = humanize(r.value.as_deref().unwrap_or_default());
+                        let basis = basis_note(&value, r.basis.as_deref());
+                        view! {
+                            <tr class=check_class(r.check)>
+                                <th>{source_label(&r.source)}<span class="src">{format!("{:?} · {}", r.stage, r.variable)}</span></th>
+                                <td>{check_tag(r.check).map(|t| view! { <span class="tag">{t}</span> })}{value}{basis}<span class="src">{check_label(r.check)}</span></td>
+                            </tr>
+                        }
+                    }).collect_view()}
+                </table>
+            })}
+            <p class="current" class:plain=read>{current}<span class="src">{as_of.clone()}</span></p>
             <p class="hint">"The Datahub keeps one record per permission and updates it in place, so this is the record as it stands now, not what was decided."</p>
             <div class="lineage">
-                <Stage name="Target" known=Known::NotCollected { from: "policy target" } />
-                <Stage name="Offer" known=Known::NotCollected { from: "committee report" } readings=at(Stage::Offer) />
-                <Stage name="Decision" known=Known::NotCollected { from: "committee report, decision notice" } readings=at(Stage::Decision) />
-                <Stage name="Obligation" known=Known::NotCollected { from: "S106 agreement" } readings=at(Stage::Obligation) />
-                <Stage name="Variation" known=Known::NotCollected { from: "deeds of variation, section 73" } readings=at(Stage::Variation) />
-                <Stage name="Completion" known=completion readings=at(Stage::Completion) />
+                <Stage name="Target" known=Known::NotCollected { from: "policy target" } readings=targets />
+                <Stage name="Offer" known=Known::NotCollected { from: "committee report" } readings=at(Lineage::Offer) missing=missing(Lineage::Offer) />
+                <Stage name="Decision" known=Known::NotCollected { from: "committee report, decision notice" } readings=at(Lineage::Decision) missing=missing(Lineage::Decision) />
+                <Stage name="Obligation" known=Known::NotCollected { from: "S106 agreement" } readings=at(Lineage::Obligation) missing=missing(Lineage::Obligation) />
+                <Stage name="Variation" known=Known::NotCollected { from: "deeds of variation, section 73" } readings=at(Lineage::Variation) missing=missing(Lineage::Variation) />
+                <Stage name="Completion" known=completion readings=at(Lineage::Completion) missing=missing(Lineage::Completion) />
             </div>
         }
         .into_any()
@@ -466,6 +529,9 @@ fn Stage(
     /// a ledger's cells for this stage (private builds only)
     #[prop(optional)]
     readings: Vec<Reading>,
+    /// documents of this stage listed for the scheme but not in hand (private builds only)
+    #[prop(optional)]
+    missing: Vec<String>,
 ) -> impl IntoView {
     let chip = match known {
         Known::Recorded { text, source } => Some((true, text, source)),
@@ -483,18 +549,22 @@ fn Stage(
                     <div class="chip" class:found=found>{text}<span class="src">{source}</span></div>
                 })}
                 {shown.into_iter().map(|r| {
-                    let doubt = (r.status != "found").then(|| format!(" ({})", r.status));
-                    let title = format!("{}{}", r.name, r.pages.as_deref().map(|p| format!(" · pages {p}")).unwrap_or_default());
+                    let doubt = doubt(r.status).map(|d| format!(" ({d})"));
+                    let class = format!("chip reading {}", check_class(r.check));
+                    let value = humanize(r.value.as_deref().unwrap_or_default());
+                    let basis = basis_note(&value, r.basis.as_deref());
+                    let pages = r.pages.map(|p| format!(" · pages {p}"));
                     view! {
-                        <div class="chip reading" title=title>
+                        <div class=class>
                             <span class="what">{format!("{} {}", source_label(&r.source), r.variable)}{doubt}</span>
-                            {r.value.unwrap_or_default()}
-                            {r.basis.map(|b| format!(" ({b})"))}
-                            <span class="src" class:unchecked={r.check != "independent" && r.check != "anchored"}>{check_label(&r.check).to_string()}</span>
+                            {check_tag(r.check).map(|t| view! { <span class="tag">{t}</span> })}
+                            {value}{basis}
+                            <span class="src">{check_label(r.check)}{pages}</span>
                         </div>
                     }
                 }).collect_view()}
                 {others.into_iter().map(|l| view! { <div class="others">{l}</div> }).collect_view()}
+                {missing.into_iter().map(|l| view! { <div class="others missing">"Not in hand: " {l}</div> }).collect_view()}
             </div>
         </div>
     }
@@ -505,6 +575,8 @@ fn Stage(
 fn ReadSchemes(
     sites: StoredValue<Vec<Site>>,
     on_pick: WriteSignal<Option<(usize, bool)>>,
+    from: (ReadSignal<i32>, WriteSignal<i32>),
+    to: (ReadSignal<i32>, WriteSignal<i32>),
 ) -> impl IntoView {
     let read: Vec<(usize, Site)> = sites.with_value(|s| {
         s.iter()
@@ -518,7 +590,12 @@ fn ReadSchemes(
             <div class="hint">{format!("{} schemes with ledger readings", read.len())}</div>
             <div class="list">
                 {read.into_iter().map(|(i, x)| view! {
-                    <button on:click=move |_| on_pick.set(Some((i, true)))>
+                    // Widen the years if the scheme is outside them, so its dot is on the map.
+                    <button on:click=move |_| {
+                        if from.0.get_untracked() > x.year { from.1.set(x.year) }
+                        if to.0.get_untracked() < x.year { to.1.set(x.year) }
+                        on_pick.set(Some((i, true)))
+                    }>
                         <span>{x.name().to_string()} " " <span class="ref">{format!("{} {}", x.borough, x.reference)}</span></span>
                         <span class="n">{x.year}</span>
                     </button>
