@@ -1,7 +1,8 @@
 # Tier 5: live model calls. Only when started by hand; needs the ANTHROPIC_API_KEY secret and
-# costs about $0.10 per deed per run (docs/migration.md in s106-data). Run 1 of each deed is recorded as a
-# fixture; the recorded responses and summary are uploaded for review, to be committed to the
-# s106-data repository (read here with the read-only deploy key in the S106_DATA_DEPLOY_KEY secret), never to this one.
+# costs about $0.10 per deed per run (docs/migration.md in s106-data). Run 1 of each deed is
+# recorded as a fixture; the recorded responses and summary are uploaded for review, to be
+# committed to the s106-data repository (read here with the read-only deploy key in the
+# S106_DATA_DEPLOY_KEY secret), never to this one.
 # `s106 eval` fails unless every selected deed completed every requested run; the artifacts are
 # uploaded either way.
 name: live

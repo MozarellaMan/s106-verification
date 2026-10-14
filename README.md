@@ -4,23 +4,23 @@ A verification harness for UK Section 106 planning obligations, written in Rust.
 
 Claude reads an executed deed (agreement, unilateral undertaking, deed of variation or
 supplemental deed) into a typed schema. A deterministic gate then checks every number against
-the others **and** against the deed's own text: each value must appear in the passage the model
-cites, and that passage must be found on the cited page. Nothing in the gate is a model judgement.
+the other numbers **and** against the deed's own text: each value must appear in the passage the
+model cites, and that passage must be found on the cited page. The gate makes no model judgement.
 
-**Status.** No person has yet labelled the obligations in any deed, so there is no measured
-accuracy for extraction or for the gate. PASS means a value matches the model's own citation on
-the cited page; it is not a check against independent evidence. The OCR gold pages were
-transcribed by an AI agent and the pinned expected outcomes were blessed from the pipeline's own
-output, so the test tiers show repeatability, not correctness ([docs/testing.md](docs/testing.md)).
-Nine of the ten deeds the prompts were tuned on are from outside London.
+**Status.** No person has yet labelled the obligations in any deed, so extraction and the gate
+have no measured accuracy. PASS means a value matches the model's own citation on the cited page,
+not that it matches independent evidence. An AI agent transcribed the OCR gold pages, and the
+pinned expected outcomes were blessed from the pipeline's own output, so the test tiers show
+repeatability, not correctness ([docs/testing.md](docs/testing.md)). Nine of the ten deeds the
+prompts were tuned on are from outside London.
 
 Architecture and contributor reading path: [docs/architecture.md](docs/architecture.md).
 
 OCR speed, the default model set (PP-OCRv6 tiny) and choosing another with `S106_OCR_MODELS`: [docs/ocr-speed.md](docs/ocr-speed.md).
 
 This repository holds code and invented test deeds only; it describes no real planning
-application. The data, and the research notes about specific deeds (the roadmap, the deeds behind
-schema v2, how the Rust harness was accepted against the former Python one), are in the private
+application. The data and the notes about real deeds (the roadmap, the deeds behind schema v2,
+the acceptance of the Rust harness against the former Python one) are in the private
 [s106-data](https://github.com/MozarellaMan/s106-data) repository's `docs/`.
 
 Obligations against delivery: [docs/reconciliation.md](docs/reconciliation.md).
@@ -35,24 +35,27 @@ src/
   extract.rs    prompts, recorded fixtures and offline replay, escalation to a stronger model
   schema.rs     schema v2: instrument, housing, contributions (amount / conditionality / payment), variations
   verify.rs     the gate: arithmetic + grounding -> PASS / REVIEW / FAIL / SKIP
+  audit.rs      typed audit findings: one value per numeric problem
   evidence.rs   re-locating a cited snippet in OCR text (dropped spaces, two-column wraps, OCR digits)
   triggers.rs   fixed vocabulary that labels payment triggers from the cited phrase
   text.rs       number and words-to-amount reading
+  quantity.rs   one tokenizer and grammar for quantities in prose and wire fields
   report.rs     terminal report and JSON
   eval.rs       evaluation against the national S106 register (planning.data.gov.uk)
+  data.rs       where the research data lives (the s106-data checkout at `data/`)
   pld.rs        read-only Planning London Datahub client; saves raw snapshots under <data>/snapshots/pld/
   reconcile.rs  obligation events vs PLD delivery, one row per measure, with a status per row
   ocrbench.rs   OCR scored against gold transcriptions (`gold/*.json` in the data repository)
   labels.rs     scored against human labels (`labels/` in the data repository)
   results.rs    a batch's scheme ledger, decision rules and claims, each with its check level
-  explore.rs    Datahub-only data for the public results explorer (`explorer/`)
+  explore.rs    data for the results explorer (`explorer/`): Datahub, plus deed cells or a private ledger
 ```
 
 ## Setup
 
 Rust 1.85+ (edition 2024). `cargo build` and `cargo test` need nothing else: no data, network, PDFs,
-PDFium, ONNX Runtime or models. To read PDFs, fetch PDFium, ONNX Runtime and the OCR models;
-each file is checked against its pinned SHA-256 in `scripts/runtime-artifacts.tsv`:
+PDFium, ONNX Runtime or models. Reading PDFs needs PDFium, ONNX Runtime and the OCR models; the
+fetch script checks each file against its pinned SHA-256 in `scripts/runtime-artifacts.tsv`:
 
 ```bash
 scripts/fetch-models.sh
@@ -68,9 +71,9 @@ Live extraction needs an Anthropic API key in `~/.config/s106/anthropic_key` (or
 ### The data
 
 The deeds' recorded outputs (page text, model responses, expected outcomes, gold, register rows)
-live in a separate private repository, `MozarellaMan/s106-data`; access must be granted. Clone it
+live in the private repository `MozarellaMan/s106-data`, which needs granted access. Clone it
 into `data/` (ignored by git), or point the `S106_DATA` environment variable or the global
-`--data <dir>` flag at a checkout elsewhere. Then fetch the PDFs, which come from public planning
+`--data <dir>` flag at a checkout elsewhere. Then fetch the PDFs. They come from public planning
 registers and are not committed anywhere:
 
 ```bash
@@ -79,9 +82,9 @@ scripts/fetch-corpus.sh
 ```
 
 `scripts/fetch-corpus.sh` reads `corpus/manifest.tsv` from the data checkout, downloads every
-deed into `data/raw/<id>.pdf`, and refuses a file with a different SHA-256, as do the recorded
-responses (`data/extractions/<id>/`). The evaluation's candidate list and the register rows for
-those deeds are in the data repository's `eval/`.
+deed into `data/raw/<id>.pdf`, and refuses a file whose SHA-256 differs from the manifest. The
+recorded responses (`data/extractions/<id>/`) refuse such a file too. The evaluation's candidate
+list and the register rows for those deeds are in the data repository's `eval/`.
 
 ### Starting without the data repository
 
@@ -97,7 +100,7 @@ start one, find the executed deed for a planning application on the council's re
 4. To compare with the national register, list it in `eval/candidates.tsv`, download the register
    files (see the `eval/` README in s106-data) and run `s106 eval --replay --register <dir>`.
 
-These are the applications the current corpus was built from, a mix of agreements, a unilateral
+The current corpus was built from these applications, a mix of agreements, a unilateral
 undertaking and deeds of variation:
 
 | Council | Planning reference | Instrument |
@@ -140,17 +143,16 @@ clean, `1` Parser Errors or REVIEW flags, `2` Document Discrepancies (the worst 
 `3` if any deed could not be audited.
 
 **What a run costs.** Extraction is three structured-output calls over the whole PDF, made at the
-same time. A single schema for everything compiles to a grammar the API rejects, and the PDF can't be cached across
-calls whose schemas differ. With Haiku 5.5 a 30-page deed costs a few cents; a 109-page scan
-costs about $0.30. Escalation to Opus 5.5 costs more and only runs with
-`--escalate`.
+same time: one schema for everything compiles to a grammar the API rejects, and the API cannot
+cache the PDF across calls whose schemas differ. With Haiku 5.5 a 30-page deed costs a few cents
+and a 109-page scan about $0.30. Escalation to Opus 5.5 costs more and runs only with `--escalate`.
 
 ## Human labels
 
 A person's reading of a source is the only ground truth here; everything else is the pipeline
 agreeing with itself. Labels are a separate layer that nothing else waits for. A labeller saves a
 filled-in sheet (the source-audit codebook's columns, signed with `labeller` and `labelled_on`)
-as a new file under `labels/` in the data repository, and `s106 labels` reads every file there and
+as a new file under `labels/` in the data repository. `s106 labels` reads every file there and
 writes `reports/labels/labels.{md,json}`:
 
 - the pipeline's readings (recorded deed extractions, Datahub snapshots) scored field by field
@@ -158,19 +160,21 @@ writes `reports/labels/labels.{md,json}`:
 - labellers against each other where two labelled the same cell (agreement and Cohen's kappa);
 - sources against each other (deed, committee report, GLA report, Datahub, EPC).
 
-With no labels it says so and succeeds. Submissions are append-only: a correction is a new file,
-and the latest `labelled_on` per labeller and cell wins. A row signed `machine:` is refused.
+With no labels the report says so and the command succeeds. Submissions are append-only: a
+correction is a new file, and the latest `labelled_on` per labeller and cell wins. A row signed
+`machine:` is refused.
 
 A label's optional `method` column says how the person arrived at it: `read` (from the source,
 the default) or `blind` are independent readings; `audited` or `corrected` are decisions on an
 agent's proposal shown with its evidence. Proposals live under `proposals/` in the data
-repository, signed `machine:<producer>`; `s106 labels` scores them like any other machine reading
-and keeps the accuracy figures for independent and anchored labels apart, since how often a person
-changed a proposal is not the same measurement as how often an independent reading agreed with it.
+repository, signed `machine:<producer>`. `s106 labels` scores them like any other machine reading
+and reports accuracy against independent labels and against anchored labels separately: how often
+a person changed a proposal is not the same measurement as how often an independent reading agreed
+with the proposal.
 
 ## Results
 
-`s106 results` turns a batch into something a researcher can read and load. From the batch's blank
+`s106 results` turns a batch into files a researcher can read and load. From the batch's blank
 sheet (which cells exist), the labels and the proposals, it writes a folder under `results/` in the
 data repository: a ledger with one row per scheme, variable and source in lineage order (offer,
 decision, obligation, variation, completion), the batch's pre-registered decision rules worked out
@@ -179,21 +183,21 @@ folder's `claims.csv`. Every cell, rule outcome and claim carries a check level:
 person read the source), `anchored` (a person confirmed or corrected a proposal), `proposed` (an
 agent only, not a result), `unsettled` (labellers disagree) or `unread`. A rule or claim stands at
 the weakest level of the cells it rests on, so the note moves from proposed to checked on its own
-as labels arrive. Like `s106 labels`, it never waits for them.
+as labels arrive. Like `s106 labels`, `s106 results` never waits for labels.
 
 ## Outcomes
 
-An input is *grounded* when its value appears in its cited snippet (as digits, OCR `£`→`f` and
-`5o`→`50` repaired, or as number words) and that snippet re-locates on the cited page of the page
-text, ignoring whitespace. Mix-table cells have no snippets of their own, so a row is grounded
-when one line on the table's page states all of its counts.
+An input is *grounded* when its value appears in its cited snippet (as digits, as number words,
+or with the OCR repairs `£`→`f` and `5o`→`50`) and the snippet is found again on the cited page of
+the page text, ignoring whitespace. Mix-table cells have no snippets of their own, so a row is
+grounded when one line on the table's page states all of its counts.
 
 | outcome | meaning |
 |---|---|
 | PASS | the assertion holds and every input is grounded |
-| REVIEW | the assertion holds, but some input isn't grounded: correctness unproven |
+| REVIEW | the assertion holds, but some input isn't grounded, so correctness is unproven |
 | FAIL, Parser Error | an input is missing or ungrounded, and the assertion fails |
-| FAIL, Document Discrepancy | the assertion fails although every input is grounded: what the deed *appears* to say through OCR, to be confirmed against the original |
+| FAIL, Document Discrepancy | the assertion fails although every input is grounded: what the deed *appears* to say through OCR, to be confirmed against the original page |
 | SKIP | the deed doesn't state what the check needs; whole-scheme checks on a variation; a floorspace or unstated % basis (never recomputed by units) |
 
 ## Checks
@@ -220,12 +224,14 @@ when one line on the table's page states all of its counts.
 - **Page text** is cached under `data/interim/ocr/<sha256[:16]>-<ocr version>/` and kept in the data
   repository, per deed, as a snapshot in `data/pages/<stem>.pages.json`. Both are keyed by the PDF's
   SHA-256 and a hash of everything that produces the text: line-logic version, OCR settings and
-  the pinned SHA-256 of PDFium, ONNX Runtime and each model file. Changing any of them gives a new
-  key; artifact files that differ from their pins are refused; the cache manifest is validated on
-  read. Each image-only page is OCR'd on its own, so its text does not depend on other pages.
+  the pinned SHA-256 of PDFium, ONNX Runtime and each model file. Changing any of those inputs
+  gives a new key. Artifact files that differ from their pins are refused, and the cache manifest
+  is validated on read. Each image-only page is OCR'd on its own, so its text does not depend on
+  other pages.
 - **Model responses** are recorded in `data/extractions/<stem>/<model>.extract.v2.json`, tied to the
-  PDF's SHA-256 and to a hash of the prompts and schemas. A different deed or a changed prompt
-  refuses to replay. v1 fixtures from the former Python harness (`data/extractions-v1/`) still replay.
+  PDF's SHA-256 and to a hash of the prompts and schemas. A fixture refuses to replay against a
+  different deed or a changed prompt. v1 fixtures from the former Python harness
+  (`data/extractions-v1/`) still replay.
 - **Runtime artifacts** (PDFium, ONNX Runtime, OCR models) are pinned by SHA-256 in
   `scripts/runtime-artifacts.tsv`.
 - **Determinism:** trigger labels come from the cited phrase, not the model. Plural group terms
@@ -246,9 +252,10 @@ s106 eval --runs 3              # 5 live model calls (costs money; manual only)
 ```
 
 Tier 2 (`cargo test-data`) needs the data checkout and fails with "data missing" without it.
-Tiers 3 and 4 also need `scripts/fetch-models.sh` and `scripts/fetch-corpus.sh`. They fail with
-"corpus missing" when deeds are absent; they never skip silently. CI runs `cargo test` on every push, plus a second job that checks out
-the data repository (secret `S106_DATA_DEPLOY_KEY`) and runs `cargo test-data`; tiers 3-4 run weekly on
-a cold cache (also with the data checkout), and 5 only when started by hand (`.github/workflows/`).
-Only tiers 1-2 gate pull requests; the weekly job skips the PDF tiers with a warning when the
-council sites it downloads from are unreachable.
+Tiers 3 and 4 also need `scripts/fetch-models.sh` and `scripts/fetch-corpus.sh`, and fail with
+"corpus missing" when deeds are absent; neither tier skips silently. CI (`.github/workflows/`) runs
+`cargo test` on every push, plus a second job that checks out the data repository (secret
+`S106_DATA_DEPLOY_KEY`) and runs `cargo test-data`. Tiers 3-4 run weekly on a cold cache, also
+with the data checkout, and tier 5 only when started by hand. Only tiers 1-2 gate pull requests.
+The weekly job skips the PDF tiers with a warning when the council sites it downloads from are
+unreachable.

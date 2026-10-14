@@ -131,7 +131,8 @@ pub fn check_class(check: Check) -> &'static str {
 /// A short tag shown before a value: whether a person has settled it.
 pub fn check_tag(check: Check) -> &'static str {
     match check {
-        Check::Unread | Check::Proposed => "unchecked",
+        Check::Unread => "not read",
+        Check::Proposed => "unchecked AI reading",
         Check::Unsettled => "readers disagree",
         Check::Anchored => "checked by a person",
         Check::Independent => "read by a person",
@@ -508,7 +509,7 @@ mod tests {
         assert_eq!(check_class(Check::Unsettled), "disagree");
         assert_eq!(check_class(Check::Anchored), "checked");
         assert_eq!(check_class(Check::Independent), "independent");
-        assert_eq!(check_tag(Check::Proposed), "unchecked");
+        assert_eq!(check_tag(Check::Proposed), "unchecked AI reading");
         assert_eq!(check_tag(Check::Anchored), "checked by a person");
         assert!(Check::Proposed < Check::Anchored && Check::Unsettled < Check::Anchored);
         let mut r = vec![reading("deed", "V1", Finding::Found); 3];

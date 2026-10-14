@@ -5,8 +5,8 @@
 //! and nothing scheme-level from deeds or the ledger is public before human review. The counting
 //! rules (what counts as permitted, superseded, a tenure group) are the baseline run's own, read
 //! from its `applications.csv`: every count is of final homes (`final_*`, homes no later permission
-//! replaced), like the baseline's headline. This only adds each site's centroid from the same
-//! snapshot, and counts every record it leaves out so the page can say so.
+//! replaced), like the baseline's headline. `s106 explore` only adds each site's centroid from the
+//! same snapshot, and counts every record it leaves out so the page can report them.
 //!
 //! A private build (`--results`) also adds each scheme's cells from a results ledger, with their
 //! check levels. Those are unreviewed readings: that build is for local viewing, never for Pages.

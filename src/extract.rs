@@ -1,10 +1,11 @@
 //! Extraction: Claude reads the whole deed (as a PDF) into the wire schema, which is converted to
 //! schema v2. Responses are recorded as fixtures so every audit can be replayed offline.
 //!
-//! Fixtures live in the data repository (`crate::data`), `extractions/<pdf-stem>/<model>.extract.v2.json`,
-//! and are tied to the PDF's SHA-256 and to a hash of the prompt and schema: a different deed or a
-//! changed prompt refuses to replay instead of silently reusing stale answers. v1 fixtures recorded by the former Python
-//! harness (`extractions-v1/`) still replay through an adapter.
+//! Fixtures live in the data repository (`crate::data`),
+//! `extractions/<pdf-stem>/<model>.extract.v2.json`, and are tied to the PDF's SHA-256 and to a
+//! hash of the prompt and schema: a different deed or a changed prompt refuses to replay instead
+//! of silently reusing stale answers. v1 fixtures recorded by the former Python harness
+//! (`extractions-v1/`) still replay through an adapter.
 
 use std::path::PathBuf;
 
@@ -175,8 +176,8 @@ fn answer(
         let client = client.context("live extraction needs Anthropic credentials")?;
         let pdf = std::fs::read(&doc.path)?;
         // Three calls over the same PDF: one schema for everything compiles to a grammar
-        // the API rejects as too large (see wire.rs). They are independent, so they run at
-        // the same time; the first to fail cancels the other two rather than letting them finish.
+        // the API rejects as too large (see wire.rs). The calls are independent, so they run
+        // concurrently; the first to fail cancels the other two.
         let call = |prompt: String, schema: Value| {
             let pdf = &pdf;
             async move {

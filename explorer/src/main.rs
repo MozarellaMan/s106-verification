@@ -184,7 +184,7 @@ fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
                 <b>"Deed figures. "</b>
                 "The schemes under \"schemes with deed figures\" show figures transcribed from their S106 "
                 "agreements, with the deed pages cited. Most were transcribed by an AI model and have not been "
-                "checked by a person: those are marked UNCHECKED and drawn dashed. A deed figure is the obligation "
+                "checked by a person: those are marked UNCHECKED AI READING and drawn dashed. A deed figure is the obligation "
                 "as first signed, not what is due today or what was built. Only variations in the documents we "
                 "hold are shown: no search of the Local Land Charges register or council records has been made, "
                 "so later variations may exist. Deed and Datahub figures often differ for ordinary reasons (later "
@@ -519,7 +519,7 @@ fn Detail(
                 <p class="counts">{if deed_only {
                     let checked = x.readings.iter().filter(|r| r.check >= Check::Anchored).count();
                     format!(
-                        "{} figures from the deed: {checked} checked by a person, {} not yet checked.",
+                        "{} items read from the deed: {checked} checked by a person, {} not yet checked.",
                         x.readings.len(),
                         x.readings.len() - checked
                     )

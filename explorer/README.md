@@ -41,13 +41,13 @@ retrieval rows, or any reading other than the deed cells described below.
 ## Deed figures on the public site
 
 `--deed-cells results/<batch>` adds, from that results folder, every cell read from the deed for the
-obligation, variation and completion stages, with its pages and its check level. A deed's offer cells
-only recite the committee report or policy, so they stay out. Unchecked agent readings are marked
-UNCHECKED and drawn dashed, and cells a person has checked stand apart. Nothing else from the ledger
-goes in: no other source, no retrieval rows, no rule outcome or claim. The page says these are
-transcriptions of the obligations as first signed, mostly not yet checked by a person, that only
-variations in the documents held are shown, and that a difference from the Datahub is never evidence
-of a breach.
+obligation, variation and completion stages, with its pages and its check level. A deed's offer
+cells only recite the committee report or policy, so they stay out. Unchecked AI readings are marked
+UNCHECKED AI READING and drawn dashed, and cells a person has checked are tagged CHECKED BY A
+PERSON. Nothing else from the ledger goes in: no other source, no retrieval rows, no rule outcome or
+claim. The page says these are transcriptions of the obligations as first signed, mostly not yet
+checked by a person, that only variations in the documents held are shown, and that a difference
+from the Datahub is never evidence of a breach.
 
 ## Publish it
 

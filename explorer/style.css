@@ -66,7 +66,7 @@ aside { background: var(--panel); border: 1px solid var(--line); padding: 14px; 
   border: 1px solid currentColor; border-radius: 3px; padding: 0 3px; margin-right: 5px; }
 .by-source tr.unchecked td, .by-source tr.unchecked th { color: var(--muted); }
 .by-source tr.independent th { box-shadow: inset 3px 0 0 var(--accent); }
-.counts { margin: 4px 0 0; font-size: .82rem; font-family: var(--mono); }
+.counts { margin: 4px 0 0; font-size: .86rem; }
 .others { font-size: .74rem; color: var(--muted); }
 .notice { margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 4px; font-size: .86rem; max-width: 90ch; }
 .chip { border-radius: 4px; padding: 6px 8px; font-size: .84rem; background: var(--none); border: 1px dashed var(--border); color: var(--muted); }
