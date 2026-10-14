@@ -367,9 +367,12 @@ pub fn not_in_hand(r: &Retrieval) -> Option<String> {
 pub fn has_value(r: &Reading) -> bool {
     match r.status {
         Finding::Found | Finding::Ambiguous | Finding::Inconsistent => true,
-        Finding::NotStated | Finding::SourceMissing | Finding::NotApplicable | Finding::Unread => {
-            false
-        }
+        Finding::NotStated
+        | Finding::SourceMissing
+        | Finding::NoSource
+        | Finding::Unreadable
+        | Finding::NotApplicable
+        | Finding::Unread => false,
     }
 }
 
@@ -389,6 +392,8 @@ pub fn status_lines(readings: &[Reading]) -> Vec<String> {
         let status = match r.status {
             Finding::NotStated => "Not stated",
             Finding::SourceMissing => "No document",
+            Finding::NoSource => "No such source",
+            Finding::Unreadable => "Unreadable",
             Finding::NotApplicable => "Not applicable",
             Finding::Unread => "Not read",
             Finding::Found | Finding::Ambiguous | Finding::Inconsistent => continue,
@@ -500,6 +505,10 @@ mod tests {
             ]
         );
         assert_eq!(check_label(Check::Proposed), "AI reading, not checked");
+        // Every status in the codebook (labels.rs STATUSES) reads.
+        for s in ["no_source", "unreadable", "source_missing", ""] {
+            assert!(Finding::from_ledger(s).is_some(), "{s}");
+        }
     }
 
     #[test]
