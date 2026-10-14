@@ -23,8 +23,6 @@ h2 { font-size: 1rem; margin: 0; }
 .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; font-size: .85rem; }
 .controls label { display: flex; gap: 6px; align-items: center; color: var(--muted); }
 select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
-input[type=range] { accent-color: var(--accent); }
-.years { font-family: var(--mono); min-width: 12ch; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); background: var(--panel);
   border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
 .stat { padding: 8px 10px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
@@ -37,7 +35,7 @@ input[type=range] { accent-color: var(--accent); }
   .main { grid-template-columns: 1fr; }
   #map { height: auto; min-height: 0; aspect-ratio: 4 / 3; }
 }
-.mapcol { display: grid; gap: 6px; min-width: 0; }
+.mapcol { display: grid; gap: 6px; align-content: start; min-width: 0; }
 .leaflet-container { background: var(--bg); font-family: var(--sans); }
 .borough { fill: var(--land); fill-opacity: 1; stroke: var(--border); stroke-width: 1; }
 .mapcol .hint { margin: 0; }
