@@ -130,7 +130,8 @@ s106 labels                                                        # score every
 (`cargo run --release --` instead of `s106` without installing.)
 
 `audit` prints a report and writes JSON to `data/processed/<stem>.audit.json`. Exit codes are `0`
-clean, `1` Parser Errors or REVIEW flags, and `2` Document Discrepancies.
+clean, `1` Parser Errors or REVIEW flags, `2` Document Discrepancies (the worst over all deeds), and
+`3` if any deed could not be audited.
 
 **What a run costs.** Extraction is three structured-output calls over the whole PDF, made at the
 same time. A single schema for everything compiles to a grammar the API rejects, and the PDF can't be cached across
