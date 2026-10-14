@@ -155,6 +155,13 @@ writes `reports/labels/labels.{md,json}`:
 With no labels it says so and succeeds. Submissions are append-only: a correction is a new file,
 and the latest `labelled_on` per labeller and cell wins. A row signed `machine:` is refused.
 
+A label's optional `method` column says how the person arrived at it: `read` (from the source,
+the default) or `blind` are independent readings; `audited` or `corrected` are decisions on an
+agent's proposal shown with its evidence. Proposals live under `proposals/` in the data
+repository, signed `machine:<producer>`; `s106 labels` scores them like any other machine reading
+and keeps the accuracy figures for independent and anchored labels apart, since how often a person
+changed a proposal is not the same measurement as how often an independent reading agreed with it.
+
 ## Outcomes
 
 An input is *grounded* when its value appears in its cited snippet (as digits, OCR `£`→`f` and
