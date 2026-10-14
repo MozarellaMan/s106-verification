@@ -224,7 +224,10 @@ fn humanize_one(value: &str) -> String {
             if let Some(r) = part.strip_prefix("s73 ") {
                 return format!("section 73 permission {r}");
             }
-            part.to_string()
+            part.split(' ')
+                .map(|w| tenure(w).unwrap_or(w))
+                .collect::<Vec<_>>()
+                .join(" ")
         })
         .collect::<Vec<_>>()
         .join("; ")
@@ -365,6 +368,47 @@ pub fn not_in_hand(r: &Retrieval) -> Option<String> {
         .collect::<Vec<_>>()
         .join(", ");
     Some(format!("{}: {words}", source_label(&r.source)))
+}
+
+/// Whether a variation document's reading changes a figure the deed set: a variation cell for
+/// homes (V1) or affordable share (V2) with a `key=value` part (total, SR, share, …) that the
+/// deed's cell also has, with a different value. Keys only one side states, and free text, are
+/// not read as a change. Some(true) when every
+/// cell deciding that has been checked by a person, Some(false) when it rests on an unchecked
+/// reading, None when no figure changed (a variation that only lists dates, or repeats the deed).
+pub fn variation_changes(readings: &[Reading]) -> Option<bool> {
+    let parts = |r: &Reading| -> Vec<(String, String)> {
+        r.value
+            .as_deref()
+            .unwrap_or_default()
+            .split("; ")
+            .filter_map(|p| p.split_once('='))
+            .map(|(k, v)| (k.trim().to_string(), v.trim().to_string()))
+            .collect()
+    };
+    let mut changed = None;
+    for v in readings
+        .iter()
+        .filter(|r| r.source == "variation" && has_value(r))
+        .filter(|r| r.variable == "V1" || r.variable == "V2")
+    {
+        let Some(deed) = readings
+            .iter()
+            .find(|d| d.source == "deed" && d.variable == v.variable && has_value(d))
+        else {
+            continue;
+        };
+        let was = parts(deed);
+        let differs = parts(v)
+            .iter()
+            .any(|(k, val)| was.iter().any(|(k2, val2)| k == k2 && val != val2));
+        if !differs {
+            continue;
+        }
+        let checked = v.check >= Check::Anchored && deed.check >= Check::Anchored;
+        changed = Some(changed.unwrap_or(true) && checked);
+    }
+    changed
 }
 
 /// A reading with something to show (a value, or a doubt about one), as against a status alone.
@@ -517,6 +561,45 @@ mod tests {
     }
 
     #[test]
+    fn a_variation_changes_figures_only_when_they_differ() {
+        let cell = |source: &str, variable: &str, value: &str, check: Check| Reading {
+            value: Some(value.into()),
+            check,
+            ..reading(source, variable, Finding::Found)
+        };
+        // 09/AP/1870's shape: the variation repeats the deed's total and lists dates.
+        let same = [
+            cell("deed", "V1", "total=668; SR=123; SO=47", Check::Anchored),
+            cell("variation", "V1", "total=668", Check::Proposed),
+            cell(
+                "variation",
+                "V7",
+                "orig 2010-02-17; DoV 2010-12-17",
+                Check::Proposed,
+            ),
+            cell("variation", "V2", "INT -> market: all", Check::Proposed),
+        ];
+        assert_eq!(variation_changes(&same), None);
+        // 19/AP/1710's shape: intermediate homes go to 0.
+        let mut changed = vec![
+            cell("deed", "V1", "total=262; SR=64; INT=28", Check::Anchored),
+            cell(
+                "variation",
+                "V1",
+                "total=292; SR=64; INT=0",
+                Check::Proposed,
+            ),
+        ];
+        assert_eq!(
+            variation_changes(&changed),
+            Some(false),
+            "rests on an unchecked reading"
+        );
+        changed[1].check = Check::Anchored;
+        assert_eq!(variation_changes(&changed), Some(true));
+    }
+
+    #[test]
     fn checked_cells_look_checked() {
         assert_eq!(check_class(Check::Unread), "unchecked");
         assert_eq!(check_class(Check::Proposed), "unchecked");
@@ -566,6 +649,10 @@ mod tests {
         assert_eq!(
             humanize("SR: target rents; SO: income <=£90,000"),
             "social rent: target rents; shared ownership: income ≤£90,000"
+        );
+        assert_eq!(
+            humanize("INT -> market: all"),
+            "intermediate -> market: all"
         );
         assert_eq!(
             basis_note("share 35.0% (habitable rooms)", Some("habitable_rooms")),

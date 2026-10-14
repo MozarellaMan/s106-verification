@@ -6,8 +6,8 @@
 //! from its `applications.csv`: every count is of final homes (`final_*`, homes no later permission
 //! replaced), like the baseline's headline. `s106 explore` adds each site's centroid from the
 //! same snapshot, and counts every record it leaves out so the page can report them. Unlike the
-//! baseline, it leaves out certificates of lawfulness, which confirm homes another record already
-//! permits or that already exist, and it flags sites whose centroid is a placeholder outside London
+//! baseline, it leaves out certificates of lawfulness, which confirm that a use is lawful rather
+//! than grant permission and often repeat homes another record counts, and it flags sites whose centroid is a placeholder outside London
 //! (kept in the counts, not drawn).
 //!
 //! A private build (`--results`) also adds each scheme's cells from a results ledger, with their

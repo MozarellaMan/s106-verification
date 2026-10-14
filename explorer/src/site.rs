@@ -24,8 +24,8 @@ pub struct Sources {
     pub no_decision_year: u64,
     pub wholly_superseded: u64,
     pub without_centroid: u64,
-    /// certificates of lawfulness: they confirm homes another record already permits or that
-    /// already exist, so counting them would count those homes twice
+    /// certificates of lawfulness: they confirm that an existing or proposed use is lawful rather
+    /// than grant permission, and often repeat homes another record counts
     #[serde(default)]
     pub lawful_development: u64,
     #[serde(default)]

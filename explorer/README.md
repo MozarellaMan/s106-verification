@@ -11,9 +11,9 @@ boundaries. A public build can add deed figures (below); a private build adds th
 Stages nothing in the build speaks to are drawn as "not collected".
 
 What the Datahub figures leave out or flag:
-- **Certificates of lawfulness** ("Lawful development") are left out. They confirm homes another
-  record already permits, or homes that already exist, so counting them would count those homes
-  twice. The footer gives how many and their homes.
+- **Certificates of lawfulness** ("Lawful development") are left out. They confirm that an existing
+  or proposed use is lawful rather than grant permission, and often repeat homes another record
+  already counts. The footer gives how many and their homes.
 - **Placeholder locations.** Some records carry a centroid at about the British National Grid origin,
   in the sea off Scilly. Sites outside a box around London are kept in every count but not drawn,
   and the footer and the site's panel say so.

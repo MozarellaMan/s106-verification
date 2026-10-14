@@ -15,7 +15,7 @@ use leptos::prelude::*;
 use model::{
     Colour, basis_note, check_class, check_counts, check_label, check_tag, colour, doubt,
     has_value, humanize, legend, not_in_hand, percent, radius, retrieval_stage, source_label,
-    split_target, status_lines, thousands,
+    split_target, status_lines, thousands, variation_changes,
 };
 use site::{Bundle, Check, Lineage, Reading, Site, Sources, Status};
 use wasm_bindgen::JsCast;
@@ -253,6 +253,10 @@ fn Explorer(bundle: Bundle, boroughs: JsValue) -> impl IntoView {
 struct Totals {
     /// homes on lapsed permissions, kept out of the other totals: they will not be built
     lapsed: u64,
+    /// sites in view, and their homes, counted but not drawn (a placeholder location)
+    unlocated: u64,
+    unlocated_homes: u64,
+    permissions: u64,
     homes: u64,
     known: u64,
     affordable: u64,
@@ -264,21 +268,23 @@ fn Stats(sites: StoredValue<Vec<Site>>, visible: Memo<Vec<usize>>) -> impl IntoV
     let totals = Memo::new(move |_| {
         sites.with_value(|s| {
             visible.with(|v| {
-                v.iter().map(|&i| &s[i]).fold(Totals::default(), |t, x| {
+                let mut t = Totals::default();
+                for x in v.iter().map(|&i| &s[i]) {
+                    if x.unlocated {
+                        t.unlocated += 1;
+                        t.unlocated_homes += x.homes as u64;
+                    }
                     if x.status == Status::Lapsed {
-                        return Totals {
-                            lapsed: t.lapsed + x.homes as u64,
-                            ..t
-                        };
+                        t.lapsed += x.homes as u64;
+                        continue;
                     }
-                    Totals {
-                        lapsed: t.lapsed,
-                        homes: t.homes + x.homes as u64,
-                        known: t.known + x.known as u64,
-                        affordable: t.affordable + x.affordable as u64,
-                        completed: t.completed + x.completed as u64,
-                    }
-                })
+                    t.permissions += 1;
+                    t.homes += x.homes as u64;
+                    t.known += x.known as u64;
+                    t.affordable += x.affordable as u64;
+                    t.completed += x.completed as u64;
+                }
+                t
             })
         })
     });
@@ -289,7 +295,7 @@ fn Stats(sites: StoredValue<Vec<Site>>, visible: Memo<Vec<usize>>) -> impl IntoV
     };
     view! {
         <div class="stats">
-            {stat("Permissions", Signal::derive(move || thousands(visible.with(|v| v.len()) as u64)))}
+            {stat("Permissions, not counting lapsed", Signal::derive(move || thousands(totals.get().permissions)))}
             {stat("Homes, not counting lapsed", Signal::derive(move || thousands(totals.get().homes)))}
             {stat("Affordable, of recorded tenure", Signal::derive(move || { let t = totals.get(); percent(t.affordable, t.known) }))}
             {stat("Tenure not recorded", Signal::derive(move || { let t = totals.get(); percent(t.homes - t.known, t.homes) }))}
@@ -301,6 +307,16 @@ fn Stats(sites: StoredValue<Vec<Site>>, visible: Memo<Vec<usize>>) -> impl IntoV
             "years is mostly time, not shortfall. Lapsed permissions expired unbuilt, so their homes are "
             "counted apart and left out of the other figures."
         </p>
+        {move || {
+            let t = totals.get();
+            (t.unlocated > 0).then(|| view! {
+                <p class="hint">{format!(
+                    "{} sites in view ({} homes) are counted here but not drawn: the Datahub gives them a placeholder location.",
+                    thousands(t.unlocated),
+                    thousands(t.unlocated_homes)
+                )}</p>
+            })
+        }}
     }
 }
 
@@ -509,11 +525,9 @@ fn Detail(
             .collect();
         let read = !x.readings.is_empty();
         let deed_only = build() == Build::DeedFigures;
-        // A variation found in the documents changes what the deed set.
-        let varied = x
-            .readings
-            .iter()
-            .any(|r| r.source == "variation" && has_value(r));
+        // A variation found in the documents changes a figure the deed set (checked or not).
+        let changes = variation_changes(&x.readings);
+        let varied = x.readings.iter().any(|r| r.source == "variation");
         let completion = if x.completed > 0 {
             let date = x
                 .completion_date
@@ -586,7 +600,11 @@ fn Detail(
                 <Stage name="Offer" known=Known::NotCollected { from: "committee report" } readings=at(Lineage::Offer) missing=missing(Lineage::Offer) />
                 <Stage name="Decision" known=Known::NotCollected { from: "committee report, decision notice" } readings=at(Lineage::Decision) missing=missing(Lineage::Decision) />
                 <Stage name="Obligation" known=Known::NotCollected { from: "S106 agreement" } readings=at(Lineage::Obligation) missing=missing(Lineage::Obligation)
-                    note=varied.then_some("Changed after signing: a variation found in the documents alters these figures. See Variation.") />
+                    note=changes.map(|checked| if checked {
+                        "A variation found in the documents changes these figures. See Variation."
+                    } else {
+                        "A variation found in the documents appears to change these figures (AI reading, not yet checked). See Variation."
+                    }) />
                 <Stage name="Variation" known=Known::NotCollected { from: "deeds of variation, section 73" } readings=at(Lineage::Variation) missing=missing(Lineage::Variation)
                     note=(deed_only && read).then_some("Only variations found in the documents held. No search of the Local Land Charges register or council records has been made yet, so later variations may exist.") />
                 <Stage name="Completion" known=completion readings=at(Lineage::Completion) missing=missing(Lineage::Completion) />
@@ -765,8 +783,8 @@ fn Footer(sources: Sources) -> impl IntoView {
     let left_out = format!(
         "Left out of {} Datahub records: {} not permitted, {} permitted with no decision year, \
          {} wholly superseded by a later permission, {} without a site centroid, and {} certificates \
-         of lawfulness ({} homes), which confirm homes already permitted or built rather than permit \
-         new ones. A further {} sites ({} homes) are counted but not drawn: the Datahub gives them a \
+         of lawfulness ({} homes), which confirm that an existing or proposed use is lawful rather \
+         than grant permission. A further {} sites ({} homes) are counted but not drawn: the Datahub gives them a \
          placeholder location outside London.",
         thousands(sources.records),
         thousands(sources.not_permitted),
