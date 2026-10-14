@@ -1,8 +1,7 @@
 //! Data for the results explorer (`explorer/`): one JSON file of London sites, baked from a
 //! Datahub baseline run in the data repository.
 //!
-//! Only Datahub-derived figures go in, as boroughs recorded them: the site is meant to be public,
-//! and nothing scheme-level from deeds or the ledger is public before human review. The counting
+//! By default only Datahub-derived figures go in, as boroughs recorded them. The counting
 //! rules (what counts as permitted, superseded, a tenure group) are the baseline run's own, read
 //! from its `applications.csv`: every count is of final homes (`final_*`, homes no later permission
 //! replaced), like the baseline's headline. `s106 explore` only adds each site's centroid from the
@@ -10,6 +9,11 @@
 //!
 //! A private build (`--results`) also adds each scheme's cells from a results ledger, with their
 //! check levels. Those are unreviewed readings: that build is for local viewing, never for Pages.
+//!
+//! A public build may add deed cells (`--deed-cells`): every cell read from the deed for the
+//! obligation, variation and completion stages, each labelled with its check level, so unchecked
+//! AI readings are marked as such. No other source, retrieval row, rule outcome or claim goes in,
+//! and the Pages workflow's allowlist refuses anything else.
 
 use std::collections::HashMap;
 use std::fs::File;
