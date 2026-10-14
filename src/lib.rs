@@ -4,6 +4,7 @@
 //! → `extract` (Claude reads the PDF into `wire` types, converted to `schema` v2)
 //! → `verify` (deterministic, evidence-grounded checks) → `report` / JSON.
 //! Layer B: `pld` (Planning London Datahub snapshots) and `reconcile` (obligations vs delivery).
+//! `labels`: human labels, scored against the pipeline's readings; nothing else depends on it.
 
 pub mod audit;
 pub mod data;
@@ -11,6 +12,7 @@ pub mod document;
 pub mod eval;
 pub mod evidence;
 pub mod extract;
+pub mod labels;
 pub mod llm;
 pub mod ocrbench;
 pub mod pld;
