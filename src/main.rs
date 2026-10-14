@@ -148,8 +148,8 @@ enum Cmd {
     /// figures only, unless a flag below adds ledger cells. Paths are relative to the data root.
     /// With --results the build is private: it also carries a results ledger's unreviewed
     /// readings. View it locally; never publish it. With --deed-cells it adds every deed cell for
-    /// the obligation, variation and completion stages, each labelled with its check level, which
-    /// the public site may carry.
+    /// the obligation, variation and completion stages and every variation-document cell for the
+    /// variation stage, each labelled with its check level, which the public site may carry.
     Explore {
         /// a Datahub baseline run's applications table
         #[arg(
@@ -172,8 +172,8 @@ enum Cmd {
         /// a results folder (e.g. results/2026-10-14-batch1) whose ledger readings to add
         #[arg(long, conflicts_with = "deed_cells")]
         results: Option<PathBuf>,
-        /// a results folder whose deed cells (only, each with its check level) to add, for the
-        /// public site
+        /// a results folder whose deed and variation-document cells (only, each with its check
+        /// level) to add, for the public site
         #[arg(long)]
         deed_cells: Option<PathBuf>,
         #[arg(long, default_value = "explorer/data")]

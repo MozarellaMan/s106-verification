@@ -4,15 +4,19 @@
 //! By default only Datahub-derived figures go in, as boroughs recorded them. The counting
 //! rules (what counts as permitted, superseded, a tenure group) are the baseline run's own, read
 //! from its `applications.csv`: every count is of final homes (`final_*`, homes no later permission
-//! replaced), like the baseline's headline. `s106 explore` only adds each site's centroid from the
-//! same snapshot, and counts every record it leaves out so the page can report them.
+//! replaced), like the baseline's headline. `s106 explore` adds each site's centroid from the
+//! same snapshot, and counts every record it leaves out so the page can report them. Unlike the
+//! baseline, it leaves out certificates of lawfulness, which confirm that a use is lawful rather
+//! than grant permission and often repeat homes another record counts, and it flags sites whose centroid is a placeholder outside London
+//! (kept in the counts, not drawn).
 //!
 //! A private build (`--results`) also adds each scheme's cells from a results ledger, with their
 //! check levels. Those are unreviewed readings: that build is for local viewing, never for Pages.
 //!
 //! A public build may add deed cells (`--deed-cells`): every cell read from the deed for the
-//! obligation, variation and completion stages, each labelled with its check level, so unchecked
-//! AI readings are marked as such. No other source, retrieval row, rule outcome or claim goes in,
+//! obligation, variation and completion stages, and every cell read from variation documents for
+//! the variation stage, each labelled with its check level, so unchecked AI readings are marked as
+//! such. No other source, retrieval row, rule outcome or claim goes in,
 //! and the Pages workflow's allowlist refuses anything else.
 
 use std::collections::HashMap;
@@ -66,8 +70,8 @@ pub struct Inputs {
     pub boundaries: PathBuf,
     /// a results folder (`results/<batch>`) whose `ledger.csv` to add: private builds only
     pub results: Option<PathBuf>,
-    /// a results folder whose deed cells (and nothing else) to add, each with its check level:
-    /// fit to publish
+    /// a results folder whose deed and variation-document cells (and nothing else) to add, each
+    /// with its check level: fit to publish
     pub deed_cells: Option<PathBuf>,
 }
 
@@ -87,13 +91,15 @@ struct LedgerRow {
 }
 
 pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
-    let centroids = centroids(&root.join(&inputs.snapshot))?;
+    let places = places(&root.join(&inputs.snapshot))?;
     let path = root.join(&inputs.applications);
     let mut reader =
         csv::Reader::from_path(&path).with_context(|| format!("reading {}", path.display()))?;
     let mut sites = Vec::new();
     let (mut records, mut not_permitted, mut no_decision_year) = (0, 0, 0);
     let (mut wholly_superseded, mut without_centroid) = (0, 0);
+    let (mut lawful_development, mut lawful_development_homes) = (0, 0);
+    let (mut unlocated, mut unlocated_homes) = (0, 0);
     for row in reader.deserialize() {
         let a: Application = row.with_context(|| format!("parsing {}", path.display()))?;
         records += 1;
@@ -109,10 +115,20 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
             wholly_superseded += 1;
             continue;
         }
-        let Some(&(lat, lon)) = centroids.get(&a.id) else {
+        let Some(place) = places.get(&a.id) else {
             without_centroid += 1;
             continue;
         };
+        if place.lawful_development {
+            lawful_development += 1;
+            lawful_development_homes += u64::from(a.final_homes);
+            continue;
+        }
+        let in_london = in_london(place.lat, place.lon);
+        if !in_london {
+            unlocated += 1;
+            unlocated_homes += u64::from(a.final_homes);
+        }
         sites.push(Site {
             borough: a.borough,
             reference: a.reference,
@@ -125,8 +141,9 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
             completed: a.final_completed,
             completion_date: non_empty(a.completion_date),
             updated: a.last_updated.chars().take(10).collect(),
-            lat,
-            lon,
+            unlocated: !in_london,
+            lat: place.lat,
+            lon: place.lon,
             readings: Vec::new(),
             retrieval: Vec::new(),
         });
@@ -152,6 +169,10 @@ pub fn bake(root: &Path, inputs: &Inputs) -> Result<Bundle> {
             no_decision_year,
             wholly_superseded,
             without_centroid,
+            lawful_development,
+            lawful_development_homes,
+            unlocated,
+            unlocated_homes,
             results: inputs.results.as_deref().map(name),
             deed_cells: inputs.deed_cells.as_deref().map(name),
             unmatched,
@@ -168,8 +189,9 @@ enum Keep {
     /// every ledger cell and retrieval row: a private build
     All,
     /// only cells read from the deed, at whatever check level, for the stages a deed settles
-    /// (obligation, variation, completion), and no retrieval rows: the public build's whitelist.
-    /// A deed's offer cells only recite what the committee report or policy set, so they stay out.
+    /// (obligation, variation, completion), plus variation documents' cells for the variation
+    /// stage, and no retrieval rows: the public build's whitelist. A deed's offer cells only
+    /// recite what the committee report or policy set, so they stay out.
     DeedCells,
 }
 
@@ -177,13 +199,15 @@ impl Keep {
     fn reading(self, r: &Reading) -> bool {
         match self {
             Keep::All => true,
-            Keep::DeedCells => {
-                r.source == "deed"
-                    && matches!(
-                        r.stage,
-                        Lineage::Obligation | Lineage::Variation | Lineage::Completion
-                    )
-            }
+            Keep::DeedCells => match r.source.as_str() {
+                "deed" => matches!(
+                    r.stage,
+                    Lineage::Obligation | Lineage::Variation | Lineage::Completion
+                ),
+                // deeds of variation and the notices that grant them
+                "variation" => r.stage == Lineage::Variation,
+                _ => false,
+            },
         }
     }
 }
@@ -274,8 +298,16 @@ fn date_in_words(snapshot: &Path) -> Result<String> {
     Ok(date.format("%-d %B %Y").to_string())
 }
 
-/// Datahub record id -> (lat, lon), from every `*.json.gz` search response in a snapshot folder.
-fn centroids(dir: &Path) -> Result<HashMap<String, (f64, f64)>> {
+/// What the snapshot says about where a record is and what kind of application it is.
+struct Place {
+    lat: f64,
+    lon: f64,
+    /// a certificate of lawfulness ("Lawful development: …"), not a permission
+    lawful_development: bool,
+}
+
+/// Each record's centroid and application type, from the snapshot's search pages.
+fn places(dir: &Path) -> Result<HashMap<String, Place>> {
     let mut out = HashMap::new();
     let entries = std::fs::read_dir(dir).with_context(|| format!("reading {}", dir.display()))?;
     for entry in entries {
@@ -299,10 +331,25 @@ fn centroids(dir: &Path) -> Result<HashMap<String, (f64, f64)>> {
             ) else {
                 continue;
             };
-            out.insert(id.to_string(), (round(lat), round(lon)));
+            let lawful_development = source["application_type_full"]
+                .as_str()
+                .is_some_and(|t| t.starts_with("Lawful development"));
+            let place = Place {
+                lat: round(lat),
+                lon: round(lon),
+                lawful_development,
+            };
+            out.insert(id.to_string(), place);
         }
     }
     Ok(out)
+}
+
+/// Whether a point is in or near Greater London. Some records carry a placeholder centroid at
+/// about the British National Grid origin (lat 49.767, lon -7.557, in the sea off Scilly), and a
+/// few others are far off; those are kept and counted but not drawn.
+fn in_london(lat: f64, lon: f64) -> bool {
+    (51.2..=51.8).contains(&lat) && (-0.6..=0.4).contains(&lon)
 }
 
 /// The Datahub writes coordinates as strings on some records and numbers on others.
@@ -332,7 +379,9 @@ mod tests {
              A-3,Alpha,3,Superseded,True,2015,0,0,0,0,,2026-01-02T00:00:00Z,Replaced\n\
              A-4,Alpha,4,Approved,True,2020,12,0,12,0,,2026-01-02T00:00:00Z,No centroid\n\
              A-5,Alpha,5,Approved,True,,15,0,0,0,,2026-01-02T00:00:00Z,No decision year\n\
-             A-6,Alpha,6,lapsed,True,2019,30,9,0,0,,2026-01-02T00:00:00Z,\n",
+             A-6,Alpha,6,lapsed,True,2019,30,9,0,0,,2026-01-02T00:00:00Z,\n\
+             A-7,Alpha,7,Completed,True,2023,20,0,20,20,08/02/2024,2026-01-02T00:00:00Z,Certificate\n\
+             A-8,Alpha,8,Approved,True,2021,50,10,0,0,,2026-01-02T00:00:00Z,Placeholder\n",
         )
         .unwrap();
         let snap = "2026-10-14T00_14_09Z";
@@ -341,6 +390,9 @@ mod tests {
             {"_source": {"id": "A-1", "centroid": {"lat": "51.5000012", "lon": -0.1}}},
             {"_source": {"id": "A-3", "centroid": {"lat": 51.6, "lon": -0.2}}},
             {"_source": {"id": "A-6", "centroid": {"lat": 51.4, "lon": -0.3}}},
+            {"_source": {"id": "A-7", "centroid": {"lat": 51.5, "lon": -0.1},
+                "application_type_full": "Lawful development: Existing use"}},
+            {"_source": {"id": "A-8", "centroid": {"lat": 49.766807, "lon": -7.55716}}},
         ]}}});
         let mut gz = flate2::write::GzEncoder::new(
             File::create(root.join(snap).join("Alpha.json.gz")).unwrap(),
@@ -363,10 +415,21 @@ mod tests {
         assert_eq!(src.snapshot_date, "14 October 2026");
         assert_eq!(
             (src.records, src.not_permitted, src.no_decision_year),
-            (6, 1, 1)
+            (8, 1, 1)
         );
         assert_eq!((src.wholly_superseded, src.without_centroid), (1, 1));
-        assert_eq!(bundle.sites.len(), 2);
+        assert_eq!(
+            (src.lawful_development, src.lawful_development_homes),
+            (1, 20),
+            "a certificate of lawfulness is left out"
+        );
+        assert_eq!(
+            (src.unlocated, src.unlocated_homes),
+            (1, 50),
+            "a placeholder centroid is kept but flagged"
+        );
+        assert_eq!(bundle.sites.len(), 3);
+        assert!(bundle.sites[2].unlocated && !bundle.sites[0].unlocated);
 
         let s = &bundle.sites[0];
         assert_eq!(
@@ -433,6 +496,8 @@ mod tests {
              1,obligation,V1,Total homes,deed,found,total=40; SR=10,units,D-1,D-1:3,anchored,human:AB,l.csv:2\n\
              1,obligation,V2,Share,deed,found,share=25%,units,D-1,D-1:4,proposed,machine:x,p.csv:3\n\
              1,offer,V3,Target,deed,found,target=35%,,D-1,D-1:2,proposed,machine:x,p.csv:6\n\
+             1,variation,V1,Total homes,variation,found,total=40; SR=8,units,V-1,V-1:2,proposed,machine:x,p.csv:7\n\
+             1,offer,V3,Target,variation,not_stated,,,V-1,,proposed,machine:x,p.csv:8\n\
              1,decision,V1,Total homes,committee_report,found,total=40,units,C-1,C-1:2,anchored,human:AB,l.csv:4\n\
              9,obligation,V1,Total homes,deed,found,total=9,units,D-9,D-9:1,proposed,machine:x,p.csv:5\n",
         )
@@ -452,10 +517,13 @@ mod tests {
         let r = &bundle.sites[0].readings;
         assert_eq!(
             r.len(),
-            2,
-            "both obligation deed cells, not the deed's offer cell or the committee report's"
+            3,
+            "both obligation deed cells and the variation's, not offer cells or the committee report's"
         );
-        assert!(r.iter().all(|r| r.source == "deed"));
+        assert_eq!(
+            (r[2].source.as_str(), r[2].stage),
+            ("variation", Lineage::Variation)
+        );
         assert_eq!(r[1].check, Check::Proposed);
         assert_eq!(
             (r[0].source.as_str(), r[0].check),

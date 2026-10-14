@@ -24,6 +24,17 @@ pub struct Sources {
     pub no_decision_year: u64,
     pub wholly_superseded: u64,
     pub without_centroid: u64,
+    /// certificates of lawfulness: they confirm that an existing or proposed use is lawful rather
+    /// than grant permission, and often repeat homes another record counts
+    #[serde(default)]
+    pub lawful_development: u64,
+    #[serde(default)]
+    pub lawful_development_homes: u64,
+    /// sites kept, but whose Datahub centroid is a placeholder outside London, so not drawn
+    #[serde(default)]
+    pub unlocated: u64,
+    #[serde(default)]
+    pub unlocated_homes: u64,
     /// Private builds only: the results folder whose ledger readings were added, and its schemes
     /// that matched no site on the map. A public build never carries these.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -31,8 +42,9 @@ pub struct Sources {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unmatched: Vec<String>,
     /// Public builds with deed figures: the results folder whose deed cells were added, each with
-    /// its check level. Only deed cells for the obligation, variation and completion stages go in;
-    /// no other source, no retrieval.
+    /// its check level. Only deed cells for the obligation, variation and completion stages, and
+    /// cells read from variation documents for the variation stage, go in; no other source, no
+    /// retrieval.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deed_cells: Option<String>,
     /// the private data repository's commit a private build was made from; never in a public build
@@ -63,6 +75,9 @@ pub struct Site {
     pub completion_date: Option<String>,
     /// when the borough last changed the record (YYYY-MM-DD)
     pub updated: String,
+    /// the Datahub's centroid is a placeholder outside London: counted, but not on the map
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub unlocated: bool,
     pub lat: f64,
     pub lon: f64,
     /// Private builds only: this scheme's cells from a results ledger.
