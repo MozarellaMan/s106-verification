@@ -127,7 +127,7 @@ grounding rules.
 | `schema.rs` | `Agreement`: durable domain fields, evidence and provenance |
 | `verify.rs` | `verify`, `resolve`: check inventory and status decision |
 | `quantity.rs` | `scan`, `decimal`, `integer`, `amount`: tokenizer, grammar, units, parse errors |
-| `audit.rs` | `Finding`, `RunIdentity`, `parser_fingerprint`: typed findings and run provenance |
+| `audit.rs` | `Finding`, `RunIdentity`: typed findings and run provenance |
 | `evidence.rs`, `text.rs`, `triggers.rs` | `locate`: relocation; text normalisation; deterministic payment vocabulary |
 | `report.rs` | Terminal presentation, `gbp`, and borrowed `AuditJson` view; the JSON holds the agreement (with `run`) and `verification[].findings` |
 | `eval.rs`, `ocrbench.rs` | Register comparison/run agreement; OCR against transcribed gold |
@@ -245,9 +245,8 @@ for a research run.
   extraction label plus a warning, and `Agreement.run.replacements` records which
   field groups came from which extraction. Treat escalation as a review aid, not a
   proven safeguard against losing obligations.
-- The parser fingerprint covers the probe corpus in `fixtures/numeric-probes.txt`,
-  not every possible input; `tests/numeric_snapshot.rs` is the review gate for changes
-  in the parser's results on that corpus.
+- Changes in the parser's results show up only on the strings the recorded responses
+  cite (the data tier's `expected/parser-on-extractions.txt`), not on every possible input.
 - Register evaluation is a diagnostic cross-check, not an extraction gold set.
   Purpose totals, instalments and duplicate register rows complicate comparisons.
   Run agreement compares selected fields and does not compare complete agreements.

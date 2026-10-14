@@ -96,11 +96,11 @@ REVIEW.
 A snippet whose numbers are unreadable yields one finding per unreadable number, in addition
 to the reason. Citation matching itself is unchanged and is not a fuzzy score.
 
-## Provenance and the snapshot gate
+## Provenance
 
 `agreement.run` (`audit::RunIdentity`) says what produced an audit:
 
-- `parser_policy` and `parser_fingerprint`.
+- `parser_policy`.
 - `crate_version` and `cargo_lock_sha256`.
 - `software_revision`, from `S106_SOFTWARE_REVISION` at build time. It is null if unset and is
   never inferred from git.
@@ -116,45 +116,13 @@ to the reason. Citation matching itself is unchanged and is not a fuzzy score.
 replacement for its field group, else the base extraction. Rejected candidates leave the
 base provenance untouched.
 
-The parser fingerprint is a hash of the parser's results on a selected corpus, diagnostics
-included. `fixtures/numeric-probes.txt` holds one probe per line, with newline, carriage return
-and backslash escaped. The probes are every citation snippet and every `amount_in_words`,
-`amount_gbp`, `share_pct` and `claimed_affordable_pct` string in the invented deeds'
-extractions (`tests/synthetic/*/extraction.json`), plus constructed controls. Strings from real
-deeds are not in the file: the code repository describes no real planning application.
-
-`audit::parser_fingerprint()` runs `scan`, `decimal` and `amount` over every probe and hashes
-the rendering: quantities with unit and span, errors with cause, spans and expected wording.
-A comment or refactor leaves the fingerprint unchanged. The fingerprint changes when results on
-the corpus change, including diagnostic wording, and when probes are added. A change in
-acceptance on input outside the corpus does not change it.
-
-`tests/numeric_snapshot.rs` snapshots the same rendering with `insta` (`tests/snapshots/`).
-The snapshot is the review gate: a change that accepts something previously rejected shows up
-as a snapshot diff, to be justified with a source example and a corrupted counterpart that must
-still fail. The same file has a property test: `scan` never panics on arbitrary text, every
-span is on char boundaries and inside the text, and quantity spans do not overlap.
-
-`probes_cover_fixtures` fails when a string from an invented deed's extraction is missing from
-the probe file. The probe file is compiled into the tests, so updating it takes separate runs:
-
-1. Add the missing strings:
-   `S106_REGENERATE_PROBES=1 cargo test --test numeric_snapshot probes_cover_fixtures`.
-2. Rerun `cargo test --test numeric_snapshot`. The rerun rebuilds the tests with the new probes,
-   and the snapshot test fails if the rendering changed.
-3. Review the diff with `cargo insta review`, or accept it with
-   `INSTA_UPDATE=always cargo test --test numeric_snapshot` and read the `.snap` diff in git.
-4. Commit the probe file and the snapshot together.
-
 When comparing two audit files:
 
 - A changed PDF or page-text hash means the source changed.
 - A changed extraction hash means the extraction changed.
-- With source and extraction unchanged, a changed `parser_fingerprint` means the parser's
-  results on the probe corpus changed: values, diagnostics, or the corpus itself. The snapshot
-  diff between the two versions shows which. A field that now parses is not evidence that the
-  extraction was fixed.
-- An unchanged fingerprint does not prove identical acceptance on input outside the corpus.
+- With source and extraction unchanged, a different outcome means the parser changed; the
+  data tier's `expected/parser-on-extractions.txt` diff shows how on real strings. A field that
+  now parses is not evidence that the extraction was fixed.
 
 Fixtures and cached page text are replay inputs, not independent legal ground truth.
 
