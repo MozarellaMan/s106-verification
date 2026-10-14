@@ -149,10 +149,9 @@ fn sheet_cells(path: &Path) -> Result<BTreeMap<Key, String>> {
 }
 
 /// The reading of every cell. The sheet's cells all appear; a cell that only labels or proposals
-/// name (a source carrying a variable nobody expected) is added for the sheet's schemes. Where
-/// readers agree, the reading shown is the one in the latest proposals file (by path), or a label
-/// where no proposal exists; where they differ, every reading is listed and none is shown as the
-/// value.
+/// name (a source carrying a variable nobody expected) is added for the sheet's schemes. In
+/// any case, the reading shown is the one in the latest proposals file (by path), or a label where
+/// no proposal exists; where readers differ, the `readers` column lists every reading.
 pub fn ledger(
     sheet: &BTreeMap<Key, String>,
     submitted: &[Reading],
@@ -213,22 +212,22 @@ pub fn ledger(
                 .iter()
                 .enumerate()
                 .all(|(i, a)| vs[i + 1..].iter().all(|b| accuracy::agree(a, b)));
+            // Where readers differ, the reading shown stays and every reading is listed beside it,
+            // so the rules still read it and the disagreement is on record.
             e.readers = match (vs.len(), agreed) {
                 (0 | 1, _) => "1 reader".into(),
                 (n, true) => format!("{n} agree"),
-                (n, false) => format!("{n} differ"),
+                (n, false) => format!(
+                    "{n} differ: {}",
+                    vs.iter()
+                        .map(|v| match v.partial {
+                            true => format!("{} {}", v.reader, fields(&v.fields)),
+                            false => format!("{} {} `{}`", v.reader, v.status, v.value),
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" / ")
+                ),
             };
-            if !agreed {
-                e.value = vs
-                    .iter()
-                    .map(|v| match v.partial {
-                        true => format!("{} {}", v.reader, fields(&v.fields)),
-                        false => format!("{} {} `{}`", v.reader, v.status, v.value),
-                    })
-                    .collect::<Vec<_>>()
-                    .join(" / ");
-                return e;
-            }
             e.status = r.status.clone();
             e.value = r.value.clone();
             e.basis = r.basis.clone();
@@ -239,6 +238,9 @@ pub fn ledger(
             let Some(shown) = vs.iter().find(|v| v.reader == r.labeller && !v.partial) else {
                 return e;
             };
+            if !agreed {
+                return e;
+            }
             let error = accuracy::error(shown, &vs, &estimated);
             if let Some(x) = error {
                 e.error = format!("{:.1}%", x * 100.0);

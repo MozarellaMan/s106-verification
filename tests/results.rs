@@ -126,13 +126,21 @@ fn later_proposal_files_win_and_readers_who_differ_are_listed() {
         ),
     );
     let r = run(p);
-    // a person's label is one more reader, not the truth: the two readings are listed
+    // a person's label is one more reader, not the truth: the proposal stays shown, so the rules
+    // still read it, and both readings are listed beside it
     let deed = entry(&r, "EX/1", "V1", "deed");
-    assert_eq!((deed.check, deed.status.as_str()), (Check::Proposed, ""));
-    assert_eq!(deed.readers, "2 differ");
-    assert!(deed.value.contains("AB found `total=12`"), "{}", deed.value);
+    assert_eq!(
+        (deed.check, deed.value.as_str()),
+        (Check::Proposed, "total=10")
+    );
+    assert!(deed.readers.starts_with("2 differ: "), "{}", deed.readers);
     assert!(
-        deed.value
+        deed.readers.contains("AB found `total=12`"),
+        "{}",
+        deed.readers
+    );
+    assert!(
+        deed.readers
             .contains("machine:proposal/test found `total=10`")
     );
     // one reader's later file supersedes its earlier one
@@ -149,7 +157,11 @@ fn later_proposal_files_win_and_readers_who_differ_are_listed() {
         (Check::Proposed, "2 agree")
     );
     assert_eq!(v2.error, "");
-    assert_eq!(entry(&r, "EX/1", "V4", "deed").readers, "2 differ");
+    assert!(
+        entry(&r, "EX/1", "V4", "deed")
+            .readers
+            .starts_with("2 differ")
+    );
     assert_eq!(entry(&r, "EX/1", "V8", "epc").check, Check::Unread);
 }
 
@@ -687,14 +699,16 @@ fn the_datahub_is_no_reader_of_a_varied_deed() {
     readers(p, 0, &extra);
     let r = run_seen(p, &[]);
     let v1 = entry(&r, "EX/1", "V1", "deed");
+    // the difference is recorded beside the deed's reading, which stays shown
     assert_eq!(
-        (v1.check, v1.readers.as_str()),
-        (Check::Proposed, "2 differ")
+        (v1.check, v1.value.as_str()),
+        (Check::Proposed, "total=40; SR=10")
     );
     assert!(
-        v1.value.contains("datahub-mapping affordable=20 total=40"),
+        v1.readers
+            .contains("datahub-mapping affordable=20 total=40"),
         "{}",
-        v1.value
+        v1.readers
     );
 
     // once a variation document is read, the Datahub may hold the varied figures
