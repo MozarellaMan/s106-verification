@@ -57,6 +57,8 @@ fn difficult_pages_match_their_snapshots() {
     for (id, pages) in &by_deed {
         let deed = corpus().into_iter().find(|d| &d.id == id).unwrap();
         require_pdf(&deed.pdf);
+        let snap = snapshot(id);
+        let cfg = cfg.clone().with_models_of(&snap.producer).unwrap();
         let t0 = std::time::Instant::now();
         let doc = document::load_pages(&deed.pdf, &cfg, Some(pages), false).unwrap();
         assert_eq!(doc.page_count(), pages.len(), "{id}: pages {pages:?}");
@@ -66,8 +68,7 @@ fn difficult_pages_match_their_snapshots() {
             t0.elapsed().as_secs_f64()
         );
         problems.extend(
-            snapshot(id)
-                .compare_pages(&doc)
+            snap.compare_pages(&doc)
                 .into_iter()
                 .map(|d| format!("{id} {d}")),
         );

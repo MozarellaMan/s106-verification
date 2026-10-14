@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 
 use s106::document::{self, Document, OcrModels, Snapshot};
@@ -90,7 +90,7 @@ enum Cmd {
         /// the PDF the gold file describes
         pdf: PathBuf,
         /// model sets to compare (see document::OcrModels::named)
-        #[arg(long, value_delimiter = ',', default_value = "ppocrv5-en-mobile")]
+        #[arg(long, value_delimiter = ',', default_value = "ppocrv6-tiny")]
         models: Vec<String>,
         /// print every gold line with its best match
         #[arg(long)]
@@ -360,6 +360,29 @@ fn main() -> Result<()> {
             let cfg = document::Config::from_env(&repo_root());
             let mut differ = 0;
             for pdf in &pdfs {
+                // A snapshot is checked with the model set that made it, which may not be the default.
+                let expected = match &check {
+                    Some(dir) => {
+                        let path =
+                            Snapshot::path_for(dir, &pdf.file_name().unwrap().to_string_lossy());
+                        Some((Snapshot::read(&path)?, path))
+                    }
+                    None => None,
+                };
+                let cfg = match &expected {
+                    Some((snap, path)) => {
+                        cfg.clone()
+                            .with_models_of(&snap.producer)
+                            .with_context(|| {
+                                format!(
+                                    "{}: unknown OCR model set {}",
+                                    path.display(),
+                                    snap.producer.ocr_models
+                                )
+                            })?
+                    }
+                    None => cfg.clone(),
+                };
                 let t0 = std::time::Instant::now();
                 let doc = document::load(pdf, &cfg, true)?;
                 eprintln!(
@@ -373,9 +396,8 @@ fn main() -> Result<()> {
                     let path = Snapshot::of(&doc, &cfg)?.write(dir)?;
                     eprintln!("  wrote {}", path.display());
                 }
-                if let Some(dir) = &check {
-                    let path = Snapshot::path_for(dir, &pdf.file_name().unwrap().to_string_lossy());
-                    let diffs = Snapshot::read(&path)?.compare_document(&doc);
+                if let Some((snap, path)) = &expected {
+                    let diffs = snap.compare_document(&doc);
                     for d in &diffs {
                         println!("{}: {d}", pdf.display());
                     }

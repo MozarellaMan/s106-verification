@@ -24,9 +24,13 @@ use serde_json::{Value, json};
 #[test]
 #[ignore = "data tier: needs the s106-data checkout; cargo test-data"]
 fn every_deed_has_a_current_snapshot() {
-    let producer = Config::from_env(&root()).producer();
     for deed in corpus() {
         let snap = snapshot(&deed.id);
+        // a snapshot keeps the model set it was made with; everything else must be current
+        let producer = Config::from_env(&root())
+            .with_models_of(&snap.producer)
+            .unwrap_or_else(|| panic!("{}: unknown OCR model set", deed.id))
+            .producer();
         assert_eq!(
             snap.sha256, deed.sha256,
             "{}: snapshot is of another PDF",
