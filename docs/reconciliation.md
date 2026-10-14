@@ -3,8 +3,8 @@
 Status: draft, 13 Oct 2026. Code: `src/reconcile.rs`, `src/pld.rs`; tests: `tests/reconcile.rs`,
 on an invented deed and an invented PLD record (`tests/synthetic/`).
 
-This sets what a development's deeds oblige against what the Planning London Datahub (PLD)
-records as permitted and delivered, for one development at a time.
+Reconciliation sets what a development's deeds oblige against what the Planning London Datahub
+(PLD) records as permitted and delivered, one development at a time.
 
 ## Data model
 
@@ -59,9 +59,9 @@ disagrees with the deeds' dates. Every deed's statement of every obligation is k
 and the first deed's figure is the one compared with delivery. A later event leaves the row
 automatic only when it restates the same figure, or cites the obligation with no figure, from a
 deed that is verified (below), covers the whole scheme, and whose figure is not ungrounded.
-Anything else adds a review reason, and the row becomes "varied: compare by hand". An obligation
-that a later deed states first is checked the same way from that first statement, which counts as
-a replacement of nothing (`replaced` with no `from`):
+Any other later event adds a review reason, and the row becomes "varied: compare by hand". An
+obligation that a later deed states first is checked the same way from that first statement,
+which counts as a replacement of nothing (`replaced` with no `from`):
 
 | Later event | Review reason (`reason`) |
 |---|---|
@@ -74,17 +74,17 @@ a replacement of nothing (`replaced` with no `from`):
 | a deletion matching no obligation (reaches every row stated before it) | `unmatched_deletion` (instrument, target) |
 
 A deletion (the extraction's `variations` with op `Delete`) names a contribution when the
-contribution's key appears in the deleted target. Its wording is not interpreted: whether it
-deletes the whole obligation or some words of it is for the person reviewing the row.
+contribution's key appears in the deleted target. The deletion's wording is not interpreted:
+whether it deletes the whole obligation or some words of it is for the person reviewing the row.
 
 One exception keeps a match automatic: when every review reason is a replacement and delivery
 equals the latest figure from a verified, whole-scheme, grounded deed, the row is "counts match
 (varied figure)". A match either way needs no judgement.
 
-This is deliberately conservative. What counts as the current obligation after a variation needs
-legal input (research plan, open question 3), and a wrong automatic answer would be a silent error
-while a review row is only a cost. Applying variations automatically later changes only
-`reconcile::facts`, not the event log; it should be built from the extraction's own variation
+The rule is deliberately conservative. What counts as the current obligation after a variation
+needs legal input (research plan, open question 3); a wrong automatic answer would be a silent
+error, while a review row is only a cost. Applying variations automatically later would change
+only `reconcile::facts`, not the event log. Build it from the extraction's own variation
 operations, each citing its operative clause, once the summary shows variation rows are a large
 share of the review queue.
 
@@ -101,7 +101,8 @@ conflict: in the first deed the row is indeterminate, naming the figures; in a l
 is checked on its own against one reference: PLD's `lpa_app_no`, or the first deed's planning
 references when there is no PLD record (compared without case or separators). A deed citing a
 different reference is refused, naming the instrument. A later deed citing no reference is read,
-with a warning, and everything it says about an obligation is an `unverified` review reason.
+with a warning, and everything that deed says about an obligation is an `unverified` review
+reason.
 
 ## Status rules
 
@@ -129,10 +130,10 @@ PLD permitted figures are not independent of the deed: the borough enters them f
 and the deed. A deed figure equal to PLD permitted checks the borough's data entry, not the
 obligation; only delivered figures are an outcome, and they are borough-reported too.
 
-"Counts match" compares completed-unit counts only. It says nothing about tenure in use, rents or
-quality. "Differs: review" is never a finding that an obligation was unmet. PLD completions are
+"Counts match" compares completed-unit counts only and says nothing about tenure in use, rents
+or quality. "Differs: review" is never a finding that an obligation was unmet: PLD completions are
 borough-reported and not quality-checked on receipt, and tenure at completion is not tenure in
-use. A row in this state goes to a person, who checks the borough's records.
+use. A "differs: review" row goes to a person, who checks the borough's records.
 
 ### Tenure matching
 
@@ -143,15 +144,15 @@ A deed tenure covers a delivered tenure when they're equal, or the deed uses an 
 - **Shared Ownership** covers London Shared Ownership.
 
 PLD's "Intermediate Other" (Southwark records most intermediate homes this way) is an
-intermediate home whose product isn't recorded. It counts towards affordable totals and towards a
-deed's "Intermediate". A deed's named intermediate product (Shared Ownership, say) can't be counted
-while such units exist, so its row is indeterminate (`unknown_tenure`), and they get no
-"(not in deed)" row.
+intermediate home whose product isn't recorded. Such a unit counts towards affordable totals and
+towards a deed's "Intermediate". A deed's named intermediate product (Shared Ownership, say) can't
+be counted while "Intermediate Other" units exist, so its row is indeterminate (`unknown_tenure`),
+and those units get no "(not in deed)" row.
 
 Social Rent does **not** cover London Affordable Rent or Affordable Rent. Their rents differ, so a
 swap is a difference to review. Discount Market Sale and First Homes are not treated as
-intermediate unless the deed says so. This matters in practice: deeds often say "Intermediate"
-where PLD's records say "London Shared Ownership".
+intermediate unless the deed says so. The umbrella terms matter in practice: deeds often say
+"Intermediate" where PLD's records say "London Shared Ownership".
 
 ### Bases
 
@@ -172,16 +173,16 @@ path and its SHA-256.
 ## PLD → `Delivery` mapping (v2)
 
 `reconcile::delivery_from_pld` reads one saved `applications/_source/<id>` snapshot
-(`s106 reconcile … --pld <snapshot>`; there is no way to pass hand-written delivery JSON). It
-reads the record through a typed view of only the fields below. Every one must be present. Those
-PLD genuinely leaves null (status and dates before a scheme starts, a unit's number or tenure) may
-be null, but not missing. So a renamed or retyped field is an error, not a table of indeterminate
-rows or zero completions. Counts may be numbers or
-numeric strings; a non-whole count or a date that isn't dd/mm/yyyy is an error. The field names
-come from a real application snapshot taken 13 Oct 2026; `tests/synthetic/pld/application.json` is
-an invented record with the same fields. Unit records are embedded in the application
-record (`application_details.residential_details.residential_units`), so no separate units index
-is read. `PLD_MAPPING_VERSION` is stamped into each reconciliation, and `as_of` is the snapshot's
+(`s106 reconcile … --pld <snapshot>`; hand-written delivery JSON cannot be passed). The function
+reads the record through a typed view of only the fields below, and every field must be present.
+Fields that PLD genuinely leaves null (status and dates before a scheme starts, a unit's number
+or tenure) may be null, but not missing. A renamed or retyped field is therefore an error, not a
+table of indeterminate rows or zero completions. Counts may be numbers or numeric strings; a
+non-whole count or a date that isn't dd/mm/yyyy is an error. The field names come from a real
+application snapshot taken 13 Oct 2026; `tests/synthetic/pld/application.json` is an invented
+record with the same fields. Unit records are embedded in the application record
+(`application_details.residential_details.residential_units`), so no separate units index is
+read. `PLD_MAPPING_VERSION` is stamped into each reconciliation, and `as_of` is the snapshot's
 retrieval time: a later snapshot is a new data point, not a correction.
 
 | `Delivery` field | PLD field |
@@ -205,11 +206,11 @@ Tables for real developments are kept in the data repository.
 
 ## Not done yet
 
-- **Applying variations.** Later deeds go to review (above). When they are applied, it should be
-  from the extraction's `variations` operations (`Replace` and `Amend` with `new_text`), each
-  citing its operative clause, with the deed's `instrument.parent` as its identity check, which is
-  better than a planning reference that variations often omit. Deletions of housing obligations
-  (not only named contributions) also need a target to match.
+- **Applying variations.** Later deeds go to review (above). When variations are applied, apply
+  them from the extraction's `variations` operations (`Replace` and `Amend` with `new_text`), each
+  citing its operative clause, with the deed's `instrument.parent` as the identity check: a
+  parent reference is better than a planning reference, which variations often omit. Deletions of
+  housing obligations (not only named contributions) also need a target to match.
 - **Alignment by clause.** Obligations are matched across deeds by measure and normalised name.
   Matching by defined term, clause reference and amount, shared with PR #10's obligation
   inventory, would let a replacement point at what it replaces.
@@ -219,7 +220,7 @@ Tables for real developments are kept in the data repository.
 - **Compressed snapshots.** `pld::load` reads plain JSON; large search snapshots in the data
   repository may be gzipped, and would need reading through a decompressor.
 - **Amendments.** Non-material amendments (NMAs) and S106 discharge notices are linked to the
-  parent only in PLD free text, and deeds of variation come from Idox. Each becomes events when it
-  is extracted.
+  parent only in PLD free text, and deeds of variation come from Idox. Each document becomes
+  events once it is extracted.
 - **Contribution payments.** PLD doesn't record them, so contribution rows stay indeterminate
   until a payment source (an Infrastructure Funding Statement, or borough records) is added.
