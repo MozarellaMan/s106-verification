@@ -1,0 +1,52 @@
+# Builds the results explorer (explorer/) and publishes it to GitHub Pages. Only when started by
+# hand: the site is public, so a merge never publishes it. The data is baked by `s106 explore`
+# from the private s106-data repository (read with the S106_DATA_DEPLOY_KEY deploy key) and holds
+# Datahub-derived figures and ONS boundaries only; see explorer/README.md.
+name: explorer
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: MozarellaMan/s106-data
+          ref: main
+          path: data
+          ssh-key: ${{ secrets.S106_DATA_DEPLOY_KEY }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            explorer
+      - name: Install trunk
+        run: |
+          curl -sSL https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-gnu.tar.gz \
+            | tar xz -C "$HOME/.cargo/bin"
+      - run: cargo run --release -- explore --out explorer/data
+      - run: trunk build --release --public-url "/${{ github.event.repository.name }}/"
+        working-directory: explorer
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: explorer/dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

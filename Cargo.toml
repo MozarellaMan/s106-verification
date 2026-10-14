@@ -9,6 +9,7 @@ base64 = "0.23.1"
 chrono = { version = "0.4.45", features = ["serde"] }
 clap = { version = "4.6.7", features = ["derive"] }
 csv = "1.4.0"
+flate2 = "1.1.10"
 image = "0.25.10"
 # ONNX Runtime is loaded at run time from models/onnxruntime (scripts/fetch-models.sh), like
 # PDFium, so building and the default tests need neither the runtime nor a network download.
