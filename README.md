@@ -35,11 +35,14 @@ src/
   extract.rs    prompts, recorded fixtures and offline replay, escalation to a stronger model
   schema.rs     schema v2: instrument, housing, contributions (amount / conditionality / payment), variations
   verify.rs     the gate: arithmetic + grounding -> PASS / REVIEW / FAIL / SKIP
+  audit.rs      typed audit findings: one value per numeric problem
   evidence.rs   re-locating a cited snippet in OCR text (dropped spaces, two-column wraps, OCR digits)
   triggers.rs   fixed vocabulary that labels payment triggers from the cited phrase
   text.rs       number and words-to-amount reading
+  quantity.rs   one tokenizer and grammar for quantities in prose and wire fields
   report.rs     terminal report and JSON
   eval.rs       evaluation against the national S106 register (planning.data.gov.uk)
+  data.rs       where the research data lives (the s106-data checkout at `data/`)
   pld.rs        read-only Planning London Datahub client; saves raw snapshots under <data>/snapshots/pld/
   reconcile.rs  obligation events vs PLD delivery, one row per measure, with a status per row
   ocrbench.rs   OCR scored against gold transcriptions (`gold/*.json` in the data repository)
