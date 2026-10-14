@@ -199,6 +199,27 @@ impl Config {
         self.producer().ocr_version()
     }
 
+    /// ONNX Runtime threads per OCR engine when `ocr_workers` > 1: the cores split between them.
+    fn ocr_threads_per_worker(&self) -> usize {
+        let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
+        (cores / self.ocr_workers).max(1)
+    }
+
+    /// Cache directory name for `sha256`. Parallel OCR keeps its own cache, keyed by the worker
+    /// count and thread cap, until `cargo test-pdf` shows it reads pages identically.
+    fn cache_dir_name(&self, sha256: &str) -> String {
+        let name = format!("{}-{}", &sha256[..16], self.ocr_version());
+        if self.ocr_workers > 1 {
+            format!(
+                "{name}-{}w{}t",
+                self.ocr_workers,
+                self.ocr_threads_per_worker()
+            )
+        } else {
+            name
+        }
+    }
+
     /// PDFium can be bound once per process, so the binding is shared. It is also not
     /// thread-safe: every use goes through this lock.
     fn pdfium(&self) -> Result<std::sync::MutexGuard<'static, Pdfium>> {
@@ -388,9 +409,7 @@ struct Manifest {
 fn open_cache(pdf: &Path, sha256: &str, cfg: &Config) -> Result<(PathBuf, Manifest)> {
     let ocr_version = cfg.ocr_version();
     let producer = cfg.producer();
-    let dir = cfg
-        .cache_root
-        .join(format!("{}-{}", &sha256[..16], ocr_version));
+    let dir = cfg.cache_root.join(cfg.cache_dir_name(sha256));
     std::fs::create_dir_all(&dir)?;
     let path = dir.join("manifest.json");
     if let Ok(s) = std::fs::read_to_string(&path) {
@@ -768,8 +787,7 @@ fn ocr_pages_parallel(
     render: impl Fn(usize) -> Result<image::RgbImage>,
     save: impl Fn(&PageText) -> Result<()> + Sync,
 ) -> Result<Vec<PageText>> {
-    let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
-    let intra = (cores / cfg.ocr_workers).max(1);
+    let intra = cfg.ocr_threads_per_worker();
     let engines = (0..cfg.ocr_workers)
         .map(|_| ocr_engine(&cfg.ocr, Some(intra)))
         .collect::<Result<Vec<_>>>()?;
