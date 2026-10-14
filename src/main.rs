@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 
 use s106::document::{self, Document, OcrModels, Snapshot};
 use s106::extract::{self, Mode};
-use s106::{eval, explore, labels, llm, ocrbench, pld, reconcile, report, verify};
+use s106::{eval, explore, labels, llm, ocrbench, pld, reconcile, report, results, verify};
 
 #[derive(Parser)]
 #[command(
@@ -124,6 +124,17 @@ enum Cmd {
         /// the recorded extractions to score
         #[arg(long, default_value = llm::DEFAULT_MODEL)]
         model: String,
+    },
+    /// Build a batch's results: its scheme ledger, its decision rules and its claims, each with
+    /// the check level behind it, from the labels and proposals that exist. Writes
+    /// <data>/<out>/{README.md,ledger.csv,rules.csv,retrieval.csv}; reads <data>/<out>/claims.csv.
+    Results {
+        /// the batch's blank labelling sheet, relative to <data>
+        #[arg(long)]
+        sheet: PathBuf,
+        /// the results folder, relative to <data>
+        #[arg(long)]
+        out: PathBuf,
     },
     /// Bake the results explorer's data (Datahub-derived only) into <out>/sites.json and
     /// <out>/boroughs.geojson. Paths are relative to the data root.
@@ -571,6 +582,22 @@ fn main() -> Result<()> {
                 "wrote {}",
                 root.join("reports/labels/labels.{md,json}").display()
             );
+            Ok(())
+        }
+        Cmd::Results { sheet, out } => {
+            let root = s106::data::root();
+            let r = results::run(&root, &sheet, &out)?;
+            for rule in &r.rules {
+                println!(
+                    "rule {}: {} ({} of {} counted, {} needed)",
+                    rule.id,
+                    rule.verdict(),
+                    rule.counts,
+                    rule.counted,
+                    rule.needed
+                );
+            }
+            eprintln!("wrote {}", root.join(&out).display());
             Ok(())
         }
     }

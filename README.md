@@ -44,6 +44,8 @@ src/
   reconcile.rs  obligation events vs PLD delivery, one row per measure, with a status per row
   ocrbench.rs   OCR scored against gold transcriptions (`gold/*.json` in the data repository)
   labels.rs     scored against human labels (`labels/` in the data repository)
+  results.rs    a batch's scheme ledger, decision rules and claims, each with its check level
+  explore.rs    Datahub-only data for the public results explorer (`explorer/`)
 ```
 
 ## Setup
@@ -127,6 +129,7 @@ s106 bench-ocr data/gold/<gold>.json data/raw/<id>.pdf --models ppocrv6-tiny,ppo
 s106 pld get applications <borough>-<reference>                    # save a Datahub record under <data>/snapshots/pld/
 s106 reconcile <deed>... --development <borough>-<reference> --pld snapshots/pld/applications/<id>/<time>.json
 s106 labels                                                        # score everything against the human labels
+s106 results --sheet runs/<batch>/labels.csv --out results/<batch>  # a batch's ledger, rules and claims
 s106 explore                                                       # bake the results explorer's data (explorer/README.md)
 ```
 
@@ -164,6 +167,19 @@ agent's proposal shown with its evidence. Proposals live under `proposals/` in t
 repository, signed `machine:<producer>`; `s106 labels` scores them like any other machine reading
 and keeps the accuracy figures for independent and anchored labels apart, since how often a person
 changed a proposal is not the same measurement as how often an independent reading agreed with it.
+
+## Results
+
+`s106 results` turns a batch into something a researcher can read and load. From the batch's blank
+sheet (which cells exist), the labels and the proposals, it writes a folder under `results/` in the
+data repository: a ledger with one row per scheme, variable and source in lineage order (offer,
+decision, obligation, variation, completion), the batch's pre-registered decision rules worked out
+scheme by scheme, retrieval per source, and a note that lists the hand-written claims in the
+folder's `claims.csv`. Every cell, rule outcome and claim carries a check level: `independent` (a
+person read the source), `anchored` (a person confirmed or corrected a proposal), `proposed` (an
+agent only, not a result), `unsettled` (labellers disagree) or `unread`. A rule or claim stands at
+the weakest level of the cells it rests on, so the note moves from proposed to checked on its own
+as labels arrive. Like `s106 labels`, it never waits for them.
 
 ## Outcomes
 
