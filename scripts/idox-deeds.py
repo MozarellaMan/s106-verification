@@ -98,7 +98,7 @@ class Session:
             raise
         finally:
             self.last = time.monotonic()
-        if re.search(rb"(?i)unusual traffic|too many requests|captcha", out[1][:20000]):
+        if re.search(rb"(?i)unusual traffic|too many requests", out[1][:20000]):
             raise Blocked(f"block page from {url}", out[1])
         return out
 
