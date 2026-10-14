@@ -137,6 +137,9 @@ enum Cmd {
         /// the results folder, relative to <data>
         #[arg(long)]
         out: PathBuf,
+        /// leave out the decision rules (batch 1's), for a batch that pre-registered none
+        #[arg(long)]
+        no_rules: bool,
     },
     /// Check every figure cited as `29.8%<!-- src: path -->` in the markdown under <dir>: the cited
     /// file (relative to <dir>) must exist and still contain the figure. Exit 1 if any fails.
@@ -639,9 +642,13 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
-        Cmd::Results { sheet, out } => {
+        Cmd::Results {
+            sheet,
+            out,
+            no_rules,
+        } => {
             let root = s106::data::root();
-            let r = results::run(&root, &sheet, &out)?;
+            let r = results::run(&root, &sheet, &out, !no_rules)?;
             for rule in &r.rules {
                 println!(
                     "rule {}: {} ({} of {} counted, {} needed)",

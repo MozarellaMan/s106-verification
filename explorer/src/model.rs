@@ -114,6 +114,7 @@ pub fn check_label(check: Check) -> &'static str {
         Check::Anchored => "AI reading, checked by a person",
         Check::Proposed => "AI reading, not checked",
         Check::Unsettled => "readers disagree",
+        Check::Sampled => "AI reading, checked by sample",
         Check::Unread => "not read",
     }
 }
@@ -124,7 +125,7 @@ pub fn check_class(check: Check) -> &'static str {
         Check::Independent => "independent",
         Check::Anchored => "checked",
         Check::Unsettled => "disagree",
-        Check::Proposed | Check::Unread => "unchecked",
+        Check::Sampled | Check::Proposed | Check::Unread => "unchecked",
     }
 }
 
@@ -134,6 +135,7 @@ pub fn check_tag(check: Check) -> &'static str {
         Check::Unread => "not read",
         Check::Proposed => "unchecked AI reading",
         Check::Unsettled => "readers disagree",
+        Check::Sampled => "AI reading checked by sample",
         Check::Anchored => "checked by a person",
         Check::Independent => "read by a person",
     }
@@ -146,6 +148,7 @@ pub fn check_counts(readings: &[Reading]) -> String {
     let parts: Vec<String> = [
         (Check::Independent, "read by a person"),
         (Check::Anchored, "checked by a person"),
+        (Check::Sampled, "AI reading checked by sample"),
         (Check::Proposed, "AI reading only"),
         (Check::Unread, "not read"),
         (Check::Unsettled, "where readers disagree"),

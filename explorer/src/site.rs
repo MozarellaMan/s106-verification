@@ -163,8 +163,11 @@ pub enum Check {
     Unread,
     /// an agent's reading only, which is not a result
     Proposed,
-    /// labellers disagree
+    /// labellers disagree, or the audit rule sends the cell to a person
     Unsettled,
+    /// two readers agree and the blind sample of their variable group passed the audit rule's
+    /// gate: fit for aggregate statements with the measured error rate, not for one scheme
+    Sampled,
     /// a person confirmed or corrected an agent's reading
     Anchored,
     /// a person read the source
