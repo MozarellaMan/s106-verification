@@ -39,7 +39,7 @@ fn machine(scheme: &str, variable_id: &str, source: &str, value: &str, basis: &s
 #[test]
 fn no_labels_is_a_report_not_an_error() {
     let root = tempfile::tempdir().unwrap();
-    let r = labels::run(root.path(), "claude-haiku-5-5").unwrap();
+    let r = labels::run(root.path()).unwrap();
     assert_eq!(r.labels.cells, 0);
     assert!(r.accuracy.is_empty());
     let md = std::fs::read_to_string(root.path().join("reports/labels/labels.md")).unwrap();
@@ -142,7 +142,7 @@ fn pipeline_scored_field_by_field() {
         // nobody labelled this cell
         machine("EX/9", "V1", "deed", "total=1", ""),
     ];
-    let r = labels::report(&got, rejected, &readings, vec![]);
+    let r = labels::report(&got, rejected, &readings);
     assert_eq!(r.accuracy.len(), 1);
     let a = &r.accuracy[0];
     assert_eq!((a.cells, a.not_scored), (3, 1));
@@ -178,7 +178,7 @@ fn labellers_and_sources_compared() {
          EX/2,V1,x,gla,,,,,no_source,,,CD,2026-10-21\n",
     );
     let (got, rejected) = labels::load(&root.path().join("labels")).unwrap();
-    let r = labels::report(&got, rejected, &[], vec![]);
+    let r = labels::report(&got, rejected, &[]);
     assert_eq!(r.labellers.len(), 1);
     let l = &r.labellers[0];
     assert_eq!(
@@ -206,33 +206,6 @@ fn kappa_matches_a_worked_example() {
     let k = labels::kappa(&pairs).unwrap();
     assert!((k - 0.4).abs() < 1e-9, "{k}");
     assert_eq!(labels::kappa(&[("y", "y")]), None);
-}
-
-#[test]
-fn datahub_record_read_in_codebook_format() {
-    let root = tempfile::tempdir().unwrap();
-    let dir = root
-        .path()
-        .join("snapshots/pld/applications/Exampleton-EX_23_0456");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/synthetic/pld/application.json"),
-        dir.join("2026-01-02T03_04_05Z.json"),
-    )
-    .unwrap();
-    std::fs::create_dir_all(root.path().join("snapshots/pld/applications/_search/x")).unwrap();
-    let (readings, notes) = labels::machine_readings(root.path(), "claude-haiku-5-5");
-    assert!(notes.is_empty(), "{notes:?}");
-    let v8 = readings.iter().find(|r| r.variable_id == "V8").unwrap();
-    assert_eq!(v8.scheme, "EX/23/0456");
-    assert_eq!(v8.value, "completed=2025-07-19");
-    let v1 = readings.iter().find(|r| r.variable_id == "V1").unwrap();
-    assert!(v1.value.starts_with("total="), "{}", v1.value);
-    assert!(
-        !v1.value.contains("=0"),
-        "zero tenures are left out: {}",
-        v1.value
-    );
 }
 
 #[test]
@@ -269,7 +242,6 @@ fn scheme_refs_match_the_pipeline_whatever_their_case() {
         &got,
         rejected,
         &[machine("EX/2", "V1", "deed", "total=50", "units")],
-        vec![],
     );
     assert_eq!(r.accuracy.len(), 1);
     assert_eq!((r.accuracy[0].true_pos, r.accuracy[0].false_pos), (2, 0));
@@ -294,7 +266,6 @@ fn basis_scored_only_where_the_label_states_one() {
             "share=35%",
             "habitable_rooms",
         )],
-        vec![],
     );
     let a = &r.accuracy[0];
     assert_eq!((a.true_pos, a.false_pos, a.false_neg), (1, 0, 0));
@@ -310,7 +281,7 @@ fn sources_sharing_only_a_basis_are_not_comparable() {
          EX/1,V2,x,gla,,split=70:30 SR:INT,units,3,found,,,AB,2026-10-20\n",
     );
     let (got, rejected) = labels::load(&root.path().join("labels")).unwrap();
-    let r = labels::report(&got, rejected, &[], vec![]);
+    let r = labels::report(&got, rejected, &[]);
     let s = &r.sources[0];
     assert_eq!((s.schemes, s.agree, s.not_comparable), (1, 0, 1));
     assert!(s.differing.is_empty());
@@ -327,7 +298,7 @@ fn datahub_v8_scored_on_the_date_only() {
     let (got, rejected) = labels::load(&root.path().join("labels")).unwrap();
     let mut m = machine("EX/1", "V8", "datahub", "completed=2025-07-19", "");
     m.labeller = "machine:pld-mapping/v1".into();
-    let r = labels::report(&got, rejected, &[m], vec![]);
+    let r = labels::report(&got, rejected, &[m]);
     let a = &r.accuracy[0];
     assert_eq!((a.true_pos, a.false_pos, a.false_neg), (1, 0, 0));
 }
@@ -354,7 +325,7 @@ fn method_column_is_optional_and_checked() {
         rejected[0].reason.contains("method `guessed`"),
         "{rejected:?}"
     );
-    let r = labels::report(&got, rejected, &[], vec![]);
+    let r = labels::report(&got, rejected, &[]);
     assert_eq!(r.labels.by_method["read"], 1);
     assert!(labels::markdown(&r).contains("| audited | 1 |"));
 }
@@ -393,7 +364,7 @@ fn proposals_are_scored_as_machine_readings_split_by_label_kind() {
     assert!(as_labels.iter().all(|r| r.labeller == "AB"));
     assert_eq!(refused.len(), 3);
 
-    let r = labels::run(root.path(), "claude-haiku-5-5").unwrap();
+    let r = labels::run(root.path()).unwrap();
     let rows: Vec<(&str, usize, usize)> = r
         .accuracy
         .iter()

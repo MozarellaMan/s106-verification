@@ -105,13 +105,9 @@ enum Cmd {
         #[arg(long, default_value = llm::DEFAULT_MODEL)]
         model: String,
     },
-    /// Score the pipeline and the sources against whatever human labels are in <data>/labels/.
+    /// Score the agent proposals and the sources against whatever human labels are in <data>/labels/.
     /// Writes <data>/reports/labels/labels.{md,json}; with no labels it says so and succeeds.
-    Labels {
-        /// the recorded extractions to score
-        #[arg(long, default_value = llm::DEFAULT_MODEL)]
-        model: String,
-    },
+    Labels,
     /// Build a batch's results: its scheme ledger, its decision rules and its claims, each with
     /// the check level behind it, from the labels and proposals that exist. Writes
     /// <data>/<out>/{README.md,ledger.csv,rules.csv,retrieval.csv}; reads <data>/<out>/claims.csv.
@@ -568,9 +564,9 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
-        Cmd::Labels { model } => {
+        Cmd::Labels => {
             let root = s106::data::root();
-            let r = labels::run(&root, &model)?;
+            let r = labels::run(&root)?;
             println!("{}", labels::markdown(&r));
             eprintln!(
                 "wrote {}",

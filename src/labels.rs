@@ -11,8 +11,8 @@
 //! Three things come out, each with its n:
 //! - agreement between labellers, where two people labelled the same cell (Cohen's kappa on status);
 //! - agreement between sources, as the labels record them (the deed against the committee report, ...);
-//! - the pipeline's accuracy: its own readings of the same cells (recorded extractions, Datahub
-//!   snapshots) scored field by field against the labels, as precision and recall.
+//! - the agent proposals' accuracy (`proposals/` in s106-data) scored field by field against the
+//!   labels, as precision and recall.
 //!
 //! A disagreement here is a discrepancy for another reader to settle, never a finding about a scheme.
 
@@ -22,8 +22,6 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use rust_decimal::Decimal;
 use serde::Serialize;
-
-use crate::schema::{AffordableBasis, Housing, Tenure};
 
 /// The codebook's statuses.
 pub const STATUSES: [&str; 8] = [
@@ -354,232 +352,6 @@ pub fn latest(readings: &[Reading]) -> Vec<Reading> {
     by.into_values().cloned().collect()
 }
 
-// --------------------------------------------------------------------------- machine readings
-
-/// The pipeline's readings of the cells it can fill, in the codebook's format: deed V1 and V2
-/// from every recorded extraction that replays from `<data>/pages/`, Datahub V1 and V8 from the
-/// latest snapshot of each application. Anything that can't be read is a note, not an error.
-pub fn machine_readings(root: &Path, model: &str) -> (Vec<Reading>, Vec<String>) {
-    let mut readings = vec![];
-    let mut notes = vec![];
-    deed_readings(root, model, &mut readings, &mut notes);
-    datahub_readings(root, &mut readings, &mut notes);
-    (merge_duplicates(readings), notes)
-}
-
-fn sorted_entries(dir: &Path) -> Vec<PathBuf> {
-    let mut v: Vec<PathBuf> = std::fs::read_dir(dir)
-        .map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).collect())
-        .unwrap_or_default();
-    v.sort();
-    v
-}
-
-fn deed_readings(root: &Path, model: &str, out: &mut Vec<Reading>, notes: &mut Vec<String>) {
-    let labeller = format!("{MACHINE}extract/{model}");
-    for path in sorted_entries(&root.join("pages")) {
-        let name = path.file_name().unwrap_or_default().to_string_lossy();
-        let Some(stem) = name.strip_suffix(".pages.json") else {
-            continue;
-        };
-        let agreement = crate::document::Snapshot::read(&path).and_then(|s| {
-            let doc = s.document();
-            crate::extract::extract(&doc, model, crate::extract::Mode::Replay, None)
-        });
-        let a = match agreement {
-            Ok((a, _)) => a,
-            Err(e) => {
-                notes.push(format!("deed {stem}: no reading ({e:#})"));
-                continue;
-            }
-        };
-        if a.instrument.kind.is_variation() {
-            // The codebook records the original obligation for V1-V6.
-            notes.push(format!("deed {stem}: a variation, not read for V1/V2"));
-            continue;
-        }
-        if a.metadata.planning_references.is_empty() {
-            notes.push(format!("deed {stem}: names no planning reference"));
-        }
-        let origin = format!("extractions/{stem}/{model}.extract.v2.json");
-        for scheme in &a.metadata.planning_references {
-            let reading = |variable_id: &str, value: String, basis: &str| Reading {
-                scheme: scheme.trim().to_uppercase(),
-                variable_id: variable_id.into(),
-                source: "deed".into(),
-                status: if value.is_empty() {
-                    "not_stated"
-                } else {
-                    "found"
-                }
-                .into(),
-                value,
-                basis: basis.into(),
-                labeller: labeller.clone(),
-                labelled_on: String::new(),
-                minutes: None,
-                doc_ids: stem.to_string(),
-                pages: String::new(),
-                method: String::new(),
-                origin: origin.clone(),
-            };
-            out.push(reading("V1", deed_v1(&a.housing), "units"));
-            let (share, basis) = deed_v2(&a.housing);
-            out.push(reading("V2", share, basis));
-        }
-    }
-}
-
-fn deed_v1(h: &Housing) -> String {
-    let mut parts = vec![];
-    if let Some(n) = h.total_units {
-        parts.push(format!("total={n}"));
-    }
-    if let Some(n) = h.market_units {
-        parts.push(format!("market={n}"));
-    }
-    let tenures = h
-        .tenures
-        .iter()
-        .filter_map(|t| Some((t.tenure, t.units?)))
-        .collect::<Vec<_>>();
-    parts.extend(tenure_parts(&tenures));
-    parts.join("; ")
-}
-
-fn deed_v2(h: &Housing) -> (String, &'static str) {
-    let Some(pct) = h.claimed_affordable_pct.as_ref().and_then(|p| p.ok()) else {
-        return (String::new(), "");
-    };
-    let basis = match h.claimed_affordable_basis {
-        Some(AffordableBasis::Units) => "units",
-        Some(AffordableBasis::HabitableRooms) => "habitable_rooms",
-        Some(AffordableBasis::Floorspace) => "floorspace",
-        None => "not_stated",
-    };
-    (format!("share={}%", pct.normalize()), basis)
-}
-
-/// The codebook's tenure codes; zero counts are left out ("only the tenures the source names").
-fn tenure_parts(tenures: &[(Tenure, u32)]) -> Vec<String> {
-    tenures
-        .iter()
-        .filter(|(_, n)| *n > 0)
-        .map(|(t, n)| match code(*t) {
-            Some(c) => format!("{c}={n}"),
-            None => format!("other={}:{n}", t.label()),
-        })
-        .collect()
-}
-
-fn code(t: Tenure) -> Option<&'static str> {
-    Some(match t {
-        Tenure::SocialRent => "SR",
-        Tenure::LondonAffordableRent => "LAR",
-        Tenure::AffordableRent => "AR",
-        Tenure::LondonLivingRent => "LLR",
-        Tenure::LondonSharedOwnership => "LSO",
-        Tenure::SharedOwnership => "SO",
-        Tenure::DiscountMarketRent => "DMR",
-        Tenure::Intermediate => "INT",
-        Tenure::DiscountMarketSale | Tenure::FirstHomes | Tenure::Other => return None,
-    })
-}
-
-fn datahub_readings(root: &Path, out: &mut Vec<Reading>, notes: &mut Vec<String>) {
-    let labeller = format!(
-        "{MACHINE}pld-mapping/v{}",
-        crate::reconcile::PLD_MAPPING_VERSION
-    );
-    let apps = crate::pld::snapshots_root(root).join("applications");
-    // `_search/` holds search results, not one application each
-    let dirs = sorted_entries(&apps).into_iter().filter(|d| {
-        d.is_dir()
-            && !d
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .starts_with('_')
-    });
-    for dir in dirs {
-        let Some(latest) = sorted_entries(&dir).into_iter().rfind(|f| f.is_file()) else {
-            continue;
-        };
-        let rel = latest.strip_prefix(root).unwrap_or(&latest).to_path_buf();
-        let delivery = crate::pld::load(root, &rel)
-            .and_then(|(snap, at)| crate::reconcile::delivery_from_pld(&snap, at));
-        let d = match delivery {
-            Ok(d) => d,
-            Err(e) => {
-                notes.push(format!("datahub {}: no reading ({e:#})", rel.display()));
-                continue;
-            }
-        };
-        let Some(scheme) = d.lpa_app_no.as_deref().map(|s| s.trim().to_uppercase()) else {
-            notes.push(format!("datahub {}: no lpa_app_no", rel.display()));
-            continue;
-        };
-        let p = &d.permitted;
-        let mut v1 = vec![];
-        if let Some(n) = p.total_units {
-            v1.push(format!("total={n}"));
-        }
-        if let Some(n) = p.market_units {
-            v1.push(format!("market={n}"));
-        }
-        v1.extend(tenure_parts(&p.tenure_units));
-        let v8 = d
-            .completed_on
-            .map(|c| format!("completed={c}"))
-            .unwrap_or_default();
-        for (variable_id, value, basis) in [("V1", v1.join("; "), "units"), ("V8", v8, "")] {
-            out.push(Reading {
-                scheme: scheme.clone(),
-                variable_id: variable_id.into(),
-                source: "datahub".into(),
-                status: if value.is_empty() {
-                    "not_stated"
-                } else {
-                    "found"
-                }
-                .into(),
-                value,
-                basis: basis.into(),
-                labeller: labeller.clone(),
-                labelled_on: String::new(),
-                minutes: None,
-                doc_ids: String::new(),
-                pages: String::new(),
-                method: String::new(),
-                origin: d.snapshot.path.clone(),
-            });
-        }
-    }
-}
-
-/// Two readings of one cell by the same producer (two deed files naming one scheme): kept when
-/// they agree, otherwise one `ambiguous` reading, which is not scored.
-fn merge_duplicates(readings: Vec<Reading>) -> Vec<Reading> {
-    let mut by: BTreeMap<(Cell, String), Reading> = BTreeMap::new();
-    for r in readings {
-        let key = (r.cell(), r.labeller.clone());
-        match by.get_mut(&key) {
-            None => {
-                by.insert(key, r);
-            }
-            Some(old) if old.fields() == r.fields() && old.status == r.status => {
-                old.origin = format!("{} + {}", old.origin, r.origin);
-            }
-            Some(old) => {
-                old.value = format!("{} OR {}", old.value, r.value);
-                old.status = "ambiguous".into();
-                old.origin = format!("{} + {}", old.origin, r.origin);
-            }
-        }
-    }
-    by.into_values().collect()
-}
-
 // ------------------------------------------------------------------------------------ figures
 
 #[derive(Debug, Serialize)]
@@ -589,7 +361,6 @@ pub struct Report {
     pub labellers: Vec<LabellerAgreement>,
     pub sources: Vec<SourceAgreement>,
     pub accuracy: Vec<Accuracy>,
-    pub machine_notes: Vec<String>,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -688,12 +459,7 @@ impl Rate {
     }
 }
 
-pub fn report(
-    submitted: &[Reading],
-    rejected: Vec<Rejected>,
-    machine: &[Reading],
-    machine_notes: Vec<String>,
-) -> Report {
+pub fn report(submitted: &[Reading], rejected: Vec<Rejected>, machine: &[Reading]) -> Report {
     let current = latest(submitted);
     let mut by_cell: BTreeMap<Cell, Vec<&Reading>> = BTreeMap::new();
     for r in &current {
@@ -730,7 +496,6 @@ pub fn report(
         accuracy: accuracy(&settled, &by_cell, machine),
         labels,
         rejected,
-        machine_notes,
     }
 }
 
@@ -1146,25 +911,16 @@ pub fn markdown(r: &Report) -> String {
             s.push('\n');
         }
     }
-
-    if !r.machine_notes.is_empty() {
-        s.push_str("## Pipeline readings not made\n\n");
-        for n in &r.machine_notes {
-            s.push_str(&format!("- {n}\n"));
-        }
-    }
     s
 }
 
-/// Read every submission under `<root>/labels/`, score the pipeline's readings against them,
-/// and write `<root>/reports/labels/labels.{md,json}`. Never fails for want of labels.
-pub fn run(root: &Path, model: &str) -> Result<Report> {
+/// Read every submission under `<root>/labels/`, score the agent proposals against them, and
+/// write `<root>/reports/labels/labels.{md,json}`. Never fails for want of labels.
+pub fn run(root: &Path) -> Result<Report> {
     let (submitted, mut rejected) = load(&root.join("labels"))?;
-    let (mut machine, notes) = machine_readings(root, model);
-    let (proposed, bad) = proposals(root)?;
-    machine.extend(proposed);
+    let (machine, bad) = proposals(root)?;
     rejected.extend(bad);
-    let r = report(&submitted, rejected, &machine, notes);
+    let r = report(&submitted, rejected, &machine);
     let dir = root.join("reports/labels");
     std::fs::create_dir_all(&dir)?;
     std::fs::write(dir.join("labels.md"), markdown(&r))?;
