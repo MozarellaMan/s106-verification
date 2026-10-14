@@ -333,6 +333,58 @@ fn affordable(fields: &BTreeMap<String, String>) -> Option<BTreeMap<String, Stri
     (!tenures.is_empty() || all_market).then_some(tenures)
 }
 
+/// Intermediate products a deed or report can name, with their names in words.
+const INTERMEDIATE: [&str; 4] = ["so", "lso", "llr", "dmr"];
+const INTERMEDIATE_NAMES: [&str; 4] = [
+    "shared ownership",
+    "London Shared Ownership",
+    "London Living Rent",
+    "discount market rent",
+];
+
+/// Whether two tenure maps agree. Besides equality, an unnamed `int` on one side matches the
+/// named intermediate products on the other when their total is the same and every other tenure
+/// is equal (Ayo, 14 Oct 2026: a report's "intermediate" matches a deed's shared ownership).
+/// Returns the note to show when the match needed that reading.
+fn tenures_agree(a: &BTreeMap<String, String>, b: &BTreeMap<String, String>) -> Option<String> {
+    if a == b {
+        return Some(String::new());
+    }
+    let one_way = |x: &BTreeMap<String, String>, y: &BTreeMap<String, String>| {
+        let int = number(x.get("int")?)?;
+        if y.contains_key("int") || INTERMEDIATE.iter().any(|k| x.contains_key(*k)) {
+            return None;
+        }
+        let named: Vec<usize> = (0..INTERMEDIATE.len())
+            .filter(|i| y.contains_key(INTERMEDIATE[*i]))
+            .collect();
+        let total: f64 = named
+            .iter()
+            .map(|i| number(&y[INTERMEDIATE[*i]]))
+            .sum::<Option<f64>>()?;
+        let rest = |m: &BTreeMap<String, String>| {
+            m.iter()
+                .filter(|(k, _)| *k != "int" && !INTERMEDIATE.contains(&k.as_str()))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect::<BTreeMap<_, _>>()
+        };
+        (!named.is_empty() && total == int && rest(x) == rest(y)).then(|| {
+            named
+                .iter()
+                .map(|i| INTERMEDIATE_NAMES[*i])
+                .collect::<Vec<_>>()
+                .join(" and ")
+        })
+    };
+    if let Some(named) = one_way(a, b) {
+        return Some(format!(
+            " (report's unnamed intermediate taken as the deed's {named})"
+        ));
+    }
+    one_way(b, a)
+        .map(|named| format!(" (deed's unnamed intermediate taken as the report's {named})"))
+}
+
 fn shown(m: &BTreeMap<String, String>) -> String {
     if m.is_empty() {
         return "none".into();
@@ -406,7 +458,8 @@ fn rule1(cells: &Cells, schemes: &[String]) -> Vec<SchemeOutcome> {
                 );
             };
             let mut differ = vec![];
-            if ra != da {
+            let agreed = tenures_agree(&ra, &da);
+            if agreed.is_none() {
                 differ.push(format!(
                     "tenures: report {}, deed {}",
                     shown(&ra),
@@ -469,7 +522,11 @@ fn rule1(cells: &Cells, schemes: &[String]) -> Vec<SchemeOutcome> {
             if differ.is_empty() {
                 out(
                     Outcome::Counts,
-                    format!("report and deed agree: {}", shown(&ra)),
+                    format!(
+                        "report and deed agree: {}{}",
+                        shown(&ra),
+                        agreed.unwrap_or_default()
+                    ),
                     used,
                 )
             } else {
