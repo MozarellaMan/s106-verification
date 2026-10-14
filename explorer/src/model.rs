@@ -169,6 +169,7 @@ pub fn source_label(source: &str) -> String {
         "decision_notice" => "Decision notice".into(),
         "viability" => "Viability".into(),
         "s106_monitoring" => "S106 monitoring".into(),
+        "variation" => "Variation".into(),
         other => other.replace('_', " "),
     }
 }
@@ -219,6 +220,9 @@ fn humanize_one(value: &str) -> String {
             }
             if let Some(d) = part.strip_prefix("DoV ") {
                 return format!("deed of variation dated {}", long_date(d));
+            }
+            if let Some(r) = part.strip_prefix("s73 ") {
+                return format!("section 73 permission {r}");
             }
             part.to_string()
         })
@@ -427,6 +431,7 @@ mod tests {
             completed: 0,
             completion_date: None,
             updated: "2026-01-02".into(),
+            unlocated: false,
             lat: 51.5,
             lon: -0.1,
             readings: Vec::new(),
@@ -537,8 +542,9 @@ mod tests {
             "total homes 84; market homes 61; social rent 16; shared ownership 7"
         );
         assert_eq!(
-            humanize("orig 2010-02-17; DoV 2014-02-04"),
-            "original agreement dated 17 February 2010; deed of variation dated 4 February 2014"
+            humanize("orig 2010-02-17; s73 10/AP/2734; DoV 2014-02-04"),
+            "original agreement dated 17 February 2010; section 73 permission 10/AP/2734; \
+             deed of variation dated 4 February 2014"
         );
         assert_eq!(
             humanize("orig 2021-11-?? (day illegible)"),
