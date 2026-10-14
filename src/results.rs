@@ -930,10 +930,6 @@ pub struct Claim {
     pub claim: String,
     /// `<scheme>/<variable_id>/<source>` ids, as the proposals and audit app use
     pub cells: Vec<String>,
-    /// the claim is about an identifiable scheme, developer or council
-    pub specific: bool,
-    /// who signed it off for use outside the private repo, if anyone
-    pub signed_off: String,
     pub check: Check,
     /// cell ids the ledger doesn't hold
     pub unknown: Vec<String>,
@@ -970,8 +966,6 @@ fn claims(path: &Path, ledger: &[Entry]) -> Result<Vec<Claim>> {
         out.push(Claim {
             id: get("id"),
             claim: get("claim"),
-            specific: get("specific").eq_ignore_ascii_case("yes"),
-            signed_off: get("signed_off"),
             cells,
             check,
             unknown,
@@ -1091,8 +1085,7 @@ pub fn markdown(r: &Results) -> String {
     }
 
     s += "\n## Claims\n\nFrom `claims.csv`. A claim stands at the weakest level of the cells it \
-          cites. One about an identifiable scheme, developer or council needs a sign-off before it \
-          leaves this repository.\n";
+          cites, and is quoted with that level and its cells wherever it is used.\n";
     if r.claims.is_empty() {
         s += "\nNo claims written yet.\n";
     }
@@ -1105,12 +1098,6 @@ pub fn markdown(r: &Results) -> String {
         for cl in group {
             s += &format!("- **{}** {}", cl.id, cl.claim);
             s += &format!(" (cells: {})", cl.cells.join(", "));
-            if cl.specific {
-                s += &match cl.signed_off.as_str() {
-                    "" => " *Specific: not signed off.*".to_string(),
-                    who => format!(" *Signed off: {who}.*"),
-                };
-            }
             if !cl.unknown.is_empty() {
                 s += &format!(" **Unknown cells: {}.**", cl.unknown.join(", "));
             }

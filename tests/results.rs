@@ -455,17 +455,17 @@ fn a_claim_stands_at_its_weakest_cell() {
     write(
         p,
         "results/b/claims.csv",
-        "id,claim,cells,specific,signed_off\n\
-         c1,The Datahub records 40 completed homes.,EX/1/V8/datahub,no,\n\
-         c2,EPC certificates match the Datahub.,EX/1/V8/datahub EX/1/V8/epc,yes,\n\
-         c3,A typo.,EX/1/V9/deed,no,\n",
+        "id,claim,cells\n\
+         c1,The Datahub records 40 completed homes.,EX/1/V8/datahub\n\
+         c2,EPC certificates match the Datahub.,EX/1/V8/datahub EX/1/V8/epc\n\
+         c3,A typo.,EX/1/V9/deed\n",
     );
     let r = run(p);
     let checks: Vec<Check> = r.claims.iter().map(|c| c.check).collect();
     assert_eq!(checks, [Check::Independent, Check::Proposed, Check::Unread]);
     assert_eq!(r.claims[2].unknown, ["EX/1/V9/deed"]);
     let md = std::fs::read_to_string(p.join("results/b/README.md")).unwrap();
-    assert!(md.contains("*Specific: not signed off.*"), "{md}");
+    assert!(md.contains("(cells: EX/1/V8/datahub, EX/1/V8/epc)"), "{md}");
 }
 
 #[test]
