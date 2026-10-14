@@ -23,6 +23,8 @@ schema v2, how the Rust harness was accepted against the former Python one), are
 
 Obligations against delivery: [docs/reconciliation.md](docs/reconciliation.md).
 
+What the outputs must not be read as saying: [docs/claims.md](docs/claims.md).
+
 ```
 src/
   document.rs   PDF pages -> text with boxes: PDFium text layer, or PP-OCRv5 OCR; cached by content hash
