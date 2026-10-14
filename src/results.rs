@@ -60,6 +60,8 @@ pub fn stage(variable_id: &str, source: &str) -> &'static str {
         ("V3", _) => "offer",
         ("V7", _) => "variation",
         ("V8", _) | (_, "epc") => "completion",
+        // a deed of variation or s73 permission, whatever variable it is read for
+        (_, "variation") => "variation",
         (_, "deed") => "obligation",
         // committee and GLA reports, and the Datahub's permitted figures
         _ => "decision",

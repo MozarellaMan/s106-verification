@@ -135,7 +135,7 @@ grounding rules.
 | `labels.rs` | Human labels scored against the pipeline's readings; nothing else depends on it |
 | `results.rs` | `run`: a batch's scheme ledger, decision rules and claims, each with its check level (`s106 results`) |
 | `figures.rs` | `check`: figures cited in markdown as `29.8%<!-- src: path -->` must still appear in the cited file (`s106 check-figures`) |
-| `explore.rs` | `bake`: Datahub-only data for the results explorer in `explorer/` (`s106 explore`) |
+| `explore.rs` | `bake`: data for the results explorer in `explorer/` (`s106 explore`): Datahub figures, plus the public deed cells (`--deed-cells`) or a private ledger (`--results`) |
 
 The coupling is deliberate: wire and verifier both use the domain enums, so the
 vocabulary is defined once. Extraction depends on verification only for escalation;

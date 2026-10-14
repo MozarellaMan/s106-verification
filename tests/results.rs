@@ -548,3 +548,12 @@ fn an_unreadable_datahub_snapshot_is_reported() {
         "{reasons:?}"
     );
 }
+
+#[test]
+fn variation_sources_sit_in_the_variation_stage() {
+    assert_eq!(results::stage("V1", "variation"), "variation");
+    assert_eq!(results::stage("V7", "deed"), "variation");
+    assert_eq!(results::stage("V1", "deed"), "obligation");
+    assert_eq!(results::stage("V1", "committee_report"), "decision");
+    assert_eq!(results::stage("V8", "variation"), "completion");
+}

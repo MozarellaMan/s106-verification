@@ -48,7 +48,7 @@ src/
   ocrbench.rs   OCR scored against gold transcriptions (`gold/*.json` in the data repository)
   labels.rs     scored against human labels (`labels/` in the data repository)
   results.rs    a batch's scheme ledger, decision rules and claims, each with its check level
-  explore.rs    Datahub-only data for the public results explorer (`explorer/`)
+  explore.rs    data for the results explorer (`explorer/`): Datahub, plus deed cells or a private ledger
 ```
 
 ## Setup
