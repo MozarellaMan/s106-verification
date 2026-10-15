@@ -5,12 +5,12 @@
 //! person (a labeller in `labels/`), or an external source. The Datahub's permitted homes are read
 //! as a reading of the deed's V1 total and affordable count, except on a scheme with a `variation`
 //! source, because the Datahub may record the varied figures. The EPC register's count of new
-//! homes (an `epc` V1 reading found as a single count, `new_dwelling_epcs=N`) is read as a reading of
-//! the deed's V1 total on the same schemes, once the Datahub records a completion, in its own family: it agrees with a total when the
-//! count reaches at least 90% of it and does not exceed it, because owners can opt out of
-//! publication, so the register can fall short of the homes built but never above them. An LLM
-//! reader decides which certificates belong to the scheme; the count itself comes from the
-//! register, which no planning document feeds.
+//! homes (an `epc` V1 reading found as a single count, `new_dwelling_epcs=N`) is read as a reading
+//! of the deed's V1 total on the same schemes, once the Datahub records a completion, in its own
+//! family: it agrees with a total when the count reaches at least 90% of it and does not exceed
+//! it, because owners can opt out of publication, so the register can fall short of the homes
+//! built but never above them. An LLM reader decides which certificates belong to the scheme; the
+//! count itself comes from the register, which no planning document feeds.
 //!
 //! A file listed in `proposals/superseded.csv` (columns `file`, `labeller`, `reason`) no longer
 //! votes for that labeller: its readings stay on disk and in the ledger's history, as section 7 of
@@ -31,9 +31,12 @@
 //! The lower bound is a jackknife interval over schemes: the estimate is recomputed leaving out
 //! one scheme at a time, and the bound is the estimate less t(0.975) standard errors. A
 //! percentile bootstrap gave bounds that were too high at these sample sizes (the verification
-//! study). Below MIN_SCHEMES schemes there is no bound at all. An estimate above 1 says the
-//! agreement pattern does not fit the model (a reader that is never the lone dissenter), not that
-//! the reader is never wrong, so the model fits only when the estimate is at most 1. Schemes whose values were seen while the method was built (batch 1)
+//! study). Below MIN_SCHEMES schemes there is no bound at all. When the readers never disagree
+//! the jackknife spread is zero, so the bound is also capped at the exact binomial bound for no
+//! errors in n shared cells, 0.025^(1/n): passing GATE then takes at least 36 shared cells. An
+//! estimate above 1 says the agreement pattern does not fit the model (a reader that is never
+//! the lone dissenter), not that the reader is never wrong, so the model fits only when the
+//! estimate is at most 1. Schemes whose values were seen while the method was built (batch 1)
 //! never count towards an estimate.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -482,7 +485,8 @@ pub fn estimates(votes: &[Vote], seen: &BTreeSet<String>) -> Vec<Estimate> {
                 let mean = drops.iter().sum::<f64>() / m as f64;
                 let var = (m - 1) as f64 / m as f64
                     * drops.iter().map(|d| (d - mean).powi(2)).sum::<f64>();
-                accuracy - t975(m - 1) * var.sqrt()
+                // a zero spread (unanimous readers) must not give a bound of 1
+                (accuracy - t975(m - 1) * var.sqrt()).min(0.025f64.powf(1.0 / n as f64))
             });
             out.push(Estimate {
                 group: g.into(),
@@ -493,7 +497,8 @@ pub fn estimates(votes: &[Vote], seen: &BTreeSet<String>) -> Vec<Estimate> {
                 schemes: m,
                 accuracy,
                 lower,
-                fits: accuracy <= 1.0,
+                // allow for rounding: a perfect fit can compute as 1.0000000000000002
+                fits: accuracy <= 1.0 + 1e-9,
             });
         }
     }
@@ -681,9 +686,35 @@ mod tests {
     }
 
     #[test]
+    fn unanimous_readers_are_bounded_by_the_shared_cells() {
+        let votes_for = |n: usize| {
+            let mut votes = vec![];
+            for i in 1..=n {
+                let s = format!("s{i}");
+                votes.push(vote(&s, "machine:proposal/a-1", Kind::Llm, "a", "2020-01"));
+                votes.push(vote(&s, "machine:proposal/b-1", Kind::Llm, "b", "2020-01"));
+                votes.push(vote(&s, "ana", Kind::Person, "person", "2020-01"));
+            }
+            let est = estimates(&votes, &BTreeSet::new());
+            est.into_iter()
+                .find(|e| e.reader == "machine:proposal/b-1")
+                .unwrap()
+        };
+        // 10 unanimous schemes: no spread, but the bound is 0.025^(1/10), about 69%
+        let ten = votes_for(10);
+        assert!(ten.fits, "{ten:?}");
+        let lower = ten.lower.unwrap();
+        assert!((lower - 0.025f64.powf(0.1)).abs() < 1e-9, "{ten:?}");
+        assert!(!ten.passes(), "{ten:?}");
+        // 0.025^(1/35) is 89.997%, so 35 cells stay below 90% and 36 reach it
+        assert!(!votes_for(35).passes());
+        assert!(votes_for(36).passes());
+    }
+
+    #[test]
     fn a_reader_never_alone_in_dissent_does_not_fit() {
         // `a` is never the lone dissenter: on s7 and s8 `b` differs, on s9 and s10 the person
-        // does, so a's point estimate passes 1 and its lower bound comes out at exactly 1
+        // does, so a's point estimate passes 1
         let mut votes = vec![];
         for n in 1..=10 {
             let s = format!("s{n}");

@@ -593,13 +593,13 @@ fn reading(scheme: &str, v: &str, src: &str, value: &str, who: &str) -> String {
 const LLM: &str = "machine:proposal/claude-x";
 const DATAHUB: &str = "machine:proposal/datahub-mapping";
 
-/// 30 schemes (S/0 to S/29) whose deed V1 an LLM reader, a person and the Datahub read; the LLM
+/// 40 schemes (S/0 to S/39) whose deed V1 an LLM reader, a person and the Datahub read; the LLM
 /// reader is wrong on the first `wrong` of them. EX/1's cells are added by the caller.
 fn readers(p: &Path, wrong: usize, extra: &str) {
     let mut props = HEADER.to_string();
     let mut labels = HEADER.to_string();
     let mut seen = String::from("scheme,variable_id,variable,source\n");
-    for i in 0..30 {
+    for i in 0..40 {
         let s = format!("S/{i}");
         let llm = if i < wrong {
             "total=10; SR=4"
@@ -648,14 +648,15 @@ fn three_families_that_agree_give_estimated_and_confirmed_cells() {
     let r = run_seen(p, &[]);
     let g1: Vec<_> = r.estimates.iter().filter(|e| e.group == "G1").collect();
     assert_eq!(g1.len(), 3, "{g1:?}");
-    assert!(g1.iter().all(|e| e.passes() && e.shared == 30), "{g1:?}");
+    assert!(g1.iter().all(|e| e.passes() && e.shared == 40), "{g1:?}");
 
     let v1 = entry(&r, "EX/1", "V1", "deed");
     assert_eq!(
         (v1.check, v1.readers.as_str()),
         (Check::Confirmed, "2 agree")
     );
-    assert_eq!(v1.error, "0.0%");
+    // unanimous readers are bounded by their 40 shared cells, so the error is small, not zero
+    assert_eq!(v1.error, "0.9%");
     // estimated, not confirmed: no reader that isn't an LLM agrees
     assert_eq!(entry(&r, "EX/1", "V2", "deed").check, Check::Estimated);
     assert_eq!(entry(&r, "EX/1", "V4", "deed").check, Check::Proposed);
@@ -675,10 +676,10 @@ fn a_reader_wrong_on_a_tenth_of_cells_fails_the_gate() {
     let root = tempfile::tempdir().unwrap();
     let p = root.path();
     sheet(p, &["EX/1"]);
-    readers(p, 3, &reading("EX/1", "V1", "deed", "total=40; SR=10", LLM));
+    readers(p, 4, &reading("EX/1", "V1", "deed", "total=40; SR=10", LLM));
     let r = run_seen(p, &[]);
     let est = |who: &str| r.estimates.iter().find(|e| e.reader == who).unwrap();
-    // agreement 27 of 30 with each of two readers that always agree: sqrt(0.9 x 0.9 / 1)
+    // agreement 36 of 40 with each of two readers that always agree: sqrt(0.9 x 0.9 / 1)
     assert!((est(LLM).accuracy - 0.9).abs() < 1e-9, "{:?}", est(LLM));
     assert!(est(LLM).lower.is_some_and(|l| l < 0.9) && !est(LLM).passes());
     assert!((est("AB").accuracy - 1.0).abs() < 1e-9);
