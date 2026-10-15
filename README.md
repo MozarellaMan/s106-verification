@@ -102,7 +102,8 @@ s106 pages <pdf>... --check data/pages                             # read PDFs a
 s106 pld get applications <borough>-<reference>                    # save a Datahub record under <data>/snapshots/pld/
 s106 pld map --sheet <sheet> --out <proposals.csv> --on <date>     # Datahub V1 and V8 rows as proposals
 s106 labels                                                        # score the proposals against the human labels
-s106 results --sheet runs/<batch>/labels.csv --out results/<batch>  # a batch's ledger, rules and claims
+s106 results --sheet runs/<batch>/labels.csv --out results/<batch> \
+  --seen runs/2026-10-14-source-audit-batch1/labels.csv            # a batch's ledger, rules and claims
 s106 explore                                                       # bake the results explorer's data (explorer/README.md)
 s106 check-figures                                                 # every 29.8%<!-- src: path --> still in its cited file
 ```
