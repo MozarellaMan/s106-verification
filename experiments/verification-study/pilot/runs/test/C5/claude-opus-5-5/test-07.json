@@ -1,0 +1,81 @@
+{
+ "item_id": "test-07",
+ "kind": "adjudicate",
+ "dir": "C5",
+ "dry_run": false,
+ "request": {
+  "model": "claude-opus-5-5",
+  "max_tokens": 8000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\n<document 30 omitted, sha256 e813f936d17b5794>\n</document>\n\n<hypothesis>\nReceiving Party may share some Confidential Information with some third-parties (including consultants, agents and professional advisors).\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: Entailment\nconfidence: 85\nreason: Clause 3.4 expressly permits the Receiving Party to disclose Confidential Information to its professional advisors on a need-to-know basis, provided they agree to abide by the Agreement, which supports the hypothesis that some information may be shared with professional advisors (consultants and agents are covered in part, though consultants are not named explicitly).\n<quote check=\"exact\">the Receiving Party\u2019s professional advisers and employees, directors or managers shall be deemed to be acting, in the event of a breach, as that Party\u2019s duly authorised agents</quote>\n<quote check=\"exact\">the Confidential Information may be disclosed by the Receiving Party to its professional advisors on a need-to-know basis</quote>\n</reading>\n<reading id=\"B\">\nlabel: Entailment\nconfidence: 88\nreason: Clause 3.4 permits disclosure to professional advisors on a need-to-know basis if they agree to be bound, and agents are excluded from the definition of third party, so some sharing with such parties is allowed.\n<quote check=\"exact\">the Confidential Information may be disclosed by the Receiving Party to its professional advisors on a need-to-know basis</quote>\n<quote check=\"exact\">\u201cthird party\u201d means any party other than Client and AfriGIS and their holding and subsidiary companies or agents</quote>\n</reading>\n<reading id=\"C\">\nlabel: Entailment\nconfidence: 90\nreason: The agreement expressly allows the Receiving Party to disclose Confidential Information to its professional advisors on a need-to-know basis, and also contemplates its agents and group companies being bound by it.\n<quote check=\"exact\">the Parties agree that the Confidential Information may be disclosed by the Receiving Party to its professional advisors on a need-to-know basis</quote>\n<quote check=\"exact\">the Parties undertake to each other that their holding and subsidiary companies or agents shall be bound by the provisions of this Agreement</quote>\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "subagent-C5__claude-opus-5-5__test-07",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"label\": \"Entailment\", \"confidence\": 92, \"quotes\": [\"the Confidential Information may be disclosed by the Receiving Party to its professional advisors on a need-to-know basis\"], \"reason\": \"Clause 3.4 expressly permits the Receiving Party to disclose Confidential Information to its professional advisors on a need-to-know basis, so some sharing with such parties is allowed.\"}"
+   }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+   "input_tokens": null,
+   "output_tokens": null
+  }
+ },
+ "usage": {
+  "input_tokens": null,
+  "output_tokens": null
+ },
+ "latency_ms": null,
+ "timestamp": "2026-10-15T00:18:26+00:00",
+ "cost_usd": null,
+ "client": "subagent",
+ "cost_usd_estimated": true
+}

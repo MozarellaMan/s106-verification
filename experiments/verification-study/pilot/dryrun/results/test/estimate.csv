@@ -1,0 +1,44 @@
+row,id,against,shared,estimate,lower,fits,passes_gate,measured_accuracy,shown,n_votes,error
+reader,claude-haiku-5-5,claude-opus-5-5 claude-sonnet-5-5,40,0.8376,0.7146,true,false,0.65,,,
+reader,claude-opus-5-5,claude-haiku-5-5 claude-sonnet-5-5,40,0.8655,0.7451,true,false,0.725,,,
+reader,claude-sonnet-5-5,claude-haiku-5-5 claude-opus-5-5,40,0.8954,0.7768,true,false,0.7,,,
+item,test-00,,,,,,,,NotMentioned,3,0.0378
+item,test-01,,,,,,,,NotMentioned,3,0.0378
+item,test-02,,,,,,,,NotMentioned,3,0.3797
+item,test-03,,,,,,,,NotMentioned,3,0.2562
+item,test-04,,,,,,,,Contradiction,3,0.0378
+item,test-05,,,,,,,,Contradiction,3,0.0378
+item,test-06,,,,,,,,Contradiction,3,0.2562
+item,test-07,,,,,,,,Entailment,3,0.0378
+item,test-08,,,,,,,,Entailment,3,0.2562
+item,test-09,,,,,,,,Entailment,3,0.3104
+item,test-10,,,,,,,,Entailment,3,0.0378
+item,test-11,,,,,,,,Contradiction,3,0.2562
+item,test-12,,,,,,,,Contradiction,3,0.0378
+item,test-13,,,,,,,,NotMentioned,3,0.0378
+item,test-14,,,,,,,,NotMentioned,3,0.0378
+item,test-15,,,,,,,,Entailment,3,0.0378
+item,test-16,,,,,,,,Entailment,3,0.0378
+item,test-17,,,,,,,,NotMentioned,3,0.0378
+item,test-18,,,,,,,,Contradiction,3,0.3797
+item,test-19,,,,,,,,Entailment,3,0.0378
+item,test-20,,,,,,,,Entailment,3,0.0378
+item,test-21,,,,,,,,NotMentioned,3,0.0378
+item,test-22,,,,,,,,NotMentioned,3,0.0378
+item,test-23,,,,,,,,Contradiction,3,0.3104
+item,test-24,,,,,,,,Entailment,3,0.0378
+item,test-25,,,,,,,,Contradiction,3,0.3104
+item,test-26,,,,,,,,Contradiction,3,0.0378
+item,test-27,,,,,,,,Contradiction,3,0.2562
+item,test-28,,,,,,,,NotMentioned,3,0.0378
+item,test-29,,,,,,,,Contradiction,3,0.0378
+item,test-30,,,,,,,,Contradiction,3,0.0378
+item,test-31,,,,,,,,Contradiction,3,0.0378
+item,test-32,,,,,,,,NotMentioned,3,0.3104
+item,test-33,,,,,,,,Contradiction,3,0.0378
+item,test-34,,,,,,,,Contradiction,3,0.3797
+item,test-35,,,,,,,,Contradiction,3,0.0378
+item,test-36,,,,,,,,Entailment,3,0.3797
+item,test-37,,,,,,,,Entailment,3,0.0378
+item,test-38,,,,,,,,NotMentioned,3,0.2562
+item,test-39,,,,,,,,Entailment,3,0.3104

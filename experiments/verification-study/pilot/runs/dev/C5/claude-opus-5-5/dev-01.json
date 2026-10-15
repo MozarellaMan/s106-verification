@@ -1,0 +1,107 @@
+{
+ "item_id": "dev-01",
+ "kind": "adjudicate",
+ "dir": "C5",
+ "dry_run": false,
+ "request": {
+  "model": "claude-opus-5-5",
+  "max_tokens": 8000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\n<document 37 omitted, sha256 776c6564bbc95ff0>\n</document>\n\n<hypothesis>\nAll Confidential Information shall be expressly identified by the Disclosing Party.\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: Contradiction\nconfidence: 80\nreason: The definition covers information that is confidential whether or not it is marked (clause 1.1(b) 'whether or not it is so marked') and also covers categories like personal data and discussions without any requirement of express identification, so the hypothesis that all Confidential Information must be expressly identified is contradicted.\n<quote check=\"exact\">or that ought reasonably to be considered to be confidential which comes (or has come) to the Receiving Party\u2019s attention or into the Receiving Party\u2019s possession in connection with the Permitted Purpose;</quote>\n<quote check=\"exact\">(a) Information, including all personal data within the meaning of the Data Protection Act 1998, and however it is conveyed, provided by the Disclosing Party pursuant to [or in anticipation of] this Agreement that relates to:</quote>\n</reading>\n<reading id=\"B\">\nlabel: Contradiction\nconfidence: 88\nreason: The agreement covers information that is not marked or expressly identified as confidential, such as information that ought reasonably to be considered confidential, and all information relating to the Disclosing Party Group, so express identification is not required.\n<quote check=\"exact\">that is clearly designated as being confidential or equivalent (whether or not it is so marked) or that ought reasonably to be considered to be confidential</quote>\n</reading>\n<reading id=\"C\">\nlabel: Contradiction\nconfidence: 88\nreason: The definition covers information whether or not it is marked, information that ought reasonably to be considered confidential, and any information relating to the Disclosing Party Group, so express identification is not required.\n<quote check=\"exact\">(whether or not it is so marked) or that ought reasonably to be considered to be confidential</quote>\n<quote check=\"exact\">however it is conveyed, provided by the Disclosing Party pursuant to [or in anticipation of] this Agreement that relates to:</quote>\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg336i9yhSzntXeyqS7Rk",
+  "container": null,
+  "content": [
+   {
+    "citations": null,
+    "text": "{\"label\":\"Contradiction\",\"confidence\":90,\"quotes\":[\"(whether or not it is so marked) or that ought reasonably to be considered to be confidential\",\"(a) Information, including all personal data within the meaning of the Data Protection Act 1998, and however it is conveyed, provided by the Disclosing Party pursuant to [or in anticipation of] this Agreement that relates to:\"],\"reason\":\"The definition of Confidential Information covers information about the Disclosing Party Group and information that ought reasonably to be considered confidential, whether or not it is marked, so express identification is not required.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-opus-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 6981,
+   "output_tokens": 193,
+   "output_tokens_details": {
+    "thinking_tokens": 0
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 6981,
+  "output_tokens": 193,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 3100,
+ "timestamp": "2026-10-14T23:58:38+00:00",
+ "cost_usd": 0.031784
+}

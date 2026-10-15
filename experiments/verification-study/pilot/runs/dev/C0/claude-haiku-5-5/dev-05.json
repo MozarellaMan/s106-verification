@@ -1,0 +1,106 @@
+{
+ "item_id": "dev-05",
+ "kind": "reader",
+ "dir": "C0",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 16 omitted, sha256 37aa63f0a3363f24>\n</document>\n\n<hypothesis>\nReceiving Party may retain some Confidential Information even after the return or destruction of Confidential Information.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg336STR3cqLLK9M1YzKz",
+  "container": null,
+  "content": [
+   {
+    "signature": "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",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":60,\"reason\":\"Section 5 lets the Recipient make and keep notes and documents referencing Confidential Information, which remain governed by the agreement until destroyed, while Section 4 requires return or destruction of all Confidential Information within ten days, so notes are an implied exception the Recipient may keep afterward.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 3293,
+   "output_tokens": 414,
+   "output_tokens_details": {
+    "thinking_tokens": 296
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 3293,
+  "output_tokens": 414,
+  "output_tokens_details": {
+   "thinking_tokens": 296
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 2998,
+ "timestamp": "2026-10-14T23:58:34+00:00",
+ "cost_usd": 0.0005363
+}

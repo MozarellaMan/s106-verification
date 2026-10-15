@@ -1,0 +1,106 @@
+{
+ "item_id": "test-13",
+ "kind": "reader",
+ "dir": "C0",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 157 omitted, sha256 980c572d67f3084d>\n</document>\n\n<hypothesis>\nAll Confidential Information shall be expressly identified by the Disclosing Party.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33BNYumhunBg6nLBSQe",
+  "container": null,
+  "content": [
+   {
+    "signature": "CAQS5QcKEAgSGAI4AUIIdGhpbmtpbmcSDOuxtIIBNJ2xMlDjYxoMiZykC3bM/RkIWfeXIjBwyw4ZKI8narQfGywTLJ5a3ktCO02ULhvE45AS5uQptwSPmvbfuJYZrkt279fIXw8qgge9O/SEdRqSmzwh5fygg4JEstBAjfZ1abFHGyk0K6dCGrrdrhYx0SVqmTy5Z4pYK5mQeEkOjsVlo7BLZ7kR4WZX+xuxuxdF9xz+w9gDS94Pjm/CvPBQ3yWymTCxxBH68gluLh58uFzB+T/V4bNdIb+7XPHRVQuEAm8SUgDuFmDnfkqDvApJY1icuvRVZK9+GQrmOkpJFcTcZNyHI6u73qAClRITNJbl+RabbOeyDk6rvKbQj6023zuYwLoS0gvEEe9rEErffwyJrzdYgHFJSmODbvBs/XB8NsEZ6l3F/cQAWEHQyTarXTvZXyyUsGUI0oUDd3cpe4Wt5KoVKoyyilf3FHfZ9Yt4+zNckmfdLNPzp5+6RC6OBNhxt7OL7tup6YOngJuWRf07myvXdGX1AbSFZYw0INVfJfuyn/f2CV+APRhDOn/YyB9hU+HvzlfxgXTml6XK6C342oIqWxPrJgSHMJU8VHRw9oJdoRTOSmiqMDiYz8DbZqFX7K1rS7Ffx0177nUaMUFtOgkAf55LDCajfNszlaP+JrOfx85lQa3bvliMTutxlcc+vix8SJbcs2RFaY2Wi23KzWwoVnXJlFo0e7suu3KX/ZIravIbHQzwpk78qpkBIVu6GCRyhkVNuDxJo9DH1AIl8SvSrjLSJxG3YEygJTp8xqjH8qtsNLBQKbQVUGfexCzuAGEqS00G+4UWMkzhWo/2jM9IhOXKyRBybsPhb1w0Jn3eTGA4wyN7Ne2EkCogDqIUQ7/CpYIiN4cWn85Z2ZslxCNw/MAWj8BxVqG/e1awWep+ZEEJQkxUgG/Hwya6+WQPNQZVi1vvQ3pzL+lQ6QYgCo2LkNdFxz+C+EfSIkkxByzTHluKCutoD2Gm41/mswxzRLsXoMGpw1uvvPZ7I2n415pUe0CcNZXf6QzD84eMk+8fRVXi2ADCq67R/hxuw+Tx1EUZViyOnEF5pRtmDV48Jn1R4YUJ6pTTKGogF8+ya6kxSAgf4wvBRiAQkPfhQm88ZJuS+EO1ZHeYQe00S3IrpmoBEp7HqEIgfVPPFjy+44zebcR9RsS+Q4+ODCXUexvFXKY2sPshmdeIQQ1EznjV+Qz1G38C1R/OixTuLSsEqwvh5kmwpXNTT8nqNdU4LJz+xNInTIdAkkn1LTR3kI431dlImovHvik/EpI5itwdDSCkEg/7Y0XE+KYsGAE=",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":85,\"reason\":\"Section 1 provides that information disclosed by the Disclosing Party is considered Confidential Information only if it is conspicuously designated as \\\"Confidential\\\" in writing or, for oral disclosures, confirmed in writing within thirty days, which supports the hypothesis that such information must be expressly identified.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 2392,
+   "output_tokens": 254,
+   "output_tokens_details": {
+    "thinking_tokens": 133
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 2392,
+  "output_tokens": 254,
+  "output_tokens_details": {
+   "thinking_tokens": 133
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 1729,
+ "timestamp": "2026-10-14T23:59:40+00:00",
+ "cost_usd": 0.00036620000000000006
+}

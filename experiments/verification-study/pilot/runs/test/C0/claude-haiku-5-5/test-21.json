@@ -1,0 +1,106 @@
+{
+ "item_id": "test-21",
+ "kind": "reader",
+ "dir": "C0",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 321 omitted, sha256 efac3c49d398dc84>\n</document>\n\n<hypothesis>\nReceiving Party shall destroy or return some Confidential Information upon the termination of Agreement.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33CteftysgyYpRzW87M",
+  "container": null,
+  "content": [
+   {
+    "signature": "CAQSzQkKEAgSGAI4AUIIdGhpbmtpbmcSDBwHkine/G6OQ4aJxRoM6lNSTYdO6WFjTQ14IjDwHuolknVfBBeSZo12XsjjlIH0kn6DscNHLXpNPI2IKbEaLvmQ+QagF78bTgYJiBkq6ggOx5lOpws0ZN7TDyZIJcYAbYbmDdVmwIDVknNo/eCi0AKdbrZm0Eir+NGD0Kswakv0kKZzrkKA8xzi2Vew5bFf5/mhll4MfNOLjzx2QnrRMWlEe1itC/Wtd54JPeM6Fj71UdQ76ATZMxFmORa0pOtxOxcDH4W8Q/fQnh/NNOzLMChnEfoTtFgp5HQTx58K1S6OFXFbe8RRMVCD3ueRnq8EYtK5QnxF0fM5bX32K2Zu03FiRftjaMzyjoQJrX2UJl0Wvgmtts9uz0RKnaj/y7F1u7YIJhjPLzkKKDhDXfx+uBA+rcOAMjw8/l4SStXSGMFS6BdAaNjb33YivU7hV+v34SeyxU2h4fNvQ5X8Tpee4OJAAiQjlR7I5VapOXmccZO4z6KfLd5wJrZTtnTtMsuBB3OackRGlBfnBiQgIYSHqepVuVmt0w7Gh6jhS9e6fIWLwwd22Osy9iOy4Or+gO7FoSCHb18bg4Qf01oow6VHL8JAMdlxTaTEdqTnZ3ZG5E0Ts+0R4z2yNvkTGz6BamCLWCl8gwBSdawfDr5EICFYnu4iGVDZ51YNfl6M+78cUNDVlg/M0zcYKzmvFFcae8emUKiLuBa/Ml11Mr+qampsKPKTFPyZqcQjI/J2FVCLCpak5czFbKYNiAN0dBUcd3CG1hGolBQXDE/C6U7VH4goljYS8o/eeVWTlFqZpwU+5Q9mQPUKnFFMyClnwlsXVfdjNnASaTAZ8bl0FAH5KHTmJbbsSP7cjFZghGPqJQmpSA+iVbnpLl2ewQ/L5jemu8X0Vri4Z0x7vQWgfhUcBMrnymb4NIaKJPT88iorMxe4tBk8Mq990bqnRjeRc8XlaxhJptwS/nsG/NYhte/NLwT0qq0Q3j3oXTpEWIVFkCA8xMV1KbEtZPfnEXtdMC5ocN8mbWReakPq4TmJz4HSZpSPcdaVe/C7gICoW0h3tJpAfOgepB0JK26INlZI1LPE+pbkJ7qoa/JfhcKMCZMy5CsRTUInYZdAq/0rbYqkfZCy/Y1OZ0aamOnBVKjgWtERfwl4KiL2IQjEnCdsZbhC7Zj/N161KItuf9yGsaYe0NiSn7fRGQEXtZJ9w2lRuvELMQ/2UlE5LGFiOdSMNCWwwmRLLtVVxq5z+MRjtDIwn0aUBWwtohA2HwLfCMijmqxQxMTmJGc1ubcHw+mb1cticZEqRB9FoCUVMOE5zfxiemoEQLX9Fwa+6hytqqaaKLvnxEgKli+C+sDEtDBezXv3blU5UEdRlWOu4mv8mhrfH46iLK9lzviWIEqHsGRw1ZXGnLD2Nb4KaSX066gUqhjtSwiGlKY1IMlrMdpD4B4NTgM8Z4VGKdfpWiWNEeZDEqn9uB0v9uViRsSsf7tEtEsI12GGr/N5nLlLLljYAY/uzR7sI3t5ft5kTmmLnFMBquAXyehsbp4BdU8LaHZ+Gm6vD4FM/pqyIN3iO4gEdq2YgOVCnLYzuiX97jpPrIjg0DjIGhr/NYHAoVapdCM1VxgB",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"NotMentioned\",\"confidence\":60,\"reason\":\"Section 2 requires the Recipient to return or certify destruction of Confidential Information at the Disclosing Party's request, but the document never ties this to termination of the Agreement and contains no termination clause, so the hypothesis's trigger is not addressed.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 2471,
+   "output_tokens": 327,
+   "output_tokens_details": {
+    "thinking_tokens": 220
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 2471,
+  "output_tokens": 327,
+  "output_tokens_details": {
+   "thinking_tokens": 220
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 2729,
+ "timestamp": "2026-10-15T00:00:01+00:00",
+ "cost_usd": 0.0004106
+}

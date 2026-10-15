@@ -1,0 +1,91 @@
+{
+ "item_id": "dev-09",
+ "kind": "entailment",
+ "dir": "C2",
+ "dry_run": false,
+ "request": {
+  "model": "claude-sonnet-5-5",
+  "max_tokens": 1500,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "supports",
+      "reason"
+     ],
+     "properties": {
+      "supports": {
+       "type": "boolean"
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "A reader of a contract claims that the quoted passages below settle a statement (the hypothesis). You do not see the contract; judge only from the quotes.\n\n<hypothesis>\nConfidential Information shall only include technical information.\n</hypothesis>\n\n<claimed_label>\nContradiction\n</claimed_label>\n\n<quotes>\n<quote>all information provided orally by a Party which that Party desires to protect from disclosure</quote>\n<quote>technical data, marketing, business information, and pricing</quote>\n</quotes>\n\nThe labels mean:\n- Entailment: the quotes state or clearly imply that the hypothesis is true.\n- Contradiction: the quotes state or clearly imply that the hypothesis is false.\n\nDecide whether the quotes, taken as written, are enough on their own to support the claimed label. Answer supports = false if the quotes are about something else, support the opposite label, support only part of the hypothesis, or need context the quotes do not give.\n\nAnswer only with the JSON object the response format asks for: supports (true or false) and a one-sentence reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg337jgn4R6KuWsA3SWbW",
+  "container": null,
+  "content": [
+   {
+    "citations": null,
+    "text": "{\"supports\":true,\"reason\":\"The quotes show Confidential Information covers oral information a party wants protected and also marketing, business information, and pricing, so it is not limited to technical information, which contradicts the hypothesis.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-sonnet-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 565,
+   "output_tokens": 74,
+   "output_tokens_details": {
+    "thinking_tokens": 0
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 565,
+  "output_tokens": 74,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 2046,
+ "timestamp": "2026-10-14T23:58:51+00:00",
+ "cost_usd": 0.00187
+}

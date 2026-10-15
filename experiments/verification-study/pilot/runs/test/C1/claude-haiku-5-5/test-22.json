@@ -1,0 +1,113 @@
+{
+ "item_id": "test-22",
+ "kind": "reader",
+ "dir": "C1",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 41 omitted, sha256 29d639a3ee48258f>\n</document>\n\n<hypothesis>\nSome obligations of Agreement may survive termination of Agreement.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nEvidence is required. For Entailment or Contradiction, give the passages of the document your label rests on as a list of quotes. Each quote must be copied character for character from the document: no paraphrase, no ellipses, no added words, no changed punctuation. A quote may be a whole sentence or part of one; give 1 to 3 quotes, each as short as it can be while still carrying the point. A program will check every quote against the document, and a reading with a quote that is not in the document counts as a failed reading. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33DJwfw9jBvS2ChZe1q",
+  "container": null,
+  "content": [
+   {
+    "signature": "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",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":68,\"quotes\":[\"The Contractor shall, at its own expense, return to the State all Confidential Information in its care, custody, control or possession upon request of the State or on termination of the Contract.\"],\"reason\":\"The agreement has no explicit survival clause, but its confidentiality and return duties apply to information the Contractor may still hold at termination, which implies some obligations continue after the Contract ends.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 4136,
+   "output_tokens": 455,
+   "output_tokens_details": {
+    "thinking_tokens": 313
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 4136,
+  "output_tokens": 455,
+  "output_tokens_details": {
+   "thinking_tokens": 313
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 3385,
+ "timestamp": "2026-10-15T00:00:08+00:00",
+ "cost_usd": 0.0006411
+}

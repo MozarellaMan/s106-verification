@@ -1,0 +1,107 @@
+{
+ "item_id": "dev-05",
+ "kind": "adjudicate",
+ "dir": "C5",
+ "dry_run": false,
+ "request": {
+  "model": "claude-opus-5-5",
+  "max_tokens": 8000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\n<document 16 omitted, sha256 37aa63f0a3363f24>\n</document>\n\n<hypothesis>\nReceiving Party may retain some Confidential Information even after the return or destruction of Confidential Information.\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: Entailment\nconfidence: 8\nreason: Section 5 lets the Recipient keep notes and documents referencing Confidential Information, which the document says remain governed by the agreement, though the hypothesis is only loosely matched to this provision.\n<quote check=\"exact\">Notes and other documents referencing or relating to Confidential Information may be made and kept by the Recipient, but shall continue to be governed by this Confidentiality Agreement until they are destroyed.</quote>\n</reading>\n<reading id=\"B\">\nlabel: Entailment\nconfidence: 80\nreason: Section 5 lets the Recipient keep notes and documents relating to Confidential Information, which are themselves Confidential Information under Section 1, so some may be retained despite the return or destruction requirement.\n<quote check=\"exact\">Notes and other documents referencing or relating to Confidential Information may be made and kept by the Recipient, but shall continue to be governed by this Confidentiality Agreement until they are destroyed.</quote>\n</reading>\n<reading id=\"C\">\nlabel: Entailment\nconfidence: 80\nreason: Although Confidential Information must be returned or destroyed within ten days of the Project ending, the agreement lets the Recipient make and keep notes relating to it, which remain covered by the agreement until destroyed.\n<quote check=\"exact\">Notes and other documents referencing or relating to Confidential Information may be made and kept by the Recipient, but shall continue to be governed by this Confidentiality Agreement until they are destroyed.</quote>\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg337Jnpa3oNrdrusJsxe",
+  "container": null,
+  "content": [
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":82,\"quotes\":[\"Notes and other documents referencing or relating to Confidential Information may be made and kept by the Recipient, but shall continue to be governed by this Confidentiality Agreement until they are destroyed.\"],\"reason\":\"Section 4 requires return or destruction of Confidential Information, but Section 5 lets the Recipient make and keep notes and documents relating to it (which Section 1 treats as Confidential Information) until they are destroyed, so some may be retained.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-opus-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 3999,
+   "output_tokens": 171,
+   "output_tokens_details": {
+    "thinking_tokens": 0
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 3999,
+  "output_tokens": 171,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 2898,
+ "timestamp": "2026-10-14T23:58:46+00:00",
+ "cost_usd": 0.019416
+}

@@ -1,0 +1,81 @@
+{
+ "item_id": "test-03",
+ "kind": "adjudicate",
+ "dir": "C4",
+ "dry_run": false,
+ "request": {
+  "model": "claude-opus-5-5",
+  "max_tokens": 8000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\n<document 307 omitted, sha256 645991b864e68f2a>\n</document>\n\n<hypothesis>\nReceiving Party may create a copy of some Confidential Information in some circumstances.\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: NotMentioned\nconfidence: 60\nreason: The agreement addresses return or destruction of copies in Section 8 but never expressly permits the Receiving Party to make copies, so it neither states nor clearly implies the hypothesis.\n(no quotes)\n</reading>\n<reading id=\"B\">\nlabel: NotMentioned\nconfidence: 66\nreason: The agreement says nothing about whether the Receiving Party may or may not copy Confidential Information; Section 8 only mentions returning or destroying copies on request, which does not clearly permit or prohibit copying.\n(no quotes)\n</reading>\n<reading id=\"C\">\nlabel: Entailment\nconfidence: 72\nreason: The return/destruction clause refers to copies and reproductions of furnished information, which implies the Receiving Party may make copies in some circumstances.\n<quote check=\"exact\">shall be returned to it or destroyed promptly at its request (together with all relevant copies, extracts, plans, schematics or other reproductions)</quote>\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "subagent-C4__claude-opus-5-5__test-03",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"label\": \"Entailment\", \"confidence\": 70, \"quotes\": [\"shall be returned to it or destroyed promptly at its request (together with all relevant copies, extracts, plans, schematics or other reproductions)\"], \"reason\": \"Section 8 contemplates the Receiving Party holding copies and reproductions of furnished information that must be returned or destroyed on request, which implies copying is permitted in some circumstances.\"}"
+   }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+   "input_tokens": null,
+   "output_tokens": null
+  }
+ },
+ "usage": {
+  "input_tokens": null,
+  "output_tokens": null
+ },
+ "latency_ms": null,
+ "timestamp": "2026-10-15T00:18:26+00:00",
+ "cost_usd": null,
+ "client": "subagent",
+ "cost_usd_estimated": true
+}

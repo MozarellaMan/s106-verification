@@ -1,0 +1,25 @@
+{
+ "type": "object",
+ "properties": {
+  "label": {
+   "type": "string",
+   "enum": [
+    "Entailment",
+    "Contradiction",
+    "NotMentioned"
+   ]
+  },
+  "evidence": {
+   "type": "string"
+  },
+  "reason": {
+   "type": "string"
+  }
+ },
+ "required": [
+  "label",
+  "evidence",
+  "reason"
+ ],
+ "additionalProperties": false
+}

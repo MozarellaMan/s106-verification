@@ -1,0 +1,106 @@
+{
+ "item_id": "test-12",
+ "kind": "reader",
+ "dir": "C0",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 42 omitted, sha256 6cd0c1665fefd68f>\n</document>\n\n<hypothesis>\nReceiving Party shall notify Disclosing Party in case Receiving Party is required by law, regulation or judicial process to disclose any Confidential Information.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33B5geKhWn96wdyxgJS",
+  "container": null,
+  "content": [
+   {
+    "signature": "CAQS6wgKEAgSGAI4AUIIdGhpbmtpbmcSDFtfd+fN7AuVwX9zuxoMn+fzOMNBBFkLUdxPIjAYfOlniozlQ6nOKq3Z8GFOb3xCDFkEfIQDIy9TsvRqhy9QNJKEgjHKpHm+sctZcE8qiAgAWYqrKYuLazyUC2TS2FTFJVY6kYTaPrlu1ZL7Dkxi6kMTtd9L5pjAecz86B0fMiIX8Hcb2I5ZHs6SDOi08AGq3b8X2NAwPCg0w8xiNs+2gIjmE4QYJdsuuWMZ2Idi4PBeXadjk94lDGDvbxs89oHcgLGQx8xMFnUeDk1P62oLIUFkDmaMi3ZGByHlh2AJ4aobdscQF735oaNWfQo7vHJ7fIALXpbKPdW93lWLKcxaxtCLKYv7MET1RkMIiyy6gPfdPRozaY11pfkILskPciDsjsLCrVheAFdkuyfpW3u6g+PqsZCtRnQlDAbQWkoAy4DthZ+WThIfiygl0LUG/+WiTkkwZFZHpRVbc+/3GxLepGxFbiPzEWu5D/dWs5OVzdaUUAS2rlcLvFv8j2xJkZ6/hb8sbBSopdP7umUDULXAb2RlBkVUlvBCt/HZGHXKeoaqfldaYtRu9jyf8XxdBP0zoZSAlTrptrfxGJ7Ilq5JJsr9smXFHylWNtTUtOHL9tTMb6H4HLal+xv8HDV9KuKFnVb89OlLWh2d1VlYtV49Hj16I9Gfp6DbPQ5eOKrSMpwATkokfhprxc5BlnLw4ID+tMRnSOSdLeiCF8jdTPYkoYdlGmvX6kQWBhorxJZLdUqAjtOy2DjD8wIYB5xHw1iDJEtRiiZchBs3BtyO7BbAhJTVLqOQLJT4wenBu4DPm9ncibI/uFZQMQCZfkzX1V4pGunmYR5PfLcvV+0+XC96CNy1tnlBAdgMA6rMaGJWf/ZVH1hDO+lmxF4J4pYK8dLaU7aHjF3IWF1bQ0J/W6yDFD8pR90wighHp8EoHboH+FfYHsLvWHQjmHPDyJYFg73Zu/4A7bptPf7nJSudcQ1RT6KZ+WQx8fAYQ92uo6chHd2YvKm7rxQAIfUnBi99w7FmBEWuVYd7po6J6A4Y2W8dz57aZybPkrBBb4CngibtHrSSyoakDqHITDQEXnOgUALyb40ETfhkIjnzVeau2RCK8p++SBrnmyBGCvbl8touuNJ+PZnWlhLhQ80zEFUpV/19fm3mz1vGML5pmM0+jjxuyNBmYjhFvYy5tZerHVwB0DfHQXNadzGROGfWW81mrvmVeL1DhveGkLwZ+TUZAcOwD9AH9e4/NYQyAcb5bRu83L5U92WbE2567As6kFJ+sraTKd9ZB8siOLeUNwOQCpXYk98u3rbF590xdWZqIiqC4k+YHDY67MFJXjrtahTN7DPFnu0kR2+FpJ/YuRwJvXNHfU1PcKCcwyAqHLiJj/2cSk+OkaZNg/u7SJoH6B/teFnwV5hs2Fn5pAzpPTssQhShKdfIw0Nrm6F0KSHzqgw3mTsFtvyh2AKSlowe9aPoOXgF1wHP4GbVhUoYAQ==",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":80,\"reason\":\"Section 3d says that before disclosing confidential information under a court order or government demand, a party must give the other enough prior notice (when possible) to seek a protective order, which matches the hypothesis's notice requirement apart from the 'when possible' qualifier and differing party terminology.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 3186,
+   "output_tokens": 282,
+   "output_tokens_details": {
+    "thinking_tokens": 171
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 3186,
+  "output_tokens": 282,
+  "output_tokens_details": {
+   "thinking_tokens": 171
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 1991,
+ "timestamp": "2026-10-14T23:59:36+00:00",
+ "cost_usd": 0.0004596
+}

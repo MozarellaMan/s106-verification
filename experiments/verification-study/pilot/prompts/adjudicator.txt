@@ -1,0 +1,26 @@
+Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.
+
+<document>
+{{DOCUMENT}}
+</document>
+
+<hypothesis>
+{{HYPOTHESIS}}
+</hypothesis>
+
+<readings>
+{{READINGS}}
+</readings>
+
+The readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked "missing" was not found in the document. Read the relevant parts of the document yourself.
+
+Choose exactly one label:
+- Entailment: the document states or clearly implies that the hypothesis is true.
+- Contradiction: the document states or clearly implies that the hypothesis is false.
+- NotMentioned: the document does not address the hypothesis, or says too little to decide.
+
+Evidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.
+
+Give a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.
+
+Answer only with the JSON object the response format asks for: label, confidence, quotes, reason.

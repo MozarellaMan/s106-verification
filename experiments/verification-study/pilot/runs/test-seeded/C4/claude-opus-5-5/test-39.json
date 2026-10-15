@@ -1,0 +1,81 @@
+{
+ "item_id": "test-39",
+ "kind": "adjudicate",
+ "dir": "C4",
+ "dry_run": false,
+ "request": {
+  "model": "claude-opus-5-5",
+  "max_tokens": 8000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\n<document 31 omitted, sha256 58eead4ce1dffb26>\n</document>\n\n<hypothesis>\nReceiving Party may independently develop information similar to Confidential Information.\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: NotMentioned\nconfidence: 80\nreason: The NDA addresses only the Borrower's use and disclosure of the Lending Agent's Information, and its only independent-development language (Section 4(c)) concerns whether the Information itself stays confidential, not whether the Borrower may develop similar information.\n(no quotes)\n</reading>\n<reading id=\"B\">\nlabel: Contradiction\nconfidence: 72\nreason: The agreement expressly removes the usual independent-development exclusion by requiring confidentiality even where the Information is independently learned, obtained or developed by Borrower.\n<quote check=\"exact\">Borrower shall be required to keep the Information confidential even to the extent that the Information (a) becomes publicly known through means other than a breach of this Agreement by Borrower; (b) was in the possession of Borrower prior to receipt thereof from the Lending Agent; or (c) is independently learned, obtained or developed by Borrower without violating the terms of this Agreement.</quote>\n</reading>\n<reading id=\"C\">\nlabel: Contradiction\nconfidence: 72\nreason: The agreement makes independently developed information subject to the confidentiality obligation rather than carving it out, so the receiving party has no freedom to independently develop and use such information.\n<quote check=\"exact\">Borrower shall be required to keep the Information confidential even to the extent that the Information</quote>\n<quote check=\"exact\">(c) is independently learned, obtained or developed by Borrower without violating the terms of this Agreement</quote>\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "subagent-C4__claude-opus-5-5__test-39",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"label\":\"Contradiction\",\"confidence\":60,\"quotes\":[\"Borrower shall be required to keep the Information confidential even to the extent that the Information\",\"(c) is independently learned, obtained or developed by Borrower without violating the terms of this Agreement\"],\"reason\":\"Section 4 keeps information under the confidentiality obligation even when the Borrower develops it independently, which goes against the usual freedom to develop similar information independently.\"}"
+   }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+   "input_tokens": null,
+   "output_tokens": null
+  }
+ },
+ "usage": {
+  "input_tokens": null,
+  "output_tokens": null
+ },
+ "latency_ms": null,
+ "timestamp": "2026-10-15T02:30:44+00:00",
+ "cost_usd": null,
+ "client": "subagent",
+ "cost_usd_estimated": true
+}

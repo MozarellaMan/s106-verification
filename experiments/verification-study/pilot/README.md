@@ -1,0 +1,318 @@
+# Verification pilot on ContractNLI
+
+The runner for the pilot in `/home/user/study/pilot-design.md`: conditions C0-C5 on 40 ContractNLI test
+pairs, with prompts developed on 10 dev pairs. **No live call has been made.** Every live call is paid
+and needs the project owner's go. Everything here was built and tested in `--dry-run` mode.
+
+Data: ContractNLI, Koreeda & Manning 2021, CC BY 4.0, https://stanfordnlp.github.io/contract-nli/.
+`data/contractnli/` holds `sample40.jsonl` (test), `dev10.jsonl` (dev) and the README that gives the
+selection rule. `data/contractnli_sample.py` is the script that drew them. It is copied verbatim, so its
+input and output paths still point at `/home/user/study/data/`; edit `SRC`/`OUT` to rerun it elsewhere.
+
+## Run
+
+Do dev first, then test. Prompts are tuned on dev only. Never change a prompt, a threshold or the
+analysis after you have looked at test results. Test is run once per condition.
+
+    # no key, no cost: fake client, writes under dryrun/
+    python3 run.py --split dev  --dry-run
+    python3 run.py --split test --dry-run
+    python3 analyse.py --split dev  --dry-run
+    python3 analyse.py --split test --dry-run
+    (cd estimate && cargo build --release)
+    estimate/target/release/estimate dryrun/results/test/votes.csv dryrun/results/test/readers.csv \
+        > dryrun/results/test/estimate.csv
+
+    # live (paid): asks you to type "yes" unless --yes
+    python3 run.py --split dev  --max-items 1 --cap 3.00       # smoke test: one dev item, every condition
+    python3 run.py --split dev  --conditions C0,C1,C2,C3,C4,C5 --cap 3.00   # resumes; the rest of dev
+    python3 analyse.py --split dev
+    python3 run.py --split test --conditions C0,C1,C2,C3,C4,C5 --cap 3.00
+    python3 analyse.py --split test
+    estimate/target/release/estimate results/test/votes.csv results/test/readers.csv > results/test/estimate.csv
+
+The key comes from `ANTHROPIC_API_KEY`. If that is not set, it comes from `--key-file` (default
+`~/.config/s106/anthropic_key`, surrounding whitespace trimmed). The key is never printed or saved.
+
+Flags: `--conditions` (any subset of C0-C5; only the calls those conditions need are made),
+`--dataset {clean,ocr,seeded}` (default clean; ocr/seeded only with `--split test`, see
+[Damaged test variants](#damaged-test-variants)), `--cap` (USD, default 3.00; 10.00 of fake money with `--dry-run`, because the
+fake costs of dev, test and both variants add up to about $6.56), `--workers` (parallel items, default 4), `--max-items N` (only the first
+N items of the split; a later run without it resumes), `--dry-run`, `--yes`.
+
+With no key, a live run exits (status 1) before it creates any file or directory. Exit status 2: the
+cap stopped the run, or a non-retryable API error (400, 401, 403, 404...) did, at its first occurrence.
+Exit status 1 after a finished run: some calls failed after the SDK's retries (see below).
+
+## Calls, resume and the cap
+
+Each condition is built from a small set of primitive calls. Each call is made at most once:
+
+| call | model | saved under `runs/<split>/` | used by |
+|---|---|---|---|
+| reader, no evidence (`prompts/reader_c0.txt`) | Haiku 5.5 | `C0/claude-haiku-5-5/` | C0 |
+| reader, verbatim quotes (`prompts/reader_quotes.txt`) | Haiku 5.5 | `C1/claude-haiku-5-5/` | C1, C2, C3-C5 |
+| same reader prompt | Sonnet 5.5, Opus 5.5 | `C3/claude-sonnet-5-5/`, `C3/claude-opus-5-5/` | C3-C5 |
+| entailment check of the Haiku quote reading (`prompts/entailment.txt`; hypothesis, label and quotes only) | Sonnet 5.5 | `C2/claude-sonnet-5-5/` | C2 |
+| adjudication (`prompts/adjudicator.txt`; document, all three readings with their quote-check results) | Opus 5.5 | `C4/claude-opus-5-5/` for items C4 flags, `C5/claude-opus-5-5/` for the rest | C4 (flagged items), C5 (all) |
+
+- Each file `<item_id>.json` holds the request (model, max_tokens, output_config with the JSON schema,
+  and the prompt with the document replaced by its doc id and hash), the raw response, the token usage,
+  the latency in ms, a UTC timestamp, the cost and a `dry_run` flag. If the file exists, the call is
+  never made again. A stopped run therefore resumes where it stopped. A truncated or refused answer is
+  saved like any other. Delete its file only if you mean to pay for a retry. A saved record is reused
+  only if its stored request equals the request the current code would send; if a prompt, schema,
+  effort or max_tokens has changed, the run exits rather than mix versions (move `runs/<split>/` aside).
+- Errors: the SDK retries 408/409/429/5xx/529 and connection errors 8 times with backoff. A call that
+  still fails is not saved as a record; it goes to `runs/<split>/errors.csv`, the item's later calls
+  (entailment, adjudication) are not made, the run carries on with other items, ends with status 1,
+  and the same command retries it. analyse.py prints every incomplete item and `metrics.csv` has
+  `n_incomplete`. A non-retryable error stops the whole run at once.
+- `runs/<split>/ledger.csv` gets one row per call made, with tokens, `stop_reason` and cost from the
+  price table below, computed from the response's `usage.input_tokens` and `usage.output_tokens`
+  (output includes thinking). No `cache_control` is sent, so the cache fields should be 0; if any
+  appear they are counted at 1.25x the input price, never ignored. The ledger row is written before
+  the call's reservation is released, so the cap never misses a paid call.
+- Cap: before each call the runner adds up every ledger under `runs/` (dev, test, test-ocr and
+  test-seeded together, so one $3.00 covers the whole pilot). It also adds the worst case of the calls in flight and the worst case of
+  the next call (input at 2 characters per token, output at `max_tokens`). If that sum would pass
+  `--cap`, it starts no more calls, prints the reason and exits with status 2. Because the check uses
+  the worst case, a run can stop a little below the cap.
+- C4 flags an item when the three readers' labels are not all the same, or any reader's quote check
+  fails, or any reader gave no usable answer. The entailment check is not used for this flag.
+- Dry-run output goes to `dryrun/runs` and `dryrun/results`, never to `runs/`. A live run refuses any
+  record marked `dry_run` (and a dry run any live record); analyse.py refuses records whose flag does
+  not match `--dry-run`, and `metrics.csv` and `readers.csv` carry a `dry_run` column.
+- Ctrl-C stops the run before its next call; calls in flight finish and are recorded.
+
+API usage (Python SDK `anthropic` 1.14, `client.messages.create`): structured outputs through
+`output_config={"format": {"type": "json_schema", "schema": ...}}`, with no prefill and no
+temperature. Thinking is left at each model's default (adaptive), with no `budget_tokens`. **Readers
+and the entailment check run at `output_config.effort = "low"` to keep cost down.** The adjudicator
+runs at the model default (medium on Opus 5.5). `max_tokens` (thinking included): readers 3000,
+entailment 1500, adjudicator 8000. A refusal (`stop_reason: "refusal"`, no fallback model, so each
+reader stays one model) or a truncation is saved and counts as no usable answer. The JSON schemas leave out numeric bounds. Confidence
+is clamped to 0-100 when it is read back.
+
+## Subagent bridge
+
+Why it exists: on 15 Oct 2026 the live test run hit the workspace API spend limit at $1.23 of the
+pilot's $3.00 cap (the API answered 400 "You have reached your specified workspace API usage limits"
+until 1 Nov; see `runs/test/errors.csv`). Dev was complete, and test C0-C3 about half done. The
+remaining calls are answered by Claude Code subagents instead: one fresh Haiku, Sonnet or Opus
+subagent per pending call, given the exact prompt text. `bridge.py` turns the call plan into files
+for them and their answers back into records, so `analyse.py` and `estimate/` run unchanged.
+
+    python3 bridge.py export --split test [--dataset clean|ocr|seeded] [--conditions C0,...]
+    # the parent answers every row of bridge/<run>/MANIFEST.csv, writing <id>.response.json
+    python3 bridge.py ingest --split test [--dataset ...]
+    # repeat export/ingest until export says nothing is pending or blocked, then
+    python3 analyse.py --split test
+
+- `export` builds the same plan as `run.py` (same items, conditions, prompts, schemas, C4 flag rule,
+  C4/C5 adjudication dirs; existing records get the same dry-run and request-equality checks) and
+  writes each call that has no record to `bridge/<run>/pending/<dir>__<model>__<item>.json`
+  (`record_skeleton`: item_id, kind, dir, dry_run and the full API request, document included),
+  `.prompt.txt` (the exact user message, then a short trailer that asks for the bare JSON object and
+  gives the schema, because a subagent has no `output_config`), and `.schema.json`. It writes
+  `bridge/<run>/MANIFEST.csv` (id, dir, model, kind, item, prompt_path, schema_path) and prints
+  the counts per model. Calls that need answers not in yet go in later waves: the entailment check
+  needs the C1 Haiku reading, adjudication needs all three readers. Export prints how many are blocked.
+  Unlike `run.py`, the Sonnet and Opus readers do not wait for the Haiku reading, since they never
+  depended on it.
+- The response file, beside the pending call: `<id>.response.json` =
+  `{"text": "<the subagent's JSON answer as a string>", "input_tokens": int|null, "output_tokens":
+  int|null, "latency_ms": int|null, "model": "claude-...", "client": "subagent"}`. `model` must name
+  the same family (haiku/sonnet/opus) as the call.
+- `ingest` checks the answer against the call's schema: valid JSON (one surrounding code fence is
+  tolerated), required keys only, label in the enum, confidence an integer, quotes a list of strings,
+  reason a string, `supports` a boolean for the entailment check. Confidence is stored as given and
+  clamped to 0-100 when read, as for API records. A valid answer becomes
+  `runs/<run>/<dir>/<model>/<item>.json` in `run.py`'s record shape (request stored with the document
+  replaced by its id and hash; `stop_reason: "end_turn"` in the response, so it parses like an API
+  answer). It also gets a ledger row with `stop_reason` = `subagent`. The call's files move to
+  `bridge/<run>/done/`. An invalid answer stays in `pending/` with `<id>.invalid.txt` giving the
+  reason, and ingest exits 1. Write a corrected response file and ingest again.
+- **Subagent records are marked.** Each has `"client": "subagent"` and `"cost_usd_estimated": true`.
+  Its `cost_usd` is the price table applied to the token counts the parent reported, or null when it
+  reported none. Null tokens, latency or cost count as 0 in `metrics.csv` sums. No API money was
+  spent on these calls, so their cost is only an estimate of what the API would have charged.
+  `metrics.csv` has `n_subagent_records` (records behind each condition's rows), `items.csv` a
+  `<reading>_client` column (`api` or `subagent`) for each reading, and `readers.csv` `n_subagent`.
+  Otherwise these records are analysed exactly like API records. `run.py` also accepts them on a
+  later resume, since their stored request is identical. Their estimated ledger costs count towards
+  `run.py`'s cap like any other ledger row.
+- **A subagent is not the API call.** It is the same model running inside a Claude Code harness,
+  with that harness's system prompt and tools. It is not a Messages API call at `effort: "low"` with
+  structured output and `max_tokens`. Effort, thinking, the schema enforcement and the context all
+  differ, so reader behaviour (accuracy, confidence, quote fidelity, abstention) may differ from the
+  API records in the same run. Split results by `client` before you compare conditions or readers.
+- Testing: `--dry-run` marks records `dry_run=true` and defaults to `dryrun/`. `--root DIR` puts
+  `runs/` and `bridge/` under DIR. The bridge was tested on a copy of the dry-run tree with 39
+  records deleted and their original answers fed back as subagent responses (plus invalid ones).
+  The rebuilt records had identical requests and C4/C5 placement, `run.py --dry-run` reused them,
+  and `analyse.py` and `estimate` gave identical results apart from the new columns and the null-usage
+  call.
+
+## Cost table (list prices 14 Oct 2026, per million tokens)
+
+| model | input | output |
+|---|---|---|
+| claude-haiku-5-5 | $0.10 | $0.50 |
+| claude-sonnet-5-5 | $2.00 | $10.00 |
+| claude-opus-5-5 | $4.00 | $20.00 |
+
+The design estimates about $3.00 for everything. The dry run's fake token counts (input = prompt
+characters / 4, output 150-450) give $0.50 for dev and $2.02 for test. Real output counts include
+thinking tokens, and Haiku 5.5's tokenizer counts about 30% more tokens. Both could push real cost
+above that estimate, mostly through Opus. The cap is the safeguard. Read the dev ledger before you
+start test.
+
+What it actually cost (15 Oct 2026): $1.23 through the API for 165 calls (dev $0.52 for 58, clean test
+$0.71 for 107) before the workspace limit stopped it; the other 324 calls ran as subagents with no token
+record. Pricing all 489 calls at the mean API cost per call of the same model and kind gives about $4.10
+for a full rerun. The $6.56 above is the dry run's fake-token figure and overstates it.
+
+## Outputs (`results/<split>/`)
+
+**Every figure in the report comes from `results/*.csv`** (or `dryrun/results/*.csv` for the dry run).
+Nothing is typed in by hand.
+
+- `metrics.csv`: one row per condition. Every rate column `x` comes with `x_k`, `x_n` and a Wilson 95%
+  interval `x_lo`, `x_hi`.
+- `items.csv`: one row per item and condition, with the final label and every reading behind it. That
+  is each reader's label, confidence, quote-check status (`exact`, `near(d)`, `missing` per quote) and
+  reason, the entailment verdict, and the adjudication. Failure cases for the report come from here.
+- `votes.csv`: the three quote readers' labels in the estimator's format
+  (`scheme,variable,source,reader,kind,family,status,value` = item, V1, deed, model, llm, model, found, label).
+- `readers.csv`: each reader's measured accuracy on the split, to compare with the estimate.
+- `followups.md` / `followups.csv` (from `followups.py`): accuracy by client and by gold label, exact
+  McNemar tests between conditions, the adjudication detail per flagged item, and cost per correct answer
+  on the items whose calls were all API calls. Written after the outside review of 15 Oct 2026.
+- `control-adjudication.csv` (from `control_adjudicate.py`, test and test-seeded only): the C4 adjudication
+  re-asked with the three readings shuffled and labelled A/B/C, no model names, answered by a fresh Opus
+  subagent; columns compare it with the original adjudication and say whether Opus's own reading moved
+  out of position C.
+- `replicate.csv` (from `replicate_compare.py`, test only): items test-00..09, originally read through the
+  API, re-read as subagents for C1 Haiku, C3 Sonnet and C3 Opus, label against label.
+- `../second-coder/second-coder.csv`: a blind second coding of the 31 seeded edits and the three clean items
+  every reader disagreed with ContractNLI on (dev-05, test-23, test-29), by an Opus subagent that saw the
+  document and hypothesis only. A model, not a person.
+- `estimate.csv` (from the Rust crate): `reader` rows with the estimator's point estimate, lower bound
+  (2.5th percentile over resampled items), `fits` and gate pass, beside the measured accuracy. `item`
+  rows give the majority label and its posterior chance of error from `accuracy::error()`.
+
+### What the final answer is, per condition
+
+- C0, C1: the Haiku reading. C1 is flagged when its quote check fails.
+- C2: the C1 reading. It is flagged when the quote check fails or Sonnet says the quotes do not support
+  the label. NotMentioned readings have no quotes and get no check.
+- C3: the majority of the three readers. Its confidence is the mean confidence of the majority readers
+  times their share of the three (2/3 or 1; a reader with no usable answer still counts in the three). A three-way split gives NotMentioned with confidence 0. C3 is flagged
+  exactly when C4 would adjudicate.
+- C4: the adjudicator's answer on flagged items, otherwise the C3 answer. C5: the adjudicator's answer
+  on every item. Both are flagged when the adjudicator's own quote check fails.
+
+### Metric definitions
+
+- `accuracy`: final label = gold label.
+- `false_conf_high`: confidence >= 90 and wrong. `false_conf_high_unflagged` counts only those the chain
+  did not flag, which are the confident errors it would have let through.
+- `unanimous_wrong` (C3-C5): the three readers agree, the final label is theirs, and it is wrong.
+  `all_readers_wrong`: every reader is wrong. `all_wrong_same_label`: every reader is wrong with the
+  same label (a shared error).
+- `flag_rate`: share of items the condition flags (see above).
+- Abstention: `abstain_when_answer` is NotMentioned predicted when gold is Entailment or Contradiction
+  (n = gold non-NM). `answer_when_not_mentioned` is Entailment or Contradiction predicted when gold is
+  NotMentioned. An item with no usable final answer counts as neither (but as wrong for accuracy).
+- `ece_5bin`: expected calibration error. Final confidence goes into five equal bins on 0-100. The
+  figure is the sum over bins of |accuracy - mean confidence|, weighted by bin size.
+- `quote_fail_rate`: over every Entailment or Contradiction reading the condition uses (Haiku for
+  C1/C2; three readers for C3; three readers plus the adjudicator for C4/C5), the share whose check
+  fails. A check fails on any quote that is not `exact` after whitespace, quote-mark and dash
+  normalisation (also ligatures such as `ﬁ` -> `fi` and `…` -> `...`, which occur in these
+  documents), or on no quotes at all. `near` means Levenshtein distance <= 3 to some window of the
+  document. It is recorded but still counts as a failure.
+- `entail_unsupported_on_passed` (C2): of the readings that passed the quote check and got a usable
+  entailment answer, the share Sonnet judged unsupported (a refused check flags the item but is left
+  out here). This is design negative finding 2.
+- `gold_evidence_precision` / `gold_evidence_recall`: character-level overlap of the located quotes
+  with the gold evidence spans. Precision is quoted characters inside gold / quoted characters; recall
+  is gold characters quoted / gold characters. Both are means over readings with a label on items whose
+  gold is not NotMentioned. `gold_evidence_hit` is the share of those readings with any overlap.
+- `mean_latency_ms_per_item`: mean over items of the summed latency of the condition's calls, as if run
+  in sequence. `input_tokens`, `output_tokens`, `cost_usd`: totals over the condition's calls. Shared
+  calls count in every condition that uses them, so condition costs do not add up to the ledger.
+
+## Damaged test variants
+
+`data/contractnli/sample40_ocr.jsonl` (OCR-style character noise, CER about 2%) and
+`sample40_seeded.jsonl` (one planted meaning edit in 31 of the 40 items; `gold_label` is the label
+after the edit) are built by `corrupt.py` and described in `data/contractnli/CORRUPTION.md`. They
+have the same item ids and fields as `sample40.jsonl`, plus `cer`/`ocr_ops` or `seed_edit`.
+
+    python3 run.py     --split test --dataset ocr    --conditions C0,C1,C2,C3,C4,C5 --cap 3.00
+    python3 analyse.py --split test --dataset ocr
+    python3 run.py     --split test --dataset seeded --conditions C0,C1,C2,C3,C4,C5 --cap 3.00
+    python3 analyse.py --split test --dataset seeded
+
+- Records, `ledger.csv` and `errors.csv` go to `runs/test-ocr/` and `runs/test-seeded/`, results to
+  `results/test-ocr/` and `results/test-seeded/` (`dryrun/...` with `--dry-run`). The clean
+  `runs/test/` and `results/test/` are never read from or written to by a variant run, except that
+  the ocr analysis reads `results/test/items.csv` for the comparison below.
+- C0-C5, the prompts, the quote check and the metrics above are unchanged; they run on the variant
+  text and are scored against the variant's gold label and gold spans.
+- The request-equality reuse check applies to these records as to any other. The document's hash is
+  in the stored request, so a record made on another variant's text is refused.
+- The cap is shared: these ledgers count towards the same total as dev and test. The dry run's fake
+  costs are about $2.02 per variant, so with dev and test already spent **a $3.00 cap will stop the
+  variant runs**; the cap for them is the owner's decision.
+
+Extra columns in `metrics.csv` (rates come with `_k`, `_n`, `_lo`, `_hi` as above):
+
+- seeded only. `seeded_items`: items with a non-null `seed_edit`. Every column below is over those items.
+  - `follow_rate`: share of seeded items where the condition's final label is the new gold label,
+    meaning the reader followed the planted change.
+  - `all_three_follow` (C3-C5): all three readers gave the new gold label. `all_three_original`
+    (C3-C5): all three gave the old gold label, so all three ignored the planted text. A reader with
+    no usable answer counts as neither. The denominator is `seeded_items`. For the 3 `number_change`
+    items the old and new labels are the same (Entailment), so a reader there counts in both. Only the
+    number columns below tell those items apart.
+  - `quote_contains_edit`: of the readings the condition uses that carry quotes (Haiku for C1/C2,
+    the three readers for C3, plus the adjudicator for C4/C5, each with a usable answer, NotMentioned
+    included), the share with a located quote (`exact` or `near`) that overlaps the changed
+    characters. Those are `new_text` minus the prefix and suffix it shares with `original_text`,
+    trimmed of whitespace (for an inserted sentence, the whole sentence).
+  - `number_quote_new` / `number_quote_old`: over readings with at least one quote on
+    `number_change` items, the share whose quotes contain the new number phrase as a word
+    (`twenty-four` or `24`; `ninety` or `90`; `two`) / the old one (`twelve`, `12`; ...). These are
+    the words found only in `new_text` / only in `original_text`. There are only 3 items, so treat
+    these as anecdotes.
+- ocr only. `quote_exact_rate`: of the E/C readings the condition uses, the share whose quote
+  check passes, i.e. every quote `exact` (= 1 - `quote_fail_rate`). `quote_exact_rate_clean` (and
+  `_clean_n`) gives the same figure rebuilt from the clean run's `results/test/items.csv`, when that
+  file exists, and `quote_exact_rate_vs_clean` = here - clean. Otherwise those columns are left empty.
+- `items.csv` of the seeded run has a `seed_edit_kind` column (empty for the 9 unchanged items).
+
+Provenance and caveats. The corruptions, the seeded edits and their new gold labels were built by
+a model (Claude) that read the test items' gold evidence. No person has reviewed them (see
+CORRUPTION.md). The model that built them did not write or tune any prompt. The prompts in
+`prompts/` were frozen at git commit `868f16c` before any live call and are unchanged here. The
+seeded label mix differs from sample40 (no NotMentioned left), so compare per item, not by overall
+accuracy.
+
+The dry-run fake client is the same, with one addition. On a seeded item, each fake reading takes
+the old gold label with probability 0.3, so that the new columns have something to count. Clean
+dry-run outputs are byte-identical to before.
+
+## Files
+
+    prompts/        reader_c0.txt, reader_quotes.txt, entailment.txt, adjudicator.txt
+    run.py          runner, fake client, cost ledger and cap (--dataset for the damaged test variants)
+    bridge.py       export pending calls for Claude Code subagents and ingest their answers (see Subagent bridge)
+    corrupt.py, verify_corrupt.py   build and check the damaged variants (data/contractnli/CORRUPTION.md)
+    quote_check.py  deterministic quote check and gold-span overlap (python3 quote_check.py runs a self-test)
+    analyse.py      runs/ -> results/<split>/*.csv
+    estimate/       Rust crate calling s106::accuracy::{estimates, error} unchanged
+    data/           ContractNLI samples, their README, and the sampling script
+    dryrun/         dry-run outputs (fake data; not results)

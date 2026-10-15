@@ -1,0 +1,21 @@
+A reader of a contract claims that the quoted passages below settle a statement (the hypothesis). You do not see the contract; judge only from the quotes.
+
+<hypothesis>
+{{HYPOTHESIS}}
+</hypothesis>
+
+<claimed_label>
+{{LABEL}}
+</claimed_label>
+
+<quotes>
+{{QUOTES}}
+</quotes>
+
+The labels mean:
+- Entailment: the quotes state or clearly imply that the hypothesis is true.
+- Contradiction: the quotes state or clearly imply that the hypothesis is false.
+
+Decide whether the quotes, taken as written, are enough on their own to support the claimed label. Answer supports = false if the quotes are about something else, support the opposite label, support only part of the hypothesis, or need context the quotes do not give.
+
+Answer only with the JSON object the response format asks for: supports (true or false) and a one-sentence reason.

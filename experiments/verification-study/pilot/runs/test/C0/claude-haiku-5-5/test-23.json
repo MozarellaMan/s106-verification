@@ -1,0 +1,106 @@
+{
+ "item_id": "test-23",
+ "kind": "reader",
+ "dir": "C0",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 41 omitted, sha256 29d639a3ee48258f>\n</document>\n\n<hypothesis>\nConfidential Information may include verbally conveyed information.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33DXf9B2tHedG8W3jFT",
+  "container": null,
+  "content": [
+   {
+    "signature": "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",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":60,\"reason\":\"The definition applies 'regardless of the form, format, or media' in which information is provided and covers any information made available to the Contractor, which reasonably includes verbally conveyed information, though verbal disclosure is not named explicitly.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 3914,
+   "output_tokens": 442,
+   "output_tokens_details": {
+    "thinking_tokens": 347
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 3914,
+  "output_tokens": 442,
+  "output_tokens_details": {
+   "thinking_tokens": 347
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 4753,
+ "timestamp": "2026-10-15T00:00:12+00:00",
+ "cost_usd": 0.0006124000000000001
+}

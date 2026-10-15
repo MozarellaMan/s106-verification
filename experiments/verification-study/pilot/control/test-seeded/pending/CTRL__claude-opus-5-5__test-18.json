@@ -1,0 +1,62 @@
+{
+ "id": "CTRL__claude-opus-5-5__test-18",
+ "record_skeleton": {
+  "item_id": "test-18",
+  "kind": "adjudicate",
+  "dir": "CTRL",
+  "post_hoc_control": true,
+  "permutation": {
+   "A": "haiku",
+   "B": "sonnet",
+   "C": "opus"
+  },
+  "request": {
+   "model": "claude-opus-5-5",
+   "max_tokens": 8000,
+   "output_config": {
+    "format": {
+     "type": "json_schema",
+     "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "label",
+       "confidence",
+       "quotes",
+       "reason"
+      ],
+      "properties": {
+       "label": {
+        "type": "string",
+        "enum": [
+         "Entailment",
+         "Contradiction",
+         "NotMentioned"
+        ]
+       },
+       "confidence": {
+        "type": "integer",
+        "description": "0-100"
+       },
+       "quotes": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       "reason": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "messages": [
+    {
+     "role": "user",
+     "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\nNon-Disclosure / Confidentiality Agreement\nPartner Ireland Insurance Limited\n-and-\n Individual(s) submitting information via the eHandshake on partnerre.com\nPARTIES\n(1) Partner Ireland Insurance Limited of 5th Floor, Block 1, The Oval, 160 Shelbourne Road, Dublin 4, Ireland and registered in Ireland with company number 395190.\n(2) Individual(s) submitting information via the interactive e-handshake on partnerre.com Each a \u201cParty\u201d and collectively referred to as the \u201cParties\u201d.\nBACKGROUND\nIn order to allow the Parties to engage in insurance mediation activities (the \u201cBusiness Under Discussion\u201d) the Parties have agreed to enter into this non-disclosure / confidentiality agreement (the \u201cAgreement\u201d) with respect to all Information (as hereinafter defined) furnished by one Party (the \u201cProviding Party\u201d) to the other (the \u201cReceiving Party\u201d). The execution of this Agreement does not constitute the creation of a business relationship.\nIT IS AGREED\n1. The Receiving Party agrees to treat all information provided by the Providing Party in connection with the Business Under Discussion to the Receiving Partner and/or any of its partners, directors, officers, employees, affiliates, insurers, agents, advisors or auditors (the \u201cRepresentatives\u201d), provided that it is expressly identified as confidential when so furnished, together with any analyses, compilations, data, studies or other documents or records, whether of an oral, written or electronically retrievable nature (collectively the \u201cInformation\u201d), as strictly confidential.\n2. The Receiving Party shall limit the possession and use of the Information to a \u201cneed-to-know\u201d basis among its Representatives.\n3. Information does not include, however, information which (a) is or becomes generally available to the public; (b) was available to the Receiving Party on a non-confidential basis prior to its disclosure by the Providing Party; (c) is independently developed by the Receiving Party; or (d) becomes available to the Receiving Party on a non-confidential basis after the date hereof from a third party which was not known by the Receiving Party to be subject to a confidentiality agreement with the Providing Party and which is not otherwise prohibited from transmitting the information to the Receiving Party.\n4. The Receiving Party agrees that the Information will be used solely for giving effect to the Business Under Discussion and further that it will not disclose to any person (i) the Information and (ii) the fact that the Information has been made available to the Receiving Party or that the Receiving Party have inspected any portion of the Information, for any reason or purpose whatsoever, unless the Providing Party has consented in writing to such disclosure or except as stated otherwise herein or as required by law, order, decree, regulation, or governmental agency request. The term \u201cperson\u201d as used in these provisions shall be broadly interpreted to include without limitation any corporation, company, partnership, individual or group.\n5. In the event that the Receiving Party is required by applicable law or regulation or by legal process to disclose any of the Information, the Receiving Party agrees that it will provide the Providing Party with prompt written notice of such request(s) prior to the required disclosure and the Providing Party shall use reasonable efforts, at its own expense, to seek a protective order or other appropriate remedy. If a protective order or other remedy is not obtained and a waiver hereunder is not received, the Receiving Party shall disclose only that portion of the Information which is legally required and shall use its best efforts to obtain assurances that confidential treatment will be accorded to such Information.\n6. If any of the Parties determine that they do not wish to proceed or continue with the Business Under Discussion, it will promptly advise the other Party of that decision in writing or by email. Upon receipt of such communication the Receiving Party shall destroy promptly all documents furnished and will not retain any copies, extracts or other reproductions in whole or in part of such Information. Notwithstanding the foregoing, the Receiving Party shall be entitled to retain that portion of the Information for legal, regulatory or internal compliance purposes, which will continue to be treated as confidential on the terms hereof.\n7. The Parties agree and understand that, notwithstanding any pending or future disputes between them or any claims relating to or arising from such disputes, the provision of the Information is not intended to and should not be construed as a waiver of any confidentiality or privilege over such material for any other purpose and such confidentiality and privileges are expressly reserved.\n8. Any breach or threatened breach of this Agreement shall constitute a breach that may cause irreparable injury, not readily measurable in money, and for which the Providing Party, without waiving any other rights or remedies at law or in equity, shall be entitled to seek injunctive relief or other equitable relief. Any such right or remedy and any and all other rights or remedies provided for herein shall be cumulative and not exclusive and in addition to any and all other rights or remedies which the Providing Party may have under this Agreement or otherwise.\n9. The Parties agree that, in the event of loss or damage to the Providing Party as a result of breach of the provisions of this Agreement, the Receiving Party shall be liable only in respect of loss or damage resulting directly from the breach, and no liability will be accepted in respect of any special, indirect, incidental or consequential losses or damages whatsoever (including, but not limited to, lost profits or revenue) suffered by the Providing Party or any person connected with the Providing Party, arising out of the performance or breach of this Agreement, whether claims for said losses or damages are premised on contract, tort (including negligence), or otherwise.\n10. It is further understood and agreed that no failure or delay by any of the Parties to this Agreement in exercising any right, power or privilege hereunder shall operate as a waiver thereof, nor shall any single or partial exercise thereof preclude any other or further exercise thereof or the exercise of any right, power or privilege hereunder. No modification, amendment or waiver of this Agreement shall be binding unless it is in writing and signed by each of the Parties. There are no third party beneficiaries to this Agreement.\n11. This Agreement shall be governed in accordance with the laws of England and Wales without giving effect to conflict of law principles, and the Parties agree to submit to the non-exclusive jurisdiction of the English courts.\n12. This Agreement constitutes the entire and only agreement between the Parties relating to the non-disclosure of information.\n\n</document>\n\n<hypothesis>\nAll Confidential Information shall be expressly identified by the Disclosing Party.\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: NotMentioned\nconfidence: 60\nreason: The agreement only conditions the Receiving Party's duty on information being expressly identified as confidential when furnished, and does not itself require the disclosing party to identify all Confidential Information.\n(no quotes)\n</reading>\n<reading id=\"B\">\nlabel: Entailment\nconfidence: 90\nreason: Clause 1 protects information only if it is expressly identified as confidential when furnished, which means the providing party must mark it.\n<quote check=\"exact\">provided that it is expressly identified as confidential when so furnished</quote>\n</reading>\n<reading id=\"C\">\nlabel: Entailment\nconfidence: 85\nreason: Clause 1 counts information as confidential Information only if the Providing Party expressly identifies it as confidential when it is furnished.\n<quote check=\"exact\">provided that it is expressly identified as confidential when so furnished</quote>\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+    }
+   ]
+  }
+ }
+}

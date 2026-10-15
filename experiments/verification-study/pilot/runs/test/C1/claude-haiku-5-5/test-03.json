@@ -1,0 +1,113 @@
+{
+ "item_id": "test-03",
+ "kind": "reader",
+ "dir": "C1",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 307 omitted, sha256 645991b864e68f2a>\n</document>\n\n<hypothesis>\nReceiving Party may create a copy of some Confidential Information in some circumstances.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nEvidence is required. For Entailment or Contradiction, give the passages of the document your label rests on as a list of quotes. Each quote must be copied character for character from the document: no paraphrase, no ellipses, no added words, no changed punctuation. A quote may be a whole sentence or part of one; give 1 to 3 quotes, each as short as it can be while still carrying the point. A program will check every quote against the document, and a reading with a quote that is not in the document counts as a failed reading. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg339NEFbZKhEVhca1sPn",
+  "container": null,
+  "content": [
+   {
+    "signature": "CAQSrwkKEAgSGAI4AUIIdGhpbmtpbmcSDARJbMDQWbeI1aa1TxoMgFbWCeb5TkFVDIk4IjAqIqGfjcWkrKBQRYsaOZrzWrEuA9UmomeHng4sBVr71oDCFZ7HvRqvhSvwod11K/8qzAjEN7kVXdVSFNQ7u+eFeVD44AQugADkjKy33aVS1zqUI8XCkaw9lP8rQloY29tBqp6DlB/Gq6RoPMBHOiVSqZJhmETcZu3++jB8EEBrKips34EBFUxyRNzoZ5LHxgiowZn7SNRF58BjLxAIDp6qQddeZiYgBKSUu8L57UHUY+8jl98BQrr9iFeJhDjMgWlL69JEu23hXjjkBIkVyXSXnDcAg8ZU5xgkiJvM/i3wTMrcGLX97k2iJ5MIWOXi9j4okZIiUSGWpt23jZAekSnqjevCea3DGgT/Vmhe6LhbRi0TsY/NGStPQLkQcQy1kwQ3vy1N3/ho0jyw88/rKHtjwLu/ILMfw/L2VwCX7k+GhRoJ0950fgSdrTmYPad4Wh4y9/gXwlVyGWoqfjQv9LagQEBs+B7RY5rn+0YHCTfdnr5ygC8P5uGJ53DwQ1py9+AZHxUbizKicgLtlCPGAWMbH5YAzgph6ONP4AjMb7DH8xKhy0BE3C4LQLtXufOIlp24d4N4bkEwFsbDTczNPOPMW5QaLOqXmjIJ9F632QRjwo6cZ7KZ+Ryz5wne1zDiyZIyifn+RptiZEd2uD5htLr0hN0a3THhWa6ES8aQEVUdbJfduuEuD0ndWen1SBiuxlU5pq6Vx/lGAUaWDsEYGv24SMGcXVux3pp8uYlPr+gvAUukgaya/YbIAlNYjOxU2pHJTjtipI7Sp44t2g7RskRukTSDTXxCIXf0WqbG0KWk4mRQRokucty7YvhT60uuG7y8cMxlpHwLI+kZIAVUVI47bih3fmV10e03dZ7+tL1gtS2uMnhbj63wRmBq6WG2aHoEpW1OfvMpwGzk7DLUsBq3dI5KYQHOAoqlOsbK58CjO7bByN1rh6Z0pGoMLTKna4L/T79CviSsTtVMXLvqRowsalwjqvnP+0kER0NkesuW56dpfGhBmIDIuYJzSgBBnMI7H0rEzZzG0Dox+lG70+KHxdVIzVRecEOksQofk9qjgqBafq+/FhPzR/pm2vWkt5ys6rkH/60gsvb2McDdgZ2VKRYImXgvg9d1MEoepyNWvnC+QVA40gp0zxBtqhaPZc0zAjJjE7ZIZ8BDBLMb2mogR2SA2adCPJdPHzj2Vejw0wc2j1rqpyA08Fl68WkfJelpL+L2g7lTz23LloSSYFo2R2lPfL3MMyaV9vI2toeIW0hwGVRTB5wvOXuRZJPkVatuy+TMKLxsv0nyxeSapWJ1Dg2c/2xagMrTeV68cxk+N03WuRjhe/scFkUsblvJSRN/XlauRGB3U/wQVwnh9Uf/G8KdP7fuS8vKy+B6KFDruj9KESO1G7CUt9iA0io7Hylr4rXXXRv/dpfKRZWRS9VOGBFWwtWTo3LMpL2vnSjSDMPa/NY4HETlfx/f0sNnENlKzaRyTv1OWB7kf0EZdvFfDzNSTcwzw0qKWvxAlgdEt0xpHu0mtdZYByfleX2MqhgB",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"NotMentioned\",\"confidence\":60,\"quotes\":[],\"reason\":\"The agreement addresses return or destruction of copies in Section 8 but never expressly permits the Receiving Party to make copies, so it neither states nor clearly implies the hypothesis.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 3998,
+   "output_tokens": 303,
+   "output_tokens_details": {
+    "thinking_tokens": 211
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 3998,
+  "output_tokens": 303,
+  "output_tokens_details": {
+   "thinking_tokens": 211
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 2491,
+ "timestamp": "2026-10-14T23:59:13+00:00",
+ "cost_usd": 0.0005512999999999999
+}

@@ -1,0 +1,20 @@
+You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).
+
+<document>
+{{DOCUMENT}}
+</document>
+
+<hypothesis>
+{{HYPOTHESIS}}
+</hypothesis>
+
+Choose exactly one label:
+- Entailment: the document states or clearly implies that the hypothesis is true.
+- Contradiction: the document states or clearly implies that the hypothesis is false.
+- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.
+
+Give a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.
+
+Give a one-sentence reason.
+
+Answer only with the JSON object the response format asks for: label, confidence, reason.

@@ -1,0 +1,106 @@
+{
+ "item_id": "test-19",
+ "kind": "reader",
+ "dir": "C0",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 51 omitted, sha256 b22a7a30523ef437>\n</document>\n\n<hypothesis>\nReceiving Party shall not disclose the fact that Agreement was agreed or negotiated.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33Ca7xS3msh351xmKwb",
+  "container": null,
+  "content": [
+   {
+    "signature": "CAQS1QoKEAgSGAI4AUIIdGhpbmtpbmcSDPVb9alwHnFagK5TohoM4RfZQFRIU6ilhZIwIjDs5go9Nxdx1TtrlsJWPZTsT3tCuV/KA2pvVIJ+eacpU/2849qM/sbI7jZX50HETdMq8gm3VPd3Lx4JGPh2hDX07L2oO+X0dpGSXzA3Dfg6/D37152Fy/t3AGdCy2ztiO1m0kmGX8BBBQii/d8ovXbAzfl3EzVGYYwS2G+iqimKo+XHqbn0T7ExErWN9m5r+XL7afGmS+mTlOrLtr0eBY7N6N37LrDE/fnNNgIytys+elVA27uxZUw6ZBdhKYbNcWQD5ufl2FnO2ybp3aK8/53no+ZYGVCnsa3MfA10YiFnUAx1AWo/Zih6xSV8Qi4viT7yxFLMEKb39UNW+EaP7PCGzyCYKLQPiABERZ9SmaQZGDJf/XY9EHwfu7FyCwhKbmsrwAZhyx4vsCfUoGeoPXxTOJ2tRujT725PEZXXZoVVBs2H44BRtJ8QGTSrEjI3FYuyP2urQOI3+rSw3n3Ap23WWdvLDihlUNmdAJis2RofsibnUI+DQr4TypFL0L79U1GiERSV6uz7zJ2/itGGON4VLqJWlZ1MSlIEDlZFcjlSWiUqvOisNJDXigLj3dXz5guYzQfJKviyaoJVxnK3wVz/RgK68rTbZjNF6chgYjA6lupjkWLd7NXOk89UkT8bHK0aJZXKNkCbzoZUruu70TqYIsjBX3oOqKS7LJcnIcReAJ/wAeGbnY8mTqcEhavigCaVh6vnJkyylczIou/G/yyyRFowwsrq1aI/F1IkGz46gZ4YKpRqI5FddAF8+v3bDPcQFGk3CMKqcs2VWawXl5cZdDbiiPPxPwqFH5tTBfn95gXEAGoud7l6ySw1hpy9Zy8usxBdCxVPPKxfRsustxHnUc5vl5yiuL1z0KpzmIYks692Ea8euv9XtynOSRDds1nXnNGVSuDMSgkJTMxZVT7cpfugmOOhPbODiDbkYHnvU4nDoOT1illxDOknVmgk6zItEgM8Rq740cSF66ALAlayP4UXOZ5alBIQNTwRcownwsILzouxH+4Jp5gpXILG9BFICGZeoH5h4Rfly51Js+vHkAw0JDNjTMqy6f91E0jMgvv7JF4Z2oeSEXyuSDqBLkPR0vrpCwSgrA61dDe6naucpQ3AtNJXEvgU/CRhKgY2jGhdJTXGS7lZj13edovf448+t6VEG2qf7z6oqo3pH0oglTI1QZ9Rcfsojs/EKtNONKcpFX3Tb6Sg9vkC4+cnGVDpDtyhc0DAib5DVJ3DBgv/QuB4si61jXCDtQGd8vGNSzX152babLuHwvqVEFDlpdbyigFBZhzIxYz1PTBV+debkybswgmksZ3iyFP5wR9TX/a0Tc6ljYmlBiTqLNmqgUj4CDBRbmXlALZmG1nxoWVipB7lvKyxTtpbosWpghyibCVez+KEQsqbCti45lScWz6s7d76aLWzvVEWRrwSTrHhLAsYfUIGLIM+MbetIByqNNRgEAWR64dST+T5CyBwq5GzQf2DVS8EPOuvsco1F2l9Oa/G7Lt2q3586QUo9fdXN/wCiZJg1nC+GMhb/uBl8lHzLKEc/CkSVpp+j2YILCVAbIor0449Wfm5SmZN/hc7lRQeHPd1twVt1hio+YxgIKucKe3xrtN03RMsnMGWAsNkxyhWaE367CaYWc+Yz141Zr+28pb4wHq0cBjORtoK3WN3buSCOLRtwHUPPPBn2tRJis1sFrStFkbwx+hpmk7IwaGRuQK3SW6sRmaCm5RqLh3+LeHmtDFzapNePl8dvzfFWM5tmxwYAQ==",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":75,\"reason\":\"Clause 1a defines the identity of the Parties, the contents of the agreement, and the fact that they entered into it as confidential Information, and clause 2 restricts the receiving Party's disclosure of Information, so disclosing that the agreement was agreed or negotiated is covered, though the document does not use the word 'disclose' for this point.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 2473,
+   "output_tokens": 375,
+   "output_tokens_details": {
+    "thinking_tokens": 243
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 2473,
+  "output_tokens": 375,
+  "output_tokens_details": {
+   "thinking_tokens": 243
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 3156,
+ "timestamp": "2026-10-14T23:59:57+00:00",
+ "cost_usd": 0.0004348
+}

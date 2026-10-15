@@ -1,0 +1,113 @@
+{
+ "item_id": "test-21",
+ "kind": "reader",
+ "dir": "C1",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 321 omitted, sha256 efac3c49d398dc84>\n</document>\n\n<hypothesis>\nReceiving Party shall destroy or return some Confidential Information upon the termination of Agreement.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nEvidence is required. For Entailment or Contradiction, give the passages of the document your label rests on as a list of quotes. Each quote must be copied character for character from the document: no paraphrase, no ellipses, no added words, no changed punctuation. A quote may be a whole sentence or part of one; give 1 to 3 quotes, each as short as it can be while still carrying the point. A program will check every quote against the document, and a reading with a quote that is not in the document counts as a failed reading. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33D6Fvfgc6atx5QJaXM",
+  "container": null,
+  "content": [
+   {
+    "signature": "CAQSkgsKEAgSGAI4AUIIdGhpbmtpbmcSDONdxYmDj5pdWc6wKRoM5HVBqj00RsWRUGKoIjCpKV6MSSO7YyFiTUa6jEV3M92H4ausBKRTGM3CygaAIrFi2Z2R0zfUDfC7z61BLwcqrwoy/FLoRZYtpg7+Yoiu3J4bGi/Ti+UPvFbtn76wpxbm8rEXuOebTEWaJ17B1v1+ocuqZdpprTQqhdNAtZx8lLE5GwZat8jnWsXpWfJ2vADbl5U7jwHEWXUfLQk/X8s7GVmcqL9ZTrDTLWLIIKhPb46q4FE8rQM8oTLLVLaNNewjhlb53pKEto+Wi4esb3GqBgsAZz5D/eNgrzwa32vmdaol8weKczb7cAd/zRP799unsM/AkemHbqA/FQguMUjpjEM44ZdtWN/WfB9gI08W2dIxueGRgla6UezQy8GW/4CEYC0aVAMD2YOFrN/IVP+CLimX92UchoWOeU5drgcIg1vG9JGtqSwACSrJeJOR1k0ekT+o0nyfuyssNM5S3hCSEKi/xIPQn2m7U5wxUYcDDUtbWTDJJmr5Lflx4/xDa1DXEmlzH7TxXsGfmDifbuuDlAUH5snJYuxvUVLVCnTH8gayasUhheUQ673rEe3le7aEq+Mu1sEU9/ku3mVzdENd0gGEfEV6TQTzZRc4VnLmc94awL85WWnrYomIuKH3BIi5VaTZVqCP9UhkZTWCb1o0quDacgHSXxZ3euMXBDgAfLfieE8tpABqPGogRxVGb0Ejr9oXaEJCbgMBb62J8mKS8Jm5S5FQ+p47QMr6XiKVxKCqzHZHN2ZVFFXjEtaLDXWVGPPfVEHeh05ZFpwVp4rWgvb5I3g3JgmEaifHpYXs0Z0F88327lPcSczcWYSTmZORt/2FEGcnJEWURl6cr4Bw63JUSzvgG6QHL0vRqpeuDsqtCECB/Vuasy01himfeJn9MJyHDp4x42vk0nVZ/+FRaSn68JM2a4M86AFFyY3i1oTeqNrSiGcTbZzPU3eXZKWmhDcVmZ0bkg5SflSxFBqobGbXWGsE/FQNrfCmkHJfZEc1pRqtrJKCxYFXQMCp/pgMlq5kF1EIJBfkit6m91wRSRThvtsF3qSXnEknaAxfGCy2TdpllE0akgGaATr8GWdWSuZyklCfLFHp92n+R2EBW9pqxCL7WpCk2NBtEG8FT3y2NAchfGDkjvzb8aWMYNY7osYe44xnlS4Zp39B74mOEnAofc2+DIv2p80l+Zkptpv56s2sNw1nJ+qkaGVRs8ycbeDKXU7g0Ib8ptKubgFF4/Pjebk//FGAgF74ETQv4qWREPPNWM4NpqRIhFMVpQE6LQdj41xXC7946zNbkagplfP6ac5Ofv83kQw7ZnzxYV1gSHsoGDxkD7wtSUH/F4HgMzVHLtJ7ctj7y/4p/rY7pPJtMNez0i7GKu2YJsQfJTuXmqZ15KFGnbX53MSewIAqdqq19AI+4b8baRiHzRw6zrjnFEl0ZogUkvcgAdbX2UO9eA563jhtUBNBErQItN/nnEH6q+ojna0SqjQxkhKyNEQGNqXRbWwHeW28YrfuCvCblL4iQyL+FtQ5rGFZES/sZr1S1WvSQsyPzg++WnXT7I+arjjuh3+6hy5J6N6cjX5u35x14sZptkYVIKJIyg4wpjeaEN9b0LpyXPsZSGgbH6sZZdAyw+AvyF0iJ5GylvAgxnjIFbVqHaIrcEqv49EiJ3diLp/hQYTVEGZhh9YEt7m1abdXLb5nr5f7zs3cfTN1N8PR7d/sdJNfrSrmBZDG5Sq1BCZ3QTyCFv0gFS+IrE5vEpDJH2uqMX5j2qwnU+5FpCgfD07IQw4UCFgbUPTq8yUXbdNi7S11B9RurxRbcPmHo12tQA9kIJMn5tVNNdrqXe3hkMuDI37MBRJivihsGAE=",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"NotMentioned\",\"confidence\":60,\"quotes\":[],\"reason\":\"The NDA requires return or destruction of Confidential Information only at the Disclosing Party's request, and it has no termination clause, so the hypothesis's trigger of termination is not addressed.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 2689,
+   "output_tokens": 362,
+   "output_tokens_details": {
+    "thinking_tokens": 269
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 2689,
+  "output_tokens": 362,
+  "output_tokens_details": {
+   "thinking_tokens": 269
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 3823,
+ "timestamp": "2026-10-15T00:00:05+00:00",
+ "cost_usd": 0.00044990000000000004
+}

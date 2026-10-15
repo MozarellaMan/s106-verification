@@ -1,0 +1,11 @@
+[package]
+name = "estimate"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+s106 = { path = "../../../.." }
+anyhow = "1"
+csv = "1"
