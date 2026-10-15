@@ -31,6 +31,7 @@ src/
   ocrbench.rs   OCR scored against gold transcriptions (`gold/*.json` in the data repository)
   data.rs       where the research data lives (the s106-data checkout at `data/`)
   pld.rs        read-only Planning London Datahub client; saves raw snapshots under <data>/snapshots/pld/
+  datahub.rs    `s106 pld map`: a scheme's Datahub snapshot as V1 and V8 proposal rows
   labels.rs     agent proposals scored against human labels (`labels/` in the data repository)
   results.rs    a batch's scheme ledger, decision rules and claims, each with its check level
   accuracy.rs   each reader's estimated accuracy from how often readers agree; sets the check levels
@@ -99,6 +100,7 @@ undertaking and deeds of variation:
 s106 pages <pdf>... --write data/pages                             # page text snapshots for the readers
 s106 pages <pdf>... --check data/pages                             # read PDFs afresh and compare with the snapshots
 s106 pld get applications <borough>-<reference>                    # save a Datahub record under <data>/snapshots/pld/
+s106 pld map --sheet <sheet> --out <proposals.csv> --on <date>     # Datahub V1 and V8 rows as proposals
 s106 labels                                                        # score the proposals against the human labels
 s106 results --sheet runs/<batch>/labels.csv --out results/<batch>  # a batch's ledger, rules and claims
 s106 explore                                                       # bake the results explorer's data (explorer/README.md)
