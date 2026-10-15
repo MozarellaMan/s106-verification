@@ -94,6 +94,66 @@ entailment 1500, adjudicator 8000. A refusal (`stop_reason: "refusal"`, no fallb
 reader stays one model) or a truncation is saved and counts as no usable answer. The JSON schemas leave out numeric bounds. Confidence
 is clamped to 0-100 when it is read back.
 
+## Subagent bridge
+
+Why it exists: on 15 Oct 2026 the live test run hit the workspace API spend limit at $1.23 of the
+pilot's $3.00 cap (the API answered 400 "You have reached your specified workspace API usage limits"
+until 1 Nov; see `runs/test/errors.csv`). Dev was complete, and test C0-C3 about half done. The
+remaining calls are answered by Claude Code subagents instead: one fresh Haiku, Sonnet or Opus
+subagent per pending call, given the exact prompt text. `bridge.py` turns the call plan into files
+for them and their answers back into records, so `analyse.py` and `estimate/` run unchanged.
+
+    python3 bridge.py export --split test [--dataset clean|ocr|seeded] [--conditions C0,...]
+    # the parent answers every row of bridge/<run>/MANIFEST.csv, writing <id>.response.json
+    python3 bridge.py ingest --split test [--dataset ...]
+    # repeat export/ingest until export says nothing is pending or blocked, then
+    python3 analyse.py --split test
+
+- `export` builds the same plan as `run.py` (same items, conditions, prompts, schemas, C4 flag rule,
+  C4/C5 adjudication dirs; existing records get the same dry-run and request-equality checks) and
+  writes each call that has no record to `bridge/<run>/pending/<dir>__<model>__<item>.json`
+  (`record_skeleton`: item_id, kind, dir, dry_run and the full API request, document included),
+  `.prompt.txt` (the exact user message, then a short trailer that asks for the bare JSON object and
+  gives the schema, because a subagent has no `output_config`), and `.schema.json`. It writes
+  `bridge/<run>/MANIFEST.csv` (id, dir, model, kind, item, prompt_path, schema_path) and prints
+  the counts per model. Calls that need answers not in yet go in later waves: the entailment check
+  needs the C1 Haiku reading, adjudication needs all three readers. Export prints how many are blocked.
+  Unlike `run.py`, the Sonnet and Opus readers do not wait for the Haiku reading, since they never
+  depended on it.
+- The response file, beside the pending call: `<id>.response.json` =
+  `{"text": "<the subagent's JSON answer as a string>", "input_tokens": int|null, "output_tokens":
+  int|null, "latency_ms": int|null, "model": "claude-...", "client": "subagent"}`. `model` must name
+  the same family (haiku/sonnet/opus) as the call.
+- `ingest` checks the answer against the call's schema: valid JSON (one surrounding code fence is
+  tolerated), required keys only, label in the enum, confidence an integer, quotes a list of strings,
+  reason a string, `supports` a boolean for the entailment check. Confidence is stored as given and
+  clamped to 0-100 when read, as for API records. A valid answer becomes
+  `runs/<run>/<dir>/<model>/<item>.json` in `run.py`'s record shape (request stored with the document
+  replaced by its id and hash; `stop_reason: "end_turn"` in the response, so it parses like an API
+  answer). It also gets a ledger row with `stop_reason` = `subagent`. The call's files move to
+  `bridge/<run>/done/`. An invalid answer stays in `pending/` with `<id>.invalid.txt` giving the
+  reason, and ingest exits 1. Write a corrected response file and ingest again.
+- **Subagent records are marked.** Each has `"client": "subagent"` and `"cost_usd_estimated": true`.
+  Its `cost_usd` is the price table applied to the token counts the parent reported, or null when it
+  reported none. Null tokens, latency or cost count as 0 in `metrics.csv` sums. No API money was
+  spent on these calls, so their cost is only an estimate of what the API would have charged.
+  `metrics.csv` has `n_subagent_records` (records behind each condition's rows), `items.csv` a
+  `<reading>_client` column (`api` or `subagent`) for each reading, and `readers.csv` `n_subagent`.
+  Otherwise these records are analysed exactly like API records. `run.py` also accepts them on a
+  later resume, since their stored request is identical. Their estimated ledger costs count towards
+  `run.py`'s cap like any other ledger row.
+- **A subagent is not the API call.** It is the same model running inside a Claude Code harness,
+  with that harness's system prompt and tools. It is not a Messages API call at `effort: "low"` with
+  structured output and `max_tokens`. Effort, thinking, the schema enforcement and the context all
+  differ, so reader behaviour (accuracy, confidence, quote fidelity, abstention) may differ from the
+  API records in the same run. Split results by `client` before you compare conditions or readers.
+- Testing: `--dry-run` marks records `dry_run=true` and defaults to `dryrun/`. `--root DIR` puts
+  `runs/` and `bridge/` under DIR. The bridge was tested on a copy of the dry-run tree with 39
+  records deleted and their original answers fed back as subagent responses (plus invalid ones).
+  The rebuilt records had identical requests and C4/C5 placement, `run.py --dry-run` reused them,
+  and `analyse.py` and `estimate` gave identical results apart from the new columns and the null-usage
+  call.
+
 ## Cost table (list prices 14 Oct 2026, per million tokens)
 
 | model | input | output |
@@ -232,6 +292,7 @@ dry-run outputs are byte-identical to before.
 
     prompts/        reader_c0.txt, reader_quotes.txt, entailment.txt, adjudicator.txt
     run.py          runner, fake client, cost ledger and cap (--dataset for the damaged test variants)
+    bridge.py       export pending calls for Claude Code subagents and ingest their answers (see Subagent bridge)
     corrupt.py, verify_corrupt.py   build and check the damaged variants (data/contractnli/CORRUPTION.md)
     quote_check.py  deterministic quote check and gold-span overlap (python3 quote_check.py runs a self-test)
     analyse.py      runs/ -> results/<split>/*.csv

@@ -14,6 +14,14 @@ from run import (DATASETS, HAIKU, LABELS, OPUS, READERS, SONNET, c4_flag, checke
 
 CONDS = ["C0", "C1", "C2", "C3", "C4", "C5"]
 SHORT = {HAIKU: "haiku", SONNET: "sonnet", OPUS: "opus"}
+# the reading key in `used` that each saved call feeds (for the per-reading client column)
+USED_KEY = {("C0", HAIKU): "c0", ("C1", HAIKU): "haiku", ("C2", SONNET): "entail", ("C3", SONNET): "sonnet",
+            ("C3", OPUS): "opus", ("C4", OPUS): "adj", ("C5", OPUS): "adj"}
+
+
+def client(rec):
+    """"subagent" for a record ingested by bridge.py, "api" for one run.py made (fake or live)."""
+    return rec.get("client", "api")
 
 
 def wilson(k, n, z=1.96):
@@ -201,7 +209,8 @@ def main():
         if missing:
             print(f"WARNING {cond}: {len(missing)} of {len(items)} items incomplete, left out: {' '.join(missing)}")
         n, gold = len(rows), lambda r: r["item"]["gold_label"]
-        row = {"condition": cond, "dry_run": a.dry_run, "n": n, "n_incomplete": len(missing)}
+        row = {"condition": cond, "dry_run": a.dry_run, "n": n, "n_incomplete": len(missing),
+               "n_subagent_records": sum(client(c) == "subagent" for r in rows for c in r["calls"])}
         rate(row, "accuracy", sum(r["correct"] for r in rows), n)
         rate(row, "false_conf_high", sum(r["confidence"] >= 90 and not r["correct"] for r in rows), n)
         rate(row, "false_conf_high_unflagged",
@@ -253,10 +262,11 @@ def main():
                   if r["item"]["seed_edit"]["kind"] == "number_change" and x["check"]["quotes"]]
             rate(row, "number_quote_new", sum(has_word(x, new) for (new, old), x in nq), len(nq))
             rate(row, "number_quote_old", sum(has_word(x, old) for (new, old), x in nq), len(nq))
-        row["mean_latency_ms_per_item"] = round(sum(c["latency_ms"] for r in rows for c in r["calls"]) / n)
-        row["input_tokens"] = sum(c["usage"]["input_tokens"] for r in rows for c in r["calls"])
-        row["output_tokens"] = sum(c["usage"]["output_tokens"] for r in rows for c in r["calls"])
-        row["cost_usd"] = round(sum(c["cost_usd"] for r in rows for c in r["calls"]), 4)
+        # a subagent record may carry null latency, tokens or cost (not reported); those count as 0 here
+        row["mean_latency_ms_per_item"] = round(sum(c["latency_ms"] or 0 for r in rows for c in r["calls"]) / n)
+        row["input_tokens"] = sum(c["usage"]["input_tokens"] or 0 for r in rows for c in r["calls"])
+        row["output_tokens"] = sum(c["usage"]["output_tokens"] or 0 for r in rows for c in r["calls"])
+        row["cost_usd"] = round(sum(c["cost_usd"] or 0 for r in rows for c in r["calls"]), 4)
         metrics.append(row)
         for r in rows:
             ir = {"item_id": r["item"]["item_id"], "gold": gold(r), "condition": cond, "label": r["label"],
@@ -264,7 +274,9 @@ def main():
                   "hypothesis": r["item"]["hypothesis"]}
             if a.dataset == "seeded":
                 ir["seed_edit_kind"] = (r["item"]["seed_edit"] or {}).get("kind", "")
+            clients = {USED_KEY[(c["dir"], c["request"]["model"])]: client(c) for c in r["calls"]}
             for k, x in r["used"].items():
+                ir[f"{k}_client"] = clients.get(k, "")
                 ir[f"{k}_label"] = (x.get("label") if k != "entail" else x.get("supports")) if x else ""
                 ir[f"{k}_conf"] = x.get("confidence", "") if x else ""
                 ir[f"{k}_quotes"] = qstatus(x) if k != "entail" else ""
@@ -274,15 +286,17 @@ def main():
     write(out / "items.csv", item_rows)
     votes, readers = [], []
     for m in READERS:
-        k = n = 0
+        k = n = sub = 0
         for it in items:
-            r = checked(load(runs, name, "C1" if m == HAIKU else "C3", m, it["item_id"]), it)
+            rec = load(runs, name, "C1" if m == HAIKU else "C3", m, it["item_id"])
+            r = checked(rec, it)
             if r is None:
                 continue
+            sub += client(rec) == "subagent"
             votes.append({"scheme": it["item_id"], "variable": "V1", "source": "deed", "reader": m, "kind": "llm",
                           "family": m, "status": "found", "value": r["label"]})
             k, n = k + (r["label"] == it["gold_label"]), n + 1
-        row = {"reader": m, "dry_run": a.dry_run, "n": n}
+        row = {"reader": m, "dry_run": a.dry_run, "n": n, "n_subagent": sub}
         rate(row, "measured_accuracy", k, n)
         readers.append(row)
     write(out / "votes.csv", votes)

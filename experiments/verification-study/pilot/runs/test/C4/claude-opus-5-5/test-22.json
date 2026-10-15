@@ -1,0 +1,81 @@
+{
+ "item_id": "test-22",
+ "kind": "adjudicate",
+ "dir": "C4",
+ "dry_run": false,
+ "request": {
+  "model": "claude-opus-5-5",
+  "max_tokens": 8000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\n<document 41 omitted, sha256 29d639a3ee48258f>\n</document>\n\n<hypothesis>\nSome obligations of Agreement may survive termination of Agreement.\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: Entailment\nconfidence: 68\nreason: The agreement has no explicit survival clause, but its confidentiality and return duties apply to information the Contractor may still hold at termination, which implies some obligations continue after the Contract ends.\n<quote check=\"exact\">The Contractor shall, at its own expense, return to the State all Confidential Information in its care, custody, control or possession upon request of the State or on termination of the Contract.</quote>\n</reading>\n<reading id=\"B\">\nlabel: NotMentioned\nconfidence: 68\nreason: The agreement has no survival clause or stated duration; it only requires return of Confidential Information on termination, which does not expressly say any obligation survives.\n(no quotes)\n</reading>\n<reading id=\"C\">\nlabel: NotMentioned\nconfidence: 60\nreason: The Agreement has no survival clause or stated term, and only requires return of Confidential Information on termination of the Contract, so it does not address whether obligations survive termination of the Agreement.\n(no quotes)\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "subagent-C4__claude-opus-5-5__test-22",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"label\": \"NotMentioned\", \"confidence\": 60, \"quotes\": [], \"reason\": \"The Agreement has no term or survival clause; it only requires return of Confidential Information on termination of the Contract, which does not address whether any Agreement obligations survive termination of the Agreement.\"}"
+   }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+   "input_tokens": null,
+   "output_tokens": null
+  }
+ },
+ "usage": {
+  "input_tokens": null,
+  "output_tokens": null
+ },
+ "latency_ms": null,
+ "timestamp": "2026-10-15T02:13:19+00:00",
+ "cost_usd": null,
+ "client": "subagent",
+ "cost_usd_estimated": true
+}

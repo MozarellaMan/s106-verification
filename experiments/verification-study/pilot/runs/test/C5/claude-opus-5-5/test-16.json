@@ -1,0 +1,81 @@
+{
+ "item_id": "test-16",
+ "kind": "adjudicate",
+ "dir": "C5",
+ "dry_run": false,
+ "request": {
+  "model": "claude-opus-5-5",
+  "max_tokens": 8000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\n<document 212 omitted, sha256 662222369a29fac7>\n</document>\n\n<hypothesis>\nReceiving Party may share some Confidential Information with some third-parties (including consultants, agents and professional advisors).\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: Entailment\nconfidence: 88\nreason: The agreement lets the Recipient share Confidential Information with its Representatives (employees, agents, attorneys, accountants, advisors) and with certain lenders and investors, so sharing with some third parties such as advisors and agents is permitted.}\n<quote check=\"exact\">Recipient is expressly authorized to disclose the Confidential Information to certain lenders and investors</quote>\n<quote check=\"exact\">disclose all or any portion of Confidential Information to any third parties (other than to its Representatives who need to know the Confidential Information to assist Recipient in its evaluation of the Purpose)</quote>\n</reading>\n<reading id=\"B\">\nlabel: Entailment\nconfidence: 90\nreason: The agreement permits the Recipient to disclose Confidential Information to Representatives, including agents, attorneys, accountants and advisors, who need to know it for evaluating the Purpose.\n<quote check=\"exact\">(other than to its Representatives who need to know the Confidential Information to assist Recipient in its evaluation of the Purpose)</quote>\n<quote check=\"exact\">employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, \u201cRepresentatives\u201d)</quote>\n</reading>\n<reading id=\"C\">\nlabel: Entailment\nconfidence: 93\nreason: The NDA lets the Recipient disclose Confidential Information to Representatives with a need to know, a group that includes agents, attorneys, accountants and advisors, and also to certain lenders and investors.\n<quote check=\"exact\">or to any of such Recipient\u2019s or its affiliates\u2019 employees, officers, directors, partners, shareholders, agents, attorneys, accountants or advisors (collectively, \u201cRepresentatives\u201d)</quote>\n<quote check=\"exact\">(other than to its Representatives who need to know the Confidential Information to assist Recipient in its evaluation of the Purpose)</quote>\n<quote check=\"exact\">the Recipient is expressly authorized to disclose the Confidential Information to certain lenders and investors</quote>\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "subagent-C5__claude-opus-5-5__test-16",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"label\": \"Entailment\", \"confidence\": 93, \"quotes\": [\"agents, attorneys, accountants or advisors (collectively, \u201cRepresentatives\u201d)\", \"other than to its Representatives who need to know the Confidential Information to assist Recipient in its evaluation of the Purpose\", \"the Recipient is expressly authorized to disclose the Confidential Information to certain lenders and investors\"], \"reason\": \"The NDA allows disclosure to Representatives with a need to know, a group that includes agents, attorneys, accountants and advisors, and also to certain lenders and investors.\"}"
+   }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+   "input_tokens": null,
+   "output_tokens": null
+  }
+ },
+ "usage": {
+  "input_tokens": null,
+  "output_tokens": null
+ },
+ "latency_ms": null,
+ "timestamp": "2026-10-15T00:18:26+00:00",
+ "cost_usd": null,
+ "client": "subagent",
+ "cost_usd_estimated": true
+}

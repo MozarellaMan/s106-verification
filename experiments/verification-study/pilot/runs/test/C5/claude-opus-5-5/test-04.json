@@ -1,0 +1,81 @@
+{
+ "item_id": "test-04",
+ "kind": "adjudicate",
+ "dir": "C5",
+ "dry_run": false,
+ "request": {
+  "model": "claude-opus-5-5",
+  "max_tokens": 8000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\n<document 11 omitted, sha256 d0d3b865b0b6b7f4>\n</document>\n\n<hypothesis>\nConfidential Information shall only include technical information.\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: Contradiction\nconfidence: 96\nreason: The definition covers any and all tangible and intangible information, including business, financial, marketing, and pricing information, not only technical information, so the hypothesis that it includes only technical information is false.\n<quote check=\"exact\">any and all tangible and intangible information disclosed to Receiver in oral, written, graphic, recorded, photographic, any machine-readable or in any other medium or form</quote>\n<quote check=\"exact\">the prices it obtains or has obtained for the licensing of its software products and services, purchase and sales records, marketing information or any other information concerning the business and goodwill of VIDAR</quote>\n</reading>\n<reading id=\"B\">\nlabel: Contradiction\nconfidence: 96\nreason: The definition of Confidential Information expressly covers non-technical business information such as financials, customers, pricing and marketing, so it is not limited to technical information.\n<quote check=\"exact\">relating to the intellectual property, management, operations, products, inventions, suppliers, customers, financials of VIDAR</quote>\n<quote check=\"exact\">marketing information or any other information concerning the business and goodwill of VIDAR</quote>\n</reading>\n<reading id=\"C\">\nlabel: Contradiction\nconfidence: 95\nreason: The definition of Confidential Information expressly covers non-technical information, such as financial, customer, pricing and marketing information, so it is not limited to technical information.\n<quote check=\"exact\">relating to the intellectual property, management, operations, products, inventions, suppliers, customers, financials of VIDAR</quote>\n<quote check=\"exact\">supplier and customer lists and information, licenses, the prices it obtains or has obtained for the licensing of its software products and services, purchase and sales records, marketing information or any other information concerning the business and goodwill of VIDAR</quote>\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "subagent-C5__claude-opus-5-5__test-04",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"label\": \"Contradiction\", \"confidence\": 97, \"quotes\": [\"relating to the intellectual property, management, operations, products, inventions, suppliers, customers, financials of VIDAR\", \"marketing information or any other information concerning the business and goodwill of VIDAR\"], \"reason\": \"The definition of Confidential Information expressly includes non-technical business information such as financials, customers, suppliers and marketing, so it is not limited to technical information.\"}"
+   }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+   "input_tokens": null,
+   "output_tokens": null
+  }
+ },
+ "usage": {
+  "input_tokens": null,
+  "output_tokens": null
+ },
+ "latency_ms": null,
+ "timestamp": "2026-10-15T00:18:26+00:00",
+ "cost_usd": null,
+ "client": "subagent",
+ "cost_usd_estimated": true
+}

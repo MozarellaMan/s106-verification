@@ -1,0 +1,4 @@
+reader,dry_run,n,n_subagent,measured_accuracy,measured_accuracy_k,measured_accuracy_n,measured_accuracy_lo,measured_accuracy_hi
+claude-haiku-5-5,False,40,17,0.925,37,40,0.8014,0.9742
+claude-sonnet-5-5,False,40,18,0.95,38,40,0.835,0.9862
+claude-opus-5-5,False,40,18,0.875,35,40,0.7389,0.9454

@@ -1,0 +1,44 @@
+row,id,against,shared,estimate,lower,fits,passes_gate,measured_accuracy,shown,n_votes,error
+reader,claude-haiku-5-5,claude-opus-5-5 claude-sonnet-5-5,40,0.9740,0.9208,true,true,0.925,,,
+reader,claude-opus-5-5,claude-haiku-5-5 claude-sonnet-5-5,40,0.9240,0.8250,true,false,0.875,,,
+reader,claude-sonnet-5-5,claude-haiku-5-5 claude-opus-5-5,40,1.0010,1.0000,true,true,0.95,,,
+item,test-00,,,,,,,,NotMentioned,3,0.0000
+item,test-01,,,,,,,,Contradiction,3,0.0000
+item,test-02,,,,,,,,NotMentioned,3,0.0000
+item,test-03,,,,,,,,NotMentioned,3,0.0000
+item,test-04,,,,,,,,Contradiction,3,0.0000
+item,test-05,,,,,,,,Contradiction,3,0.0000
+item,test-06,,,,,,,,Contradiction,3,0.0000
+item,test-07,,,,,,,,Entailment,3,0.0000
+item,test-08,,,,,,,,NotMentioned,3,0.0000
+item,test-09,,,,,,,,Contradiction,3,0.0000
+item,test-10,,,,,,,,Entailment,3,0.0000
+item,test-11,,,,,,,,Contradiction,3,0.0000
+item,test-12,,,,,,,,Entailment,3,0.0000
+item,test-13,,,,,,,,Entailment,3,0.0000
+item,test-14,,,,,,,,NotMentioned,3,0.0000
+item,test-15,,,,,,,,Entailment,3,0.0000
+item,test-16,,,,,,,,Entailment,3,0.0000
+item,test-17,,,,,,,,Entailment,3,0.0000
+item,test-18,,,,,,,,Contradiction,3,0.0000
+item,test-19,,,,,,,,Entailment,3,0.0000
+item,test-20,,,,,,,,Entailment,3,0.0000
+item,test-21,,,,,,,,NotMentioned,3,0.0000
+item,test-22,,,,,,,,NotMentioned,3,0.0000
+item,test-23,,,,,,,,Entailment,3,0.0000
+item,test-24,,,,,,,,Entailment,3,0.0000
+item,test-25,,,,,,,,Contradiction,3,0.0000
+item,test-26,,,,,,,,Contradiction,3,0.0000
+item,test-27,,,,,,,,Contradiction,3,0.0000
+item,test-28,,,,,,,,NotMentioned,3,0.0000
+item,test-29,,,,,,,,NotMentioned,3,0.0000
+item,test-30,,,,,,,,Contradiction,3,0.0000
+item,test-31,,,,,,,,NotMentioned,3,0.0000
+item,test-32,,,,,,,,NotMentioned,3,0.0000
+item,test-33,,,,,,,,Contradiction,3,0.0000
+item,test-34,,,,,,,,Entailment,3,0.0000
+item,test-35,,,,,,,,NotMentioned,3,0.0000
+item,test-36,,,,,,,,Entailment,3,0.0000
+item,test-37,,,,,,,,Entailment,3,0.0000
+item,test-38,,,,,,,,NotMentioned,3,0.0000
+item,test-39,,,,,,,,Entailment,3,0.0000

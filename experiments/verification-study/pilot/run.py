@@ -124,6 +124,22 @@ def c4_flag(readings):
     return len({r["label"] for r in readings}) > 1 or any(r["check"]["status"] == "fail" for r in readings)
 
 
+def build_request(model, kind, item, text, schema):
+    """(params sent to the API, request as stored in the record: the document replaced by its id and hash)."""
+    output_config = {"format": {"type": "json_schema", "schema": schema}}
+    if EFFORT[kind]:
+        output_config["effort"] = EFFORT[kind]
+    params = {"model": model, "max_tokens": MAX_TOKENS[kind], "output_config": output_config,
+              "messages": [{"role": "user", "content": text}]}
+    return params, stored_request(params, item)
+
+
+def stored_request(params, item):
+    text, doc = params["messages"][0]["content"], item["document_text"]
+    shown = text.replace(doc, f"<document {item['doc_id']} omitted, sha256 {hashlib.sha256(doc.encode()).hexdigest()[:16]}>")
+    return {**params, "messages": [{"role": "user", "content": shown}]}
+
+
 # ------------------------------------------------------------------------------- clients
 
 class CallFailed(Exception):
@@ -230,14 +246,7 @@ class Runner:
     def call(self, d, model, kind, item, text, schema, ctx=None):
         """The saved or new record, or None when the call failed (logged to errors.csv; a rerun retries it)."""
         path = record_path(self.runs, self.split, d, model, item["item_id"])
-        output_config = {"format": {"type": "json_schema", "schema": schema}}
-        if EFFORT[kind]:
-            output_config["effort"] = EFFORT[kind]
-        params = {"model": model, "max_tokens": MAX_TOKENS[kind], "output_config": output_config,
-                  "messages": [{"role": "user", "content": text}]}
-        doc = item["document_text"]
-        shown = text.replace(doc, f"<document {item['doc_id']} omitted, sha256 {hashlib.sha256(doc.encode()).hexdigest()[:16]}>")
-        request = {**params, "messages": [{"role": "user", "content": shown}]}
+        params, request = build_request(model, kind, item, text, schema)
         if path.exists():
             rec = json.loads(path.read_text())
             if bool(rec.get("dry_run")) != self.dry_run:

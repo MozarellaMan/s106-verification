@@ -1,0 +1,81 @@
+{
+ "item_id": "test-15",
+ "kind": "adjudicate",
+ "dir": "C5",
+ "dry_run": false,
+ "request": {
+  "model": "claude-opus-5-5",
+  "max_tokens": 8000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\n<document 23 omitted, sha256 0dc2a036d1bd8287>\n</document>\n\n<hypothesis>\nAgreement shall not grant Receiving Party any right to Confidential Information.\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: Entailment\nconfidence: 55\nreason: Clause 5.3.2 states that disclosure gives the Recipient no licence or rights in the Confidential Information beyond those in the Agreement, which closely matches the hypothesis, though the Agreement does grant a limited use right under 5.1.2.\n<quote check=\"exact\">shall not give Recipient or its Representatives any licence or other rights in relation to that Confidential Information beyond the rights contained in this Agreement</quote>\n</reading>\n<reading id=\"B\">\nlabel: Entailment\nconfidence: 80\nreason: Clause 5.3.2 states that disclosure gives the Recipient no licence or other rights in the Confidential Information, apart from rights contained in the Agreement itself, which matches the hypothesis closely, though the 'beyond the rights contained in this Agreement' qualifier leaves a small gap.\n<quote check=\"exact\">The disclosure of Confidential Information to Recipient or its Representatives shall not give Recipient or its Representatives any licence or other rights in relation to that Confidential Information beyond the rights contained in this Agreement.</quote>\n</reading>\n<reading id=\"C\">\nlabel: Entailment\nconfidence: 88\nreason: The agreement states that disclosure grants the Recipient no licence or other rights in the Confidential Information, and that ownership stays with the Discloser.\n<quote check=\"exact\">The disclosure of Confidential Information to Recipient or its Representatives shall not give Recipient or its Representatives any licence or other rights in relation to that Confidential Information beyond the rights contained in this Agreement.</quote>\n<quote check=\"exact\">All Confidential Information shall remain the property of Discloser or its relevant Representative, as applicable.</quote>\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "subagent-C5__claude-opus-5-5__test-15",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"label\":\"Entailment\",\"confidence\":85,\"quotes\":[\"The disclosure of Confidential Information to Recipient or its Representatives shall not give Recipient or its Representatives any licence or other rights in relation to that Confidential Information beyond the rights contained in this Agreement.\"],\"reason\":\"Clause 5.3.2 states that disclosure grants the Recipient no licence or other rights in the Confidential Information beyond those in the Agreement, which is the standard no-rights-granted clause the hypothesis describes.\"}"
+   }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+   "input_tokens": null,
+   "output_tokens": null
+  }
+ },
+ "usage": {
+  "input_tokens": null,
+  "output_tokens": null
+ },
+ "latency_ms": null,
+ "timestamp": "2026-10-15T00:18:26+00:00",
+ "cost_usd": null,
+ "client": "subagent",
+ "cost_usd_estimated": true
+}
