@@ -64,8 +64,8 @@ pub fn grid() -> Vec<Scenario> {
     }
 
     add(
-        "S5".into(),
-        "item difficulty: 30% hard cells, accuracy drops by 0.4 (A2, A3)",
+        "S5a".into(),
+        "item difficulty: 30% hard cells, accuracy drops by 0.4, unique wrong values (A2, A3)",
         Params {
             acc: [0.95; 3],
             hard_share: 0.3,
@@ -157,5 +157,21 @@ pub fn grid() -> Vec<Scenario> {
             },
         );
     }
+    // S5b was added after the others; it is appended so that every earlier scenario keeps its
+    // seed, then moved next to S5a for the tables.
+    add(
+        "S5b".into(),
+        "item difficulty as S5a, wrong values from a 3-value answer space as S3-K3 (A1, A2, A3)",
+        Params {
+            acc: [0.95; 3],
+            hard_share: 0.3,
+            delta: 0.4,
+            k: Some(3),
+            ..base()
+        },
+    );
+    let s5b = out.pop().unwrap();
+    let at = out.iter().position(|s| s.name == "S5a").unwrap() + 1;
+    out.insert(at, s5b);
     out
 }

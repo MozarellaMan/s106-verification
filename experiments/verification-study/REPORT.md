@@ -48,46 +48,73 @@ labels were made after seeing the Claude reading (`labels/audit-notes/audit-vs-c
 ## 3. Synthetic falsification
 
 Code: `experiments/verification-study/synthetic/` (Rust, calls the unchanged `estimates()` and `error()`;
-written by one model, reviewed and corrected by a second; one scenario bug found and fixed before the
-numbers below were taken). Every figure here is from `results/summary.md` in that folder, 200 replications
-per scenario, 20 schemes × 4 cells unless stated. Monte Carlo error on a coverage figure is about ±2 points.
+written by one model, reviewed and corrected by a second; one scenario bug found and fixed before the first
+numbers were taken, and the interval, ratio and S5b additions below were written and reviewed the same way after
+the outside review). Every figure here is from `results/summary.md` in that folder, 200 replications per scenario,
+20 schemes × 4 cells unless stated. The figures were regenerated after the fix in #76 (section 5.5); the fix moves
+only the gate-pass and `fits` columns of S2 and S12, and every other figure reproduced exactly. Monte Carlo error:
+at 200 replications a coverage figure has standard error sqrt(p(1-p)/200), which is 1.1 points at the nominal
+97.5% and 2.1 points at 90%, so the 95% Monte Carlo band is about ±2 points near the nominal rate and ±4 points
+near 90%. The first version of this report called ±2 points the error; it was one standard error.
 
 **3.1 With independent readers the point estimate is right and the interval is not.** Ideal case S1: mean
-estimate 0.906 for a true 0.900. But the lower bound sits *above* the truth in 10.0% of runs against a
-nominal 2.5%; with 5 schemes 17.0%, with 8 schemes 12.5%. The gate therefore passes a reader sitting exactly
-at 90% four to seven times as often as the rule claims. The diagnostic line shows why: the interval has the
-right width on average (0.066 ≈ 1.9 sd) but narrows when the point estimate comes out high, which is exactly
-when the gate is decided. Power is also low: a reader at 92% passes 16% of the time with 20 schemes and 17.5%
-with 50 (S9).
+estimate 0.906 for a true 0.900. But the lower bound sits *above* the truth in 10.0% of runs (coverage 90.0%,
+se 2.1) against a nominal 2.5%; with 8 schemes 12.5% and with 5 schemes 17.0% (coverage 87.5% and 83.0%). The gate
+therefore passes a reader sitting exactly at 90% in 10.0% of runs at 20 schemes, 10.0% at 8 and 6.5% at 5 (after
+#76; before it 14.0% and 17.0%, because readers with a bound of exactly 1 passed), three to four times as often as
+the rule claims. The diagnostic line shows why: the interval has the right width on average (0.066 ≈ 1.9 sd) but
+narrows when the point estimate comes out high, which is exactly when the gate is decided. A second interval
+method does not rescue it: the basic (reverse-percentile) bootstrap bound, computed from the same 1000 draws by
+a mirror of the library's resampling that is checked against it in every replication, covers 87.5% at 20 schemes,
+80.0% at 8 and 82.5% at 5, no better than the percentile bound. So the under-coverage is the bootstrap on few
+clusters, not the choice of percentile. Power is also low: a reader at 92% passes 16% of the time with 20 schemes
+and 17.5% with 50 (S9).
 
 **3.2 Shared input errors inflate the estimate and the fit check never fires.** When a share ρ of cells
 carries a corruption that every LLM and every person follows (an OCR digit error), the estimates for those
 readers stay at 0.90 while their true accuracy is 0.86 (ρ=0.05), 0.82 (ρ=0.10) or 0.74 (ρ=0.20); the
 independent external reader is pushed *down* by the same amount (S4). This matches the closed form: with
 A_12 inflated and A_13 = A_23, the formula returns the uncorrupted accuracy for readers 1 and 2 and
-A_13/a for reader 3. `fits` stayed true in every run. Cell labels survived in S4 only because the external
-reader broke unanimity on every corrupted cell: 0 wrong `confirmed` cells.
+A_13/a for reader 3, so S4 (and S11, S12 below) demonstrate a result that follows from the formula rather than
+test the code; the test of the code is S1/S2 and the cell-level counts. `fits` stayed true in every run. Cell
+labels survived in S4 only because the external reader broke unanimity on every corrupted cell: 0 wrong
+`confirmed` cells.
 
 **3.3 Without an independent source, `confirmed` cells are wrong 5-11% of the time.** S11 removes the shield:
 every reader follows the corruption. Cells reaching `confirmed`, with a stated posterior error under 1%
-(mean 0.8-0.9%), were wrong 4.5% of the time at ρ=0.05 and 10.7% at ρ=0.10. The stated error is 10-30 times
-too small. This is the production case for V2, V3, V4, V6 and V7, which have no reader outside the OCR text.
+(mean 0.8-0.9%), were wrong 4.5% of the time at ρ=0.05 (20 of 440) and 10.7% at ρ=0.10 (67 of 626). Over all
+`confirmed` cells, right or wrong, the realised error is 14 times the stated error at ρ=0.05 and 29 times at
+ρ=0.10. Over the cells where all three readers agreed on a wrong value, whether or not they reached `confirmed`
+(605 and 1,150 cells), the realised error is 1 by construction and the stated error averages 0.8-0.9%, so the
+ratio there is about 110-120; the first version's "10-30 times" was the first of these two sets and did not say so.
+Per run: `confirmed` needs the gate to pass, and in S11 every pass is a false pass (true a1 is 0.86 or 0.82). The
+gate passed in 7 of 200 runs at ρ=0.05 and all 7 produced wrong confirmed cells (1, 1, 3, 3, 4, 4 and 4 of them); at
+ρ=0.10 it passed in 11 runs and 10 produced wrong confirmed cells (3 to 12 each, 67 in all). So the harm comes in
+bursts: most runs confirm nothing wrong because the gate holds, and the runs where it fails confirm several wrong
+cells at once. This is the production case for V2, V3, V4, V6 and V7, which have no reader outside the OCR text.
 
 **3.4 Anchored human labels inflate the gate.** If the person copies the model's reading with probability q
 (S12), the model's estimate rises to 0.932 (q=0.3) and 0.960 (q=0.6) for a true 0.900, and a reader exactly at
-the gate passes 24.5% and 62% of the time. No wrong cell was confirmed, because the external reader stayed
-independent and wrong values never coincided; the harm is to the published accuracy figure, not yet to cells.
+the gate passes 24.5% and 59.5% of the time (62% before #76). No wrong cell was confirmed, because the external
+reader stayed independent and wrong values never coincided; the harm is to the published accuracy figure, not yet
+to cells.
 
-**3.5 What did little harm.** Chance agreement on a 2-5 value answer space (S3) biases the two weaker readers
-by at most +0.03 and let one wrong cell through `confirmed` in 56 (not distinguishable from 1%). A reader at
-0.95 with two 0.60 partners is underestimated by 0.07 when K=3 (S8). Item difficulty (S5) and the external
-reader reporting another lineage stage on whole schemes (S7) left the estimate within 0.01 of the truth,
-because those errors do not make readers agree on the same wrong value. Cells whose truth is `not_stated` (S6)
-behaved like the ideal case.
+**3.5 What did little harm, and one scenario that could not have shown harm.** Chance agreement on a 2-5 value
+answer space (S3) biases the two weaker readers by at most +0.03 and let one wrong cell through `confirmed` in 56
+(not distinguishable from 1%). A reader at 0.95 with two 0.60 partners is underestimated by 0.07 when K=3 (S8).
+The external reader reporting another lineage stage on whole schemes (S7) and cells whose truth is `not_stated`
+(S6) behaved like the ideal case. Item difficulty as first simulated (S5, now S5a) left the estimate within 0.012
+of the truth, but the outside review pointed out why: S5a draws wrong values from an unlimited answer space, so
+wrong readers never coincide and the scenario cannot produce a unanimous wrong cell. Rerun with a 3-value answer
+space (S5b, same parameters and seed otherwise), the bias is +0.040, coverage falls to 80.5%, and 101 cells had all
+three readers agree on a wrong value with a mean stated error of 1.8%. None of those reached `estimated` or
+`confirmed`, because the readers' true accuracy (0.83) kept the gate shut in 198 of 200 runs; with readers above
+the gate the same mechanism would let them through, as S11 does.
 
 **3.6 What section 3 does not show.** It does not show that any real cell is wrong. It says nothing about the
 real values of ρ (how often the OCR misleads every reader the same way), q (how often a label copied the model)
-or the answer-space size; the pilot in section 5 measures the first of these on clean, OCR-noised and edited text. The partial Datahub vote, groups G2/G3 and more than three readers were not simulated.
+or the answer-space size; the pilot in section 5 measures the first of these on clean, OCR-noised and edited text.
+The partial Datahub vote, groups G2/G3 and more than three readers were not simulated.
 
 ## 4. The workflow as verification stages
 

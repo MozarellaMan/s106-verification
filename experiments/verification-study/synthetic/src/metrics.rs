@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use s106::accuracy::{CONFIRM, Estimate, Kind, Vote, agree, error, estimates};
 use serde::Serialize;
 
+use crate::bootstrap;
 use crate::generator::{Params, Rng, generate};
 use crate::scenarios::Scenario;
 
@@ -15,6 +16,8 @@ pub struct Est {
     pub lower: f64,
     pub fits: bool,
     pub passes: bool,
+    /// basic bootstrap lower bound `2 * accuracy - q97.5`, from the same draws (reader 1 only)
+    pub basic_lower: Option<f64>,
 }
 
 /// A cell on which every reader agreed and `error()` gave a figure.
@@ -43,14 +46,24 @@ pub fn replicate(p: &Params, seed: u64, rep: u64) -> Rep {
         .map(|e| ((e.group.clone(), e.reader.clone()), e))
         .collect();
     let est = ["claude", "person", "datahub"].map(|r| {
-        by_reader
-            .get(&("G1".to_string(), r.to_string()))
-            .map(|e| Est {
+        by_reader.get(&("G1".to_string(), r.to_string())).map(|e| {
+            let basic_lower = (r == "claude").then(|| {
+                let d = bootstrap::draws(&data.votes, r, &e.against[0], &e.against[1]);
+                let (percentile, basic) = bootstrap::lower_bounds(&d, e.accuracy);
+                assert_eq!(
+                    percentile, e.lower,
+                    "bootstrap mirror out of step with estimates()"
+                );
+                basic
+            });
+            Est {
                 accuracy: e.accuracy,
                 lower: e.lower,
                 fits: e.fits,
                 passes: e.passes(),
-            })
+                basic_lower,
+            }
+        })
     });
 
     let mut cells: BTreeMap<_, Vec<&Vote>> = BTreeMap::new();
@@ -113,6 +126,12 @@ pub struct Row {
     pub sd_a1: f64,
     pub bias_a1: f64,
     pub coverage_a1: f64,
+    /// Monte Carlo standard error of `coverage_a1`, sqrt(p(1-p)/n)
+    pub coverage_a1_se: f64,
+    /// coverage of the basic bootstrap lower bound `2 * a1_hat - q97.5`, and its standard error
+    pub coverage_basic_a1: f64,
+    pub coverage_basic_a1_se: f64,
+    pub mean_basic_lower_a1: f64,
     pub mean_lower_a1: f64,
     pub sd_lower_a1: f64,
     /// share of estimates whose lower bound is above the true a1 (1 - coverage)
@@ -125,6 +144,8 @@ pub struct Row {
     pub bias_a3: f64,
     pub coverage_a3: f64,
     pub gate_pass: f64,
+    /// number of replications in which reader 1 passed the gate
+    pub reps_gate_pass: usize,
     pub false_pass: Option<f64>,
     pub power: Option<f64>,
     pub estimated_cells: usize,
@@ -133,11 +154,17 @@ pub struct Row {
     pub confirmed_wrong: usize,
     pub confirmed_wrong_share: Option<f64>,
     pub confirmed_per_rep: f64,
+    /// number of replications with at least one wrong `confirmed` cell
+    pub reps_confirmed_wrong: usize,
     pub allwrong_cells: usize,
     pub allwrong_estimated: usize,
     pub allwrong_confirmed: usize,
     pub allwrong_error_mean: Option<f64>,
     pub allwrong_error_min: Option<f64>,
+    /// realised wrong count / stated expected wrong count (sum of `error()`), over all-agree-wrong
+    /// cells (= 1 / their mean error, since all are wrong) and over all `confirmed` cells
+    pub realised_over_stated_allwrong: Option<f64>,
+    pub realised_over_stated_confirmed: Option<f64>,
 }
 
 /// One row of `cells.csv`: estimated cells (reader gate passed) by posterior error bin.
@@ -160,6 +187,18 @@ fn sd(x: &[f64]) -> f64 {
     (x.iter().map(|v| (v - m).powi(2)).sum::<f64>() / (x.len().max(2) - 1) as f64).sqrt()
 }
 
+/// Monte Carlo standard error of a share `p` estimated from `n` replications.
+fn mc_se(p: f64, n: usize) -> f64 {
+    (p * (1.0 - p) / n.max(1) as f64).sqrt()
+}
+
+/// Realised wrong count over the sum of the stated errors, for a set of cells.
+fn realised_over_stated(cells: &[&&CellOutcome]) -> Option<f64> {
+    let stated: f64 = cells.iter().map(|c| c.error).sum();
+    let wrong = cells.iter().filter(|c| c.wrong).count();
+    (stated > 0.0).then(|| wrong as f64 / stated)
+}
+
 fn share(n: usize, d: usize) -> Option<f64> {
     (d > 0).then(|| n as f64 / d as f64)
 }
@@ -176,11 +215,18 @@ pub fn summarise(sc: &Scenario, reps: &[Rep]) -> (Row, Vec<BinRow>) {
     };
     let e1 = with(0);
     let acc1: Vec<f64> = e1.iter().map(|e| e.accuracy).collect();
-    let gate_pass = reps
+    let reps_gate_pass = reps
         .iter()
         .filter(|r| r.est[0].is_some_and(|e| e.passes))
-        .count() as f64
-        / n as f64;
+        .count();
+    let gate_pass = reps_gate_pass as f64 / n as f64;
+    let reps_confirmed_wrong = reps
+        .iter()
+        .filter(|r| r.cells.iter().any(|c| c.confirmed && c.wrong))
+        .count();
+    let basic: Vec<f64> = e1.iter().filter_map(|e| e.basic_lower).collect();
+    let coverage_basic_a1 =
+        basic.iter().filter(|&&b| b <= truth[0]).count() as f64 / basic.len().max(1) as f64;
 
     let cells: Vec<&CellOutcome> = reps.iter().flat_map(|r| &r.cells).collect();
     let estimated: Vec<_> = cells.iter().filter(|c| c.estimated).collect();
@@ -214,6 +260,10 @@ pub fn summarise(sc: &Scenario, reps: &[Rep]) -> (Row, Vec<BinRow>) {
         sd_a1: sd(&acc1),
         bias_a1: bias(0),
         coverage_a1: coverage(0),
+        coverage_a1_se: mc_se(coverage(0), e1.len()),
+        coverage_basic_a1,
+        coverage_basic_a1_se: mc_se(coverage_basic_a1, basic.len()),
+        mean_basic_lower_a1: mean(&basic),
         mean_lower_a1: mean(&e1.iter().map(|e| e.lower).collect::<Vec<_>>()),
         sd_lower_a1: sd(&e1.iter().map(|e| e.lower).collect::<Vec<_>>()),
         lower_above_true_a1: e1.iter().filter(|e| e.lower > truth[0]).count() as f64
@@ -232,6 +282,7 @@ pub fn summarise(sc: &Scenario, reps: &[Rep]) -> (Row, Vec<BinRow>) {
         bias_a3: bias(2),
         coverage_a3: coverage(2),
         gate_pass,
+        reps_gate_pass,
         false_pass: (truth[0] < 0.90).then_some(gate_pass),
         power: (truth[0] >= 0.95).then_some(gate_pass),
         estimated_cells: estimated.len(),
@@ -246,11 +297,14 @@ pub fn summarise(sc: &Scenario, reps: &[Rep]) -> (Row, Vec<BinRow>) {
             confirmed.len(),
         ),
         confirmed_per_rep: confirmed.len() as f64 / n as f64,
+        reps_confirmed_wrong,
         allwrong_cells: allwrong.len(),
         allwrong_estimated: allwrong.iter().filter(|c| c.estimated).count(),
         allwrong_confirmed: allwrong.iter().filter(|c| c.confirmed).count(),
         allwrong_error_mean: (!wrong_errors.is_empty()).then(|| mean(&wrong_errors)),
         allwrong_error_min: wrong_errors.iter().copied().min_by(f64::total_cmp),
+        realised_over_stated_allwrong: realised_over_stated(&allwrong),
+        realised_over_stated_confirmed: realised_over_stated(&confirmed),
     };
 
     let bins = BINS

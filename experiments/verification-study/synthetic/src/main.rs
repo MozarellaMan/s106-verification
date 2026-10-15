@@ -1,5 +1,6 @@
 //! Synthetic falsification of `s106::accuracy`: see README.md.
 
+mod bootstrap;
 mod generator;
 mod metrics;
 mod scenarios;
@@ -175,7 +176,7 @@ fn summary(grid: &[scenarios::Scenario], rows: &[Row], args: &Args) -> String {
     if let Some(r) = rows.iter().find(|r| r.scenario == "S1") {
         let _ = writeln!(
             s,
-            "\nS1 bootstrap diagnostic: lower bound mean {:.3}, sd {:.3}; lower > true a1 ({:.3}) in {} of replications; mean a1_hat - lower {:.3} overall, {} where lower > true.",
+            "\nS1 bootstrap diagnostic: lower bound mean {:.3}, sd {:.3}; lower > true a1 ({:.3}) in {} of replications; mean a1_hat - lower {:.3} overall, {} where lower > true. Basic bootstrap lower bound mean {:.3}.",
             r.mean_lower_a1,
             r.sd_lower_a1,
             r.true_a1,
@@ -183,14 +184,72 @@ fn summary(grid: &[scenarios::Scenario], rows: &[Row], args: &Args) -> String {
             r.mean_width_a1,
             r.mean_width_a1_above
                 .map_or("-".into(), |w| format!("{w:.3}")),
+            r.mean_basic_lower_a1,
         );
     }
+
+    let _ = writeln!(
+        s,
+        "\n## Coverage by interval method, runs, and stated vs realised error\n"
+    );
+    let n = args.reps as f64;
+    let se = |p: f64| 100.0 * (p * (1.0 - p) / n).sqrt();
+    let _ = writeln!(
+        s,
+        "Monte Carlo error: a coverage figure from {} replications has standard error sqrt(p(1-p)/{}), which is {:.1} points at the nominal 97.5% and {:.1} points at 90%; the 95% Monte Carlo band is +/-1.96 se, so +/-{:.1} points at 97.5% and +/-{:.1} points at 90%. Each scenario's own se is in brackets below.\n",
+        args.reps,
+        args.reps,
+        se(0.975),
+        se(0.90),
+        1.96 * se(0.975),
+        1.96 * se(0.90),
+    );
+    let _ = writeln!(
+        s,
+        "Two lower bounds for a1 from the same 1000 bootstrap draws: the percentile bound (the 2.5th percentile, what `estimates()` reports and the gate uses) and the basic (reverse percentile) bound 2 * a1_hat - q97.5. Only the percentile bound drives the gate, `estimated` and `confirmed`; the basic bound is a diagnostic. Limitation: `estimates()` does not expose its draws, so this crate repeats its resampling (`src/bootstrap.rs`: same cells, scheme list, seed and triplet formula) and checks in every replication that its 2.5th percentile equals the library's `lower` exactly; the basic bound is therefore only as current as that copy, and the check fails if `accuracy.rs` changes its resampling.\n"
+    );
+    let _ = writeln!(
+        s,
+        "Runs: `confirmed` needs the gate to pass, so every wrong `confirmed` cell comes from a run in which the gate passed. The columns give in how many runs (of the replications) the gate passed and in how many at least one wrong cell reached `confirmed`.\n"
+    );
+    let _ = writeln!(
+        s,
+        "Realised / stated: realised wrong count divided by the stated expected wrong count (the sum of `error()`), over (a) all all-agree-wrong cells, whether or not they reached `estimated` (every one is wrong, so this is 1 / their mean stated error), and (b) all `confirmed` cells, right or wrong (1 means the stated error is right on average; 5 means it is five times too small).\n"
+    );
+    let _ = writeln!(
+        s,
+        "| scenario | coverage a1, percentile (se) | coverage a1, basic (se) | runs gate passed | runs with a wrong confirmed cell | wrong confirmed cells | realised / stated (a) all-agree-wrong cells | realised / stated (b) confirmed cells |"
+    );
+    let _ = writeln!(s, "|---|---|---|---|---|---|---|---|");
+    let ratio = |x: Option<f64>| x.map_or("-".into(), |x| format!("{x:.1}"));
+    for r in rows {
+        let _ = writeln!(
+            s,
+            "| {} | {} ({:.1}) | {} ({:.1}) | {} / {} | {} / {} | {} | {} | {} |",
+            r.scenario,
+            pct(r.coverage_a1),
+            100.0 * r.coverage_a1_se,
+            pct(r.coverage_basic_a1),
+            100.0 * r.coverage_basic_a1_se,
+            r.reps_gate_pass,
+            r.reps,
+            r.reps_confirmed_wrong,
+            r.reps,
+            r.confirmed_wrong,
+            ratio(r.realised_over_stated_allwrong),
+            ratio(r.realised_over_stated_confirmed),
+        );
+    }
+    let _ = writeln!(
+        s,
+        "\nS5: the original difficulty scenario is kept as S5a (wrong values unique, so wrong readers never agree and S5a cannot show unanimous wrong cells); S5b is the same with wrong values drawn from a 3-value answer space, the mechanism of S3-K3. S5b was appended to the grid, so every other scenario keeps its seed. Compared with the run before s106-verification #76, S2-n5, S2-n8 and S12-q60 differ in their fits=false, gate-pass and confirmed columns because that fix no longer lets a lower bound of exactly 1 pass; every other figure is unchanged."
+    );
     let _ = writeln!(s, "\n## Definitions\n");
     for d in [
         "true a1: the population accuracy of reader 1 (claude) on a random cell, including the effect of difficulty, shared corruption and stage; a2, a3 likewise for person and datahub.",
         "mean a1_hat (sd), bias a1: mean and standard deviation of the point estimate over replications, and mean minus true a1.",
-        "coverage: share of replications whose lower bound is at most the true accuracy (target 97.5% or more).",
-        "no est.: share of replications where no triplet formed; fits=false: share of the estimates with lower bound above 1.",
+        "coverage: share of replications whose (percentile) lower bound is at most the true accuracy (target 97.5% or more); Monte Carlo se and the basic-bootstrap coverage are in the second table.",
+        "no est.: share of replications where no triplet formed; fits=false: share of the estimates the library calls a misfit (point estimate above 1 with a lower bound of 1 or more).",
         "gate pass: share of replications where reader 1 passes the gate (fits and lower >= 0.90); false-pass applies when true a1 < 0.90, power when true a1 >= 0.95.",
         "confirmed/rep: mean number of cells per replication that the ledger would mark `confirmed` (all readers agree, gate passed, error <= 1%, a non-LLM reader among them).",
         "confirmed wrong: observed share of confirmed cells whose agreed reading is actually wrong, with the count of wrong ones in brackets (target <= 1%).",
