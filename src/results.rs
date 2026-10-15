@@ -220,7 +220,14 @@ pub fn ledger(
             };
             e.check = Check::Proposed;
             let vs = votes.get(&k).cloned().unwrap_or_default();
-            let r = majority(&vs, &r.labeller)
+            // a proposal outranks a label, then a later proposals file an earlier one
+            let order = |reader: &str| {
+                by_reader.get(&(k.clone(), reader)).map(|r| {
+                    let file = r.origin.split(':').next().unwrap_or("").to_string();
+                    (file.starts_with("proposals/"), file)
+                })
+            };
+            let r = majority(&vs, &r.labeller, order)
                 .and_then(|reader| by_reader.get(&(k.clone(), reader)).copied())
                 .unwrap_or(r);
             let agreed = vs
@@ -276,21 +283,34 @@ pub fn ledger(
         .collect()
 }
 
-/// The reader of the full reading that more votes agree with than agree with `shown`'s, if any.
-/// No model settles a disagreement (s106-data `docs/verification-rule.md`, section 5); the majority
-/// only decides which reading is shown.
-fn majority<'a>(vs: &[&'a Vote], shown: &str) -> Option<&'a str> {
-    let support = |a: &Vote| vs.iter().filter(|b| accuracy::agree(a, b)).count();
+/// The reader of the full reading that more source families agree with than agree with `shown`'s,
+/// if any. A family counts once, however many of its readers agree: readers of one model family
+/// fail together (the verification study), so two runs of one model cannot outvote another
+/// family. Among challengers with equal support, the one `order` ranks last wins, as on a tie with
+/// the shown reading. No model settles a disagreement (s106-data `docs/verification-rule.md`,
+/// section 5); the majority only decides which reading is shown.
+fn majority<'a, K: Ord>(
+    vs: &[&'a Vote],
+    shown: &str,
+    order: impl Fn(&str) -> Option<K>,
+) -> Option<&'a str> {
+    let support = |a: &Vote| {
+        vs.iter()
+            .filter(|b| accuracy::agree(a, b))
+            .map(|b| b.family.as_str())
+            .collect::<BTreeSet<_>>()
+            .len()
+    };
     let base = vs
         .iter()
         .find(|v| v.reader == shown && !v.partial)
         .map_or(0, |v| support(v));
     vs.iter()
         .filter(|v| !v.partial)
-        .map(|v| (support(v), v))
-        .filter(|(n, _)| *n > base)
-        .max_by_key(|(n, _)| *n)
-        .map(|(_, v)| v.reader.as_str())
+        .map(|v| (support(v), order(&v.reader), v))
+        .filter(|(n, _, _)| *n > base)
+        .max_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)))
+        .map(|(_, _, v)| v.reader.as_str())
 }
 
 fn fields(m: &BTreeMap<String, String>) -> String {
