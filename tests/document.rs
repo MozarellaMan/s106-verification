@@ -9,6 +9,7 @@ fn line(text: &str, bbox: [f32; 4]) -> Line {
     Line {
         text: text.into(),
         bbox,
+        conf: None,
     }
 }
 

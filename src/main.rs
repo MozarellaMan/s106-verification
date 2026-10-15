@@ -6,7 +6,7 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 
 use s106::document::{self, Snapshot};
-use s106::{explore, figures, labels, pld, results};
+use s106::{explore, figures, labels, ocrconf, pld, results};
 
 #[derive(Parser)]
 #[command(
@@ -59,6 +59,14 @@ enum Cmd {
         /// cannot leave batch 1 in by mistake; repeat for more sheets
         #[arg(long, required = true)]
         seen: Vec<PathBuf>,
+    },
+    /// Record the OCR confidence of every number a proposals file quotes, on the pages it cites.
+    /// Writes <data>/<out> (CSV); paths are relative to the data root.
+    OcrConf {
+        /// the proposals file
+        file: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
     },
     /// Check every figure cited as `29.8%<!-- src: path -->` in the markdown under <dir>: the cited
     /// file (relative to <dir>) must exist and still contain the figure. Exit 1 if any fails.
@@ -286,6 +294,15 @@ fn main() -> Result<()> {
                 "wrote {}",
                 root.join("reports/labels/labels.{md,json}").display()
             );
+            Ok(())
+        }
+        Cmd::OcrConf { file, out } => {
+            let root = s106::data::root();
+            let counts = ocrconf::run(&root, &file, &out)?;
+            for (status, n) in counts {
+                println!("{status}: {n}");
+            }
+            eprintln!("wrote {}", root.join(&out).display());
             Ok(())
         }
         Cmd::CheckFigures { dir } => {
