@@ -115,6 +115,19 @@ enum PldCmd {
         #[arg(long)]
         subject: String,
     },
+    /// Write V1 and V8 rows, signed `machine:proposal/datahub-mapping`, from the latest
+    /// application snapshot of each scheme on a blank sheet (`s106::datahub`)
+    Map {
+        /// the blank sheet, relative to <data>
+        #[arg(long)]
+        sheet: PathBuf,
+        /// the proposals file to write, relative to <data>
+        #[arg(long)]
+        out: PathBuf,
+        /// the `labelled_on` date, YYYY-MM-DD
+        #[arg(long)]
+        on: String,
+    },
 }
 
 fn repo_root() -> PathBuf {
@@ -189,6 +202,13 @@ fn main() -> Result<()> {
         }
         Cmd::Pld { cmd } => {
             let root = s106::data::root();
+            if let PldCmd::Map { sheet, out, on } = &cmd {
+                for s in s106::datahub::map(&root, sheet, out, on)? {
+                    eprintln!("{s}: no application snapshot, not mapped");
+                }
+                println!("wrote {}", out.display());
+                return Ok(());
+            }
             let (index, subject, snap) = match cmd {
                 PldCmd::Get { index, id } => {
                     let snap = pld::get_source(&index, &id)?;
@@ -203,6 +223,7 @@ fn main() -> Result<()> {
                     let snap = pld::search(&index, body)?;
                     (index, subject, snap)
                 }
+                PldCmd::Map { .. } => unreachable!("handled above"),
             };
             let r = pld::save(&root, &index, &subject, &snap)?;
             println!("{} (sha256 {})", r.path, r.sha256);
