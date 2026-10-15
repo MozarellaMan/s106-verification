@@ -5,8 +5,8 @@
 //! number is a sign the page should be read again from the image.
 //!
 //! Text-layer pages carry no confidence and are reported as `text_layer`. Snapshots written
-//! before page-text logic 4 carry none either, and are reported as `no_confidence` until they are
-//! regenerated.
+//! before confidence was recorded carry none either, and are reported as `no_confidence` until they
+//! are regenerated.
 
 use std::collections::BTreeMap;
 use std::path::Path;
