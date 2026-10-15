@@ -56,6 +56,7 @@ flowchart LR
 | `ocrbench.rs` | OCR scored against transcribed gold pages |
 | `data.rs` | where the data checkout is and the paths inside it |
 | `pld.rs` | Datahub client and append-only snapshots (`s106 pld`) |
+| `datahub.rs` | `map`: each scheme's latest application snapshot as V1 and V8 proposal rows, signed `machine:proposal/datahub-mapping` (`s106 pld map`) |
 | `labels.rs` | Human labels; agent proposals scored against them (`s106 labels`) |
 | `results.rs` | `run`: a batch's scheme ledger, decision rules and claims, each with its check level (`s106 results`) |
 | `figures.rs` | `check`: figures cited in markdown as `29.8%<!-- src: path -->` must still appear in the cited file (`s106 check-figures`) |
