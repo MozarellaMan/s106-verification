@@ -6,6 +6,7 @@
 //! `results`: a batch's scheme ledger, decision rules and claims, each with its check level;
 //! `accuracy` estimates each reader's error rate from how often readers agree.
 //! `figures`: checks that figures cited in markdown still appear in the files they cite.
+//! `ocrconf`: the OCR confidence of every number a proposal quotes.
 
 pub mod accuracy;
 pub mod data;
@@ -15,5 +16,6 @@ pub mod explore;
 pub mod figures;
 pub mod labels;
 pub mod ocrbench;
+pub mod ocrconf;
 pub mod pld;
 pub mod results;

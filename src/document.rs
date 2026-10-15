@@ -34,7 +34,7 @@ const OCR_DPI: f32 = 200.0;
 /// Bump when `text_layer`, `group_lines`, `ocr_lines` or the OCR filtering change their output for
 /// the same input, then regenerate the snapshots (`s106 pages --write data/pages`). It is part
 /// of the cache key. An unbumped change shows up as a snapshot mismatch in the real-PDF tiers.
-pub const PAGE_TEXT_LOGIC: u32 = 3;
+pub const PAGE_TEXT_LOGIC: u32 = 4;
 const PDFIUM_ARCHIVE: &str = "pdfium-linux-x64.tgz";
 const ORT_ARCHIVE: &str = "onnxruntime-linux-x64-1.28.0.tgz";
 const RUNTIME_ARTIFACTS: &str = include_str!("../scripts/runtime-artifacts.tsv");
@@ -262,6 +262,9 @@ pub struct Line {
     pub text: String,
     /// [left, top, right, bottom]: PDF points from the top-left (text layer) or pixels at OCR_DPI (OCR).
     pub bbox: [f32; 4],
+    /// the OCR model's confidence in the line's text, 0 to 1; none for the text layer
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conf: Option<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -900,6 +903,8 @@ fn ocr_lines(res: &oar_ocr::prelude::OAROCRResult) -> Vec<Line> {
             Some(Line {
                 text,
                 bbox: [b.x_min(), b.y_min(), b.x_max(), b.y_max()],
+                // three decimals, so the snapshot stays readable and stable
+                conf: r.confidence.map(|c| (c * 1000.0).round() / 1000.0),
             })
         })
         .collect();
@@ -1022,6 +1027,7 @@ fn flush(cur: &mut Vec<(char, [f32; 4])>, lines: &mut Vec<Line>) {
             .collect::<Vec<_>>()
             .join(" "),
         bbox,
+        conf: None,
     });
     cur.clear();
 }
