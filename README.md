@@ -37,6 +37,7 @@ src/
   accuracy.rs   each reader's estimated accuracy from how often readers agree; sets the check levels
   explore.rs    data for the results explorer (`explorer/`): Datahub, plus deed cells or a private ledger
   figures.rs    `s106 check-figures`: each cited figure must still be in its cited file
+  ocrconf.rs    `s106 ocr-conf`: the OCR confidence of every number a proposal quotes
 ```
 
 ## Setup
@@ -100,10 +101,12 @@ undertaking and deeds of variation:
 s106 pages <pdf>... --write data/pages                             # page text snapshots for the readers
 s106 pages <pdf>... --check data/pages                             # read PDFs afresh and compare with the snapshots
 s106 pld get applications <borough>-<reference>                    # save a Datahub record under <data>/snapshots/pld/
+s106 pld search <index> <query.json> --subject <name>              # save a Datahub search under <data>/snapshots/pld/
 s106 pld map --sheet <sheet> --out <proposals.csv> --on <date>     # Datahub V1 and V8 rows as proposals
 s106 labels                                                        # score the proposals against the human labels
 s106 results --sheet runs/<batch>/labels.csv --out results/<batch> \
   --seen runs/2026-10-14-source-audit-batch1/labels.csv            # a batch's ledger, rules and claims
+s106 ocr-conf <proposals.csv> --out <conf.csv>                     # OCR confidence of each number a proposals file quotes
 s106 explore                                                       # bake the results explorer's data (explorer/README.md)
 s106 check-figures                                                 # every 29.8%<!-- src: path --> still in its cited file
 ```
