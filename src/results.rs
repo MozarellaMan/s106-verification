@@ -930,9 +930,11 @@ pub fn markdown(r: &Results) -> String {
     s += &format!(
         "\n## Accuracy\n\nEach reader's accuracy per variable group, estimated from how often \
          three readers from three families agree, over every batch's readings except the schemes \
-         in {}. The lower bound is the 2.5th percentile over resamples of schemes; a reader's \
-         readings can make a cell `estimated` when the lower bound is at least {:.0}% and the \
-         model fits (the lower bound is at most 100%). The rule asks for a latent-class \
+         in {}. Every figure is an upper bound: readers from three families can still share \
+         mistakes, and three readers cannot show whether they do. The lower bound is a jackknife \
+         interval over schemes (the estimate less t(0.975) standard errors), and there is none \
+         below {} schemes. A reader's readings can make a cell `estimated` when the lower bound \
+         is at least {:.0}% and the model fits (the estimate is at most 100%). The rule asks for a latent-class \
          model per borough; this is its simplest moment estimate (one accuracy per reader, \
          every borough together), while every scheme is in Southwark. Files listed in \
          `proposals/superseded.csv` no longer vote.\n\n",
@@ -945,6 +947,7 @@ pub fn markdown(r: &Results) -> String {
                 .collect::<Vec<_>>()
                 .join(", ")
         },
+        accuracy::MIN_SCHEMES,
         accuracy::GATE * 100.0
     );
     if r.estimates.is_empty() {
@@ -954,17 +957,19 @@ pub fn markdown(r: &Results) -> String {
             accuracy::MIN_SHARED
         );
     } else {
-        s += "| group | reader | against | shared cells | accuracy | lower bound | passes |\n\
-              |---|---|---|---|---|---|---|\n";
+        s += "| group | reader | against | shared cells | schemes | accuracy (upper bound) | lower bound | passes |\n\
+              |---|---|---|---|---|---|---|---|\n";
         for x in &r.estimates {
             s += &format!(
-                "| {} | {} | {} | {} | {:.1}% | {:.1}% | {} |\n",
+                "| {} | {} | {} | {} | {} | {:.1}% | {} | {} |\n",
                 x.group,
                 x.reader,
                 x.against.join(", "),
                 x.shared,
+                x.schemes,
                 x.accuracy * 100.0,
-                x.lower * 100.0,
+                x.lower
+                    .map_or("none".into(), |l| format!("{:.1}%", l * 100.0)),
                 if x.passes() { "yes" } else { "no" }
             );
         }
