@@ -169,6 +169,10 @@ pub fn rows(scheme: &str, snapshot: &str, response: &Value, on: &str) -> Vec<Row
                 .unwrap_or("None")
         ),
         format!(
+            "lapsed_date = {}",
+            response["lapsed_date"].as_str().unwrap_or("None")
+        ),
+        format!(
             "residential_units (Gain) with an actual_completion_date: {completed} of {}",
             units.len()
         ),
