@@ -98,8 +98,10 @@ fn snapshot_names(doc: &str) -> Vec<String> {
 
 /// Whether `line` holds `number` as a whole number (not inside a longer one).
 fn holds(line: &str, number: &str) -> bool {
+    // thousands commas are dropped from both, so "1,250" and "1250" match each other
+    let (line, number) = (line.replace(',', ""), number.replace(',', ""));
     let digits = |c: char| c.is_ascii_digit();
-    line.match_indices(number).any(|(i, m)| {
+    line.match_indices(&number).any(|(i, m)| {
         let before = line[..i].chars().next_back();
         let after = line[i + m.len()..].chars().next();
         !before.is_some_and(digits) && !after.is_some_and(digits)
@@ -210,6 +212,7 @@ mod tests {
         assert_eq!(cited("A B", "p1, 3")["B"], vec![1, 3]);
         assert!(holds("Units 35 and 40", "35"));
         assert!(!holds("Units 135", "35"));
+        assert!(holds("1250 sq m", "1,250") && holds("1,250 sq m", "1250"));
         assert_eq!(snapshot_names("13AP3815-003")[1], "southwark-13_AP_3815-3");
         assert_eq!(snapshot_names("19AP2307-decision").len(), 1);
     }

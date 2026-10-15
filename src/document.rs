@@ -34,7 +34,8 @@ const OCR_DPI: f32 = 200.0;
 /// Bump when `text_layer`, `group_lines`, `ocr_lines` or the OCR filtering change their output for
 /// the same input, then regenerate the snapshots (`s106 pages --write data/pages`). It is part
 /// of the cache key. An unbumped change shows up as a snapshot mismatch in the real-PDF tiers.
-pub const PAGE_TEXT_LOGIC: u32 = 4;
+/// Line confidence (`Line::conf`) is not page text: adding it left this at 3.
+pub const PAGE_TEXT_LOGIC: u32 = 3;
 const PDFIUM_ARCHIVE: &str = "pdfium-linux-x64.tgz";
 const ORT_ARCHIVE: &str = "onnxruntime-linux-x64-1.28.0.tgz";
 const RUNTIME_ARTIFACTS: &str = include_str!("../scripts/runtime-artifacts.tsv");
@@ -257,14 +258,23 @@ pub enum TextSource {
     Ocr,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Line {
     pub text: String,
     /// [left, top, right, bottom]: PDF points from the top-left (text layer) or pixels at OCR_DPI (OCR).
     pub bbox: [f32; 4],
-    /// the OCR model's confidence in the line's text, 0 to 1; none for the text layer
+    /// the OCR model's confidence in the line's text, 0 to 1; none for the text layer, and none in
+    /// a snapshot or cache entry written before confidence was recorded
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conf: Option<f32>,
+}
+
+/// Lines are equal when their text and box are: confidence is a note on the text, so a snapshot
+/// written before it was recorded still matches fresh page text.
+impl PartialEq for Line {
+    fn eq(&self, other: &Self) -> bool {
+        (&self.text, self.bbox) == (&other.text, other.bbox)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
