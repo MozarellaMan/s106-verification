@@ -4,7 +4,13 @@
 //! A reader is one producer of readings: an LLM reader (a `machine:proposal/<model>` labeller), a
 //! person (a labeller in `labels/`), or an external source. The Datahub's permitted homes are read
 //! as a reading of the deed's V1 total and affordable count, except on a scheme with a `variation`
-//! source, because the Datahub may record the varied figures.
+//! source, because the Datahub may record the varied figures. The EPC register's count of new
+//! homes (an `epc` V1 reading, `new_dwelling_epcs=N` or `N_low..N_high`) is read as a reading of
+//! the deed's V1 total on the same schemes, once the Datahub records a completion, in its own family: it agrees with a total when the
+//! count reaches at least 90% of it and does not exceed it, because owners can opt out of
+//! publication, so the register can fall short of the homes built but never above them. An LLM
+//! reader decides which certificates belong to the scheme; the count itself comes from the
+//! register, which no planning document feeds.
 //!
 //! A file listed in `proposals/superseded.csv` (columns `file`, `labeller`, `reason`) no longer
 //! votes for that labeller: its readings stay on disk and in the ledger's history, as section 7 of
@@ -42,6 +48,8 @@ pub const CONFIRM: f64 = 0.01;
 /// Each pair of readers in a triplet shares at least this many cells.
 pub const MIN_SHARED: usize = 5;
 const RESAMPLES: usize = 1000;
+/// An EPC count agrees with a total when it is between this share of the total and the total.
+pub const EPC_SHARE: f64 = 0.90;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -72,7 +80,8 @@ pub struct Vote {
     pub family: String,
     pub status: String,
     pub fields: BTreeMap<String, String>,
-    /// the reader states only `total` and `affordable` (the Datahub's reading of the deed's V1)
+    /// the reader states only `total` and `affordable` (the Datahub's reading of the deed's V1), or
+    /// only `built` (the EPC count, compared with a tolerance)
     pub partial: bool,
     /// the reading as shown when readers differ
     pub value: String,
@@ -204,12 +213,53 @@ pub fn is_superseded(r: &Reading, superseded: &BTreeSet<(String, String)>) -> bo
     superseded.contains(&(file.to_string(), r.labeller.clone()))
 }
 
-/// Every reader's vote, from the latest reading per labeller and cell: proposals, labels and the
-/// Datahub's reading of the deed's V1.
+/// The count range of an EPC V1 reading: `new_dwelling_epcs=N` or `new_dwelling_epcs=N_low..N_high`.
+fn epc_count(value: &str) -> Option<String> {
+    let v = value
+        .split(';')
+        .find_map(|p| p.trim().strip_prefix("new_dwelling_epcs="))?
+        .trim();
+    let (lo, hi) = v.split_once("..").unwrap_or((v, v));
+    let (lo, hi) = (number(lo.trim())?, number(hi.trim())?);
+    Some(if lo == hi {
+        shown(lo)
+    } else {
+        format!("{}..{}", shown(lo), shown(hi))
+    })
+}
+
+/// The `built` range of an EPC vote.
+fn built(v: &Vote) -> Option<(f64, f64)> {
+    let b = v.fields.get("built").filter(|_| v.partial)?;
+    let (lo, hi) = b.split_once("..").unwrap_or((b, b));
+    Some((number(lo)?, number(hi)?))
+}
+
+/// The total homes a vote states, if it states one.
+fn total(v: &Vote) -> Option<f64> {
+    let f = if v.partial {
+        v.fields.clone()
+    } else if v.status == "found" {
+        totals(&v.fields)
+    } else {
+        return None;
+    };
+    f.get("total").and_then(|t| number(t))
+}
+
+/// Every reader's vote, from the latest reading per labeller and cell: proposals, labels, the
+/// Datahub's reading of the deed's V1 and the EPC register's count of the deed's V1 total.
 pub fn votes(readings: &[Reading]) -> Vec<Vote> {
     let varied: BTreeSet<&str> = readings
         .iter()
         .filter(|r| r.source == "variation")
+        .map(|r| r.scheme.as_str())
+        .collect();
+    // the register counts built homes, so it reads the deed only once the Datahub records a
+    // completion
+    let completed: BTreeSet<&str> = readings
+        .iter()
+        .filter(|r| r.source == "datahub" && r.variable_id == "V8" && r.status == "found")
         .map(|r| r.scheme.as_str())
         .collect();
     let mut out = vec![];
@@ -238,12 +288,34 @@ pub fn votes(readings: &[Reading]) -> Vec<Vote> {
             let deed = (r.scheme.clone(), "V1".into(), "deed".into());
             out.push(vote(deed, totals(&r.fields()), true));
         }
+        if r.source == "epc"
+            && r.variable_id == "V1"
+            && matches!(r.status.as_str(), "found" | "ambiguous")
+            && !varied.contains(r.scheme.as_str())
+            && completed.contains(r.scheme.as_str())
+            && let Some(count) = epc_count(&r.value)
+        {
+            let deed = (r.scheme.clone(), "V1".into(), "deed".into());
+            let mut v = vote(deed, BTreeMap::from([("built".into(), count)]), true);
+            v.reader = format!("epc via {}", r.labeller);
+            v.kind = Kind::External;
+            v.family = "epc".into();
+            out.push(v);
+        }
     }
     out
 }
 
 /// Whether two votes on one cell say the same thing. A partial vote is compared on its own fields.
 pub fn agree(a: &Vote, b: &Vote) -> bool {
+    // an EPC count against a total, or two EPC counts against each other
+    let within = |(lo, hi): (f64, f64), t: f64| lo <= t && hi >= EPC_SHARE * t;
+    match (built(a), built(b)) {
+        (Some((l1, h1)), Some((l2, h2))) => return l1 <= h2 && l2 <= h1,
+        (Some(r), None) => return total(b).is_some_and(|t| within(r, t)),
+        (None, Some(r)) => return total(a).is_some_and(|t| within(r, t)),
+        (None, None) => {}
+    }
     match (a.partial, b.partial) {
         (false, false) => a.status == b.status && a.fields == b.fields,
         (true, true) => a.fields == b.fields,
@@ -456,6 +528,104 @@ mod tests {
             partial: false,
             value: month.into(),
         }
+    }
+
+    fn v1(reader: &str, fields: &[(&str, &str)], partial: bool) -> Vote {
+        Vote {
+            cell: ("s1".into(), "V1".into(), "deed".into()),
+            reader: reader.into(),
+            kind: Kind::External,
+            family: reader.into(),
+            status: "found".into(),
+            fields: fields
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            partial,
+            value: String::new(),
+        }
+    }
+
+    #[test]
+    fn an_epc_count_agrees_with_a_total_it_reaches_90_percent_of() {
+        assert_eq!(epc_count("new_dwelling_epcs=127").as_deref(), Some("127"));
+        assert_eq!(
+            epc_count("new_dwelling_epcs=75..116").as_deref(),
+            Some("75..116")
+        );
+        assert_eq!(epc_count("not a count"), None);
+
+        let deed = v1(
+            "deed",
+            &[("total", "85"), ("market", "64"), ("SR", "8")],
+            false,
+        );
+        let datahub = v1("datahub", &[("total", "85"), ("affordable", "21")], true);
+        let epc = |b: &str| v1("epc", &[("built", b)], true);
+        // 79 of 85 is 93%: the register is short, as opt-outs make it
+        assert!(agree(&epc("79"), &deed));
+        assert!(agree(&deed, &epc("79")));
+        assert!(agree(&epc("79"), &datahub));
+        // 76 of 85 is 89%, and a count above the total can't be opt-outs
+        assert!(!agree(&epc("76"), &deed));
+        assert!(!agree(&epc("86"), &deed));
+        // a range agrees when any count in it would
+        assert!(agree(&epc("60..80"), &deed));
+        assert!(!agree(&epc("86..90"), &deed));
+        // a deed reading that is not `found` states no total
+        let mut unclear = deed.clone();
+        unclear.status = "ambiguous".into();
+        assert!(!agree(&epc("85"), &unclear));
+    }
+
+    fn reading(scheme: &str, v: &str, source: &str, status: &str, value: &str) -> Reading {
+        Reading {
+            scheme: scheme.into(),
+            variable_id: v.into(),
+            source: source.into(),
+            value: value.into(),
+            basis: String::new(),
+            status: status.into(),
+            labeller: "machine:proposal/claude-opus-5-5".into(),
+            labelled_on: String::new(),
+            minutes: None,
+            doc_ids: String::new(),
+            pages: String::new(),
+            method: String::new(),
+            origin: String::new(),
+        }
+    }
+
+    #[test]
+    fn the_epc_count_reads_the_deed_only_on_completed_unvaried_schemes() {
+        let mut readings = vec![];
+        for s in ["done", "varied", "unfinished"] {
+            readings.push(reading(
+                s,
+                "V1",
+                "epc",
+                "ambiguous",
+                "new_dwelling_epcs=75..116",
+            ));
+        }
+        for s in ["done", "varied"] {
+            readings.push(reading(s, "V8", "datahub", "found", "completed=2016-10-10"));
+        }
+        readings.push(reading(
+            "varied",
+            "V7",
+            "variation",
+            "found",
+            "dov=2012-01-01",
+        ));
+        let epc: Vec<Vote> = votes(&readings)
+            .into_iter()
+            .filter(|v| v.family == "epc")
+            .collect();
+        assert_eq!(epc.len(), 1, "{epc:?}");
+        assert_eq!(epc[0].cell, ("done".into(), "V1".into(), "deed".into()));
+        assert_eq!(epc[0].fields["built"], "75..116");
+        assert_eq!(epc[0].kind, Kind::External);
     }
 
     #[test]
