@@ -1,0 +1,106 @@
+{
+ "item_id": "test-15",
+ "kind": "reader",
+ "dir": "C0",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 23 omitted, sha256 0dc2a036d1bd8287>\n</document>\n\n<hypothesis>\nAgreement shall not grant Receiving Party any right to Confidential Information.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33BW6qSXCkeFUJgbWPY",
+  "container": null,
+  "content": [
+   {
+    "signature": "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",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":60,\"reason\":\"Clause 5.3.2 states that disclosure of Confidential Information gives Recipient no licence or other rights in that information beyond those contained in the Agreement, which closely matches the hypothesis, though the Agreement does grant limited use rights under 5.1.2.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 5556,
+   "output_tokens": 545,
+   "output_tokens_details": {
+    "thinking_tokens": 435
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 5556,
+  "output_tokens": 545,
+  "output_tokens_details": {
+   "thinking_tokens": 435
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 2964,
+ "timestamp": "2026-10-14T23:59:43+00:00",
+ "cost_usd": 0.0008281
+}

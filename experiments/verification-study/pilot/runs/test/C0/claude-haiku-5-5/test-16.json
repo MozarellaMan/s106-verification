@@ -1,0 +1,106 @@
+{
+ "item_id": "test-16",
+ "kind": "reader",
+ "dir": "C0",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 212 omitted, sha256 662222369a29fac7>\n</document>\n\n<hypothesis>\nReceiving Party may share some Confidential Information with some third-parties (including consultants, agents and professional advisors).\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33BzeYwjvYhhsHMGUeu",
+  "container": null,
+  "content": [
+   {
+    "signature": "CAQSywsKEAgSGAI4AUIIdGhpbmtpbmcSDHHUlgIj972dU5UeBhoM5pUYN0UjoP9MSa3jIjASyBUPR0tvmuVDZt9CrwdRzFm6r2NifpLmHOTMgpeFGzsY4CYlMyT3Vr9TWztEajMq6AqQWuzaRlbTAyVXxms1bihwih1d8p3NvhnajmizS7hvqyd5FbCCykVLScG5IZMcuUgRv61Bya5dKeIg2qtkIolpHKUAxkO10s9VK0TXDPpxU/XZubdC+09+T3QYBrgE5EDym4jjnlXK24KKk3dFtB5Wb1lgPNw7crRlfEciP0kej04WNNS4f3hRMnnc6JARO+winrczeMyrafDMYKEUoNPQK2Jzutv0koNuIK7rA4Lkp/qqUMx/cNRRI6zUypNqsHb/6Ei+vG7sbpEKVctCEx/FP+cVmLlSNOARP5XDLFSkyyOXZRrsC7YTwHmOQgftn6l+89LDDTgvTXqkNfy3s27mLTRcN8Mb/o0JnazpQdzrMg3bKKqmDCN6ALYZFEuCMbXDTBtEsG0vMOAvmoWExpQBCgczevhqZuS21JlefE8hb3OcQu8l0F/F+BK6ERFwM8Ftchy43e/u7wROQGBS8o1e2WrZM+QLMDszlXVWRNxorxZ2gFrMkGwy8XBVvlmHZrU8WU39mSt/6q6VG5aUAshYKmgtWYQAYTMDOnyiFu8DY3J8ibrY9ITAk7UiHgZOkFsJrkn03edy6wAlt5YxFoh8lV7ioEWRgvsk/f4ZbNlw/I7i5nIkoQDueqBlRFfYWg4sEjjEi/zpGjYYjKr/gjt9txl9uNJTmwx3JCvQ1+0gHjCLb7NJeVWWbojE0dQ5G3DHJzfYGVt5D6NKIxNKO716gdwc7imaVUKVbL2s1JlfmsQjTWmq+pWEHYW3w61zBL1XLWOg5mHPLZp5/4gQFlzxmxGx24RgvP0apoLSxIljYUS5IzuCOKrNLwIJbPfJlJKbqxhPVEZfzYGIz2kjnlFX/wYdlu+Y6KeEsniX1VDKygizg1ftAvR+dQRsV+Dbl2Mdp61sN8S68zlpzxsrHBNKOrvfzannU3mXha7JKLo7mY367I9xQCoBebD1fEPSN4LdpLot0/ETvQuojWSP/cchzfDXRKqsPZiCamtaheUVkW3ZsWDyZN6b/ZbCheDzjaST9nGmpIoX5cfh/akON2YwoJZbYkc4yBmlMKzKtLBkNQAFRv7uwF2bKQ0Qr0gOCZ9mTMUdDVG9B9644MriWmqYhDwwfKI1sHGn6n8yv/CzR7L58rgXM7jN2ivtBnoeJRo8QIWMA405sh8tIMOHWZDNuBlx9HjYYzevd/5/dWaDy8oA92a3MJLIAZ3dwSqcV3LIm51o7JcZqVkyVhGU4BSAnV5M4fVLSXwvpyu+ERg70zAPBiOfCjyO1GXTq8XKIDAmDkvJYqd1Ojw2e14W8CSwr9KoMbxAJRvGiGlBKm3EWMEDHE6Xw2hOo87Mts0p4Fl4nBSqgsbfwXGFLxnY0sZMpTgeIe7x/lGiFJsgD7s1/BZ7S3qFfAYNx3pevzcmjTxTzSl+vEFy//6kYfE3ztGzMpOLQryl0rjcUga4pdYoJ0ZX0CFTsJSn7OrpVeckQxCQLeRaGXXCokiTFNIXo4ZHjJbkWc8zUR1nUJHI15ZfBhFF/QDlsRa8koqwxGqS5mmE518VK1XhHCeJrVSRIddqs0FqUPBrjo04qGWf5AlWTHRYBfzigulnNa7FEFcQCKlx1dlRGswwBxDE4cstr5f63zhZabvST8kbOuiSnYLIlwL2oaP+Xj3uRx8fIbOUry0zisUp8H8kkEaeFMs99e+xbt1DTgEYhKvA2jCUNqsQ24SZBN/cSN+6h8U2KQqaUSGvlq/D1LOYfA902p1tHrrd6wAqFCIJpbp/3N2YSX2XWcmNDIaOwwf3gi9IT4H/Z1OOXHkNdDRaahsHyZIIALevKQJrtB937HXk+vaLlUKtZDaJAFK29bYSGAE=",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":80,\"reason\":\"Section 3 lets the Recipient disclose Confidential Information to its Representatives, which Section 1 defines to include agents, attorneys, accountants and advisors, and also to certain lenders and investors, so sharing with some third parties such as agents and professional advisors is permitted (consultants are not named explicitly).\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 3841,
+   "output_tokens": 416,
+   "output_tokens_details": {
+    "thinking_tokens": 290
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 3841,
+  "output_tokens": 416,
+  "output_tokens_details": {
+   "thinking_tokens": 290
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 2482,
+ "timestamp": "2026-10-14T23:59:49+00:00",
+ "cost_usd": 0.0005921
+}

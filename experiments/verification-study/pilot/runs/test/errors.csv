@@ -1,0 +1,2 @@
+timestamp,split,dir,model,item_id,kind,error
+2026-10-15T00:00:08+00:00,test,C2,claude-sonnet-5-5,test-22,entailment,"BadRequestError 400: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'You have reached your specified workspace API usage limits. You will regain access on 2026-11-01 at 00:00 UTC.'}, 'request_id': 'req_011Cg33DZBvogHYi3xvxxaKS'}"

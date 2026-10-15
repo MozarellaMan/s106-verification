@@ -1,0 +1,14 @@
+row,id,against,shared,estimate,lower,fits,passes_gate,measured_accuracy,shown,n_votes,error
+reader,claude-haiku-5-5,claude-opus-5-5 claude-sonnet-5-5,10,0.9000,0.7000,true,false,0.8,,,
+reader,claude-opus-5-5,claude-haiku-5-5 claude-sonnet-5-5,10,1.0000,1.0000,true,true,0.9,,,
+reader,claude-sonnet-5-5,claude-haiku-5-5 claude-opus-5-5,10,1.0000,1.0000,true,true,0.9,,,
+item,dev-00,,,,,,,,Entailment,3,0.0000
+item,dev-01,,,,,,,,Contradiction,3,0.0000
+item,dev-02,,,,,,,,Entailment,3,0.0000
+item,dev-03,,,,,,,,NotMentioned,3,0.0000
+item,dev-04,,,,,,,,Entailment,3,0.0000
+item,dev-05,,,,,,,,Entailment,3,0.0000
+item,dev-06,,,,,,,,Contradiction,3,0.0000
+item,dev-07,,,,,,,,NotMentioned,3,0.0000
+item,dev-08,,,,,,,,Entailment,3,0.0000
+item,dev-09,,,,,,,,Contradiction,3,0.0000

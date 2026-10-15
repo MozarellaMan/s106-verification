@@ -1,0 +1,113 @@
+{
+ "item_id": "test-12",
+ "kind": "reader",
+ "dir": "C1",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 42 omitted, sha256 6cd0c1665fefd68f>\n</document>\n\n<hypothesis>\nReceiving Party shall notify Disclosing Party in case Receiving Party is required by law, regulation or judicial process to disclose any Confidential Information.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nEvidence is required. For Entailment or Contradiction, give the passages of the document your label rests on as a list of quotes. Each quote must be copied character for character from the document: no paraphrase, no ellipses, no added words, no changed punctuation. A quote may be a whole sentence or part of one; give 1 to 3 quotes, each as short as it can be while still carrying the point. A program will check every quote against the document, and a reading with a quote that is not in the document counts as a failed reading. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33BEF6Tm5WqyKA9eDmv",
+  "container": null,
+  "content": [
+   {
+    "signature": "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",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":70,\"quotes\":[\"Each of us may disclose the other's confidential information if required to comply with a court order or other government demand that has the force of law.\",\"when possible, give the other enough prior notice to provide a reasonable chance to seek a protective order.\"],\"reason\":\"Section 3d requires a party disclosing under a legal or government demand to give the other prior notice when possible, which largely matches the hypothesis, though the notice duty is qualified by 'when possible' and the terms differ.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 3404,
+   "output_tokens": 552,
+   "output_tokens_details": {
+    "thinking_tokens": 384
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 3404,
+  "output_tokens": 552,
+  "output_tokens_details": {
+   "thinking_tokens": 384
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 6056,
+ "timestamp": "2026-10-14T23:59:42+00:00",
+ "cost_usd": 0.0006164000000000001
+}

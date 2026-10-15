@@ -1,0 +1,91 @@
+{
+ "item_id": "dev-05",
+ "kind": "entailment",
+ "dir": "C2",
+ "dry_run": false,
+ "request": {
+  "model": "claude-sonnet-5-5",
+  "max_tokens": 1500,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "supports",
+      "reason"
+     ],
+     "properties": {
+      "supports": {
+       "type": "boolean"
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "A reader of a contract claims that the quoted passages below settle a statement (the hypothesis). You do not see the contract; judge only from the quotes.\n\n<hypothesis>\nReceiving Party may retain some Confidential Information even after the return or destruction of Confidential Information.\n</hypothesis>\n\n<claimed_label>\nEntailment\n</claimed_label>\n\n<quotes>\n<quote>Notes and other documents referencing or relating to Confidential Information may be made and kept by the Recipient, but shall continue to be governed by this Confidentiality Agreement until they are destroyed.</quote>\n</quotes>\n\nThe labels mean:\n- Entailment: the quotes state or clearly imply that the hypothesis is true.\n- Contradiction: the quotes state or clearly imply that the hypothesis is false.\n\nDecide whether the quotes, taken as written, are enough on their own to support the claimed label. Answer supports = false if the quotes are about something else, support the opposite label, support only part of the hypothesis, or need context the quotes do not give.\n\nAnswer only with the JSON object the response format asks for: supports (true or false) and a one-sentence reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg336mpk6ZqFJzkFvLVZX",
+  "container": null,
+  "content": [
+   {
+    "citations": null,
+    "text": "{\"supports\":false,\"reason\":\"The quote only says the Recipient may keep notes and documents referencing Confidential Information, which remain subject to the agreement until destroyed; it does not say anything about retention after return or destruction of Confidential Information, so it supports only part of the hypothesis at best.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-sonnet-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 596,
+   "output_tokens": 98,
+   "output_tokens_details": {
+    "thinking_tokens": 0
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 596,
+  "output_tokens": 98,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 1992,
+ "timestamp": "2026-10-14T23:58:38+00:00",
+ "cost_usd": 0.002172
+}

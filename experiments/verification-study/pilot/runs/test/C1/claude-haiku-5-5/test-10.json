@@ -1,0 +1,113 @@
+{
+ "item_id": "test-10",
+ "kind": "reader",
+ "dir": "C1",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 42 omitted, sha256 6cd0c1665fefd68f>\n</document>\n\n<hypothesis>\nReceiving Party shall not solicit some of Disclosing Party's representatives.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nEvidence is required. For Entailment or Contradiction, give the passages of the document your label rests on as a list of quotes. Each quote must be copied character for character from the document: no paraphrase, no ellipses, no added words, no changed punctuation. A quote may be a whole sentence or part of one; give 1 to 3 quotes, each as short as it can be while still carrying the point. A program will check every quote against the document, and a reading with a quote that is not in the document counts as a failed reading. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33AiA6dxiF1sqBsde8G",
+  "container": null,
+  "content": [
+   {
+    "signature": "CAQSsQwKEAgSGAI4AUIIdGhpbmtpbmcSDFJaHZ2feGZVjoAT8BoMrhwTq7ODiiK9Z4zFIjBmeLWHUSCpEzr8tXbXjTQOCX5w6rtSkd3ZmdnCAGBIqw/nTWgSXSWOYNp71dM/f0wqzgvJn85ZlL19x3y6YD/xIxVUsqGLvsJyxv9U02NFUIDlcjn3sxsP93MgT6roy5o2sk8XkpPXFgYk0nukRtPMtMsts+7et64JAWwh7nU2cQWbfc5CqbAJmWqHUwGlgUIn1ldSX3pvpRrqBIqIH2vlUdbbxfQlfKJNvwZCUJ7RCVKVSzL7OqBBrlS30cF1fkuB51XJLfFo+y3N0AQepT58+Ha0T3TYVPNxGclCHfieSeEu17PYhXpAgTfeNYAYDwYAGBdDxZqsND9pT6T/LmIGuQGFPVyZmEM0HZNbuioMWVE9aLqHIvcSoRsU3uY/cP4th3HeIVlSAkddKb7FxRb4t21cJOu5j7HCmKSxIHcRJeNilecKbYfL3rvLNqBdSBqV9yZ2GXOnvb4BokiXnX921yuN+OBgJY4n/tijEgqYaxgJPgfdf+HvkdEASACDJx+PG3QmD0vXdaFcnalUoPfGpkN/A1LY7+sSOzpcyq4XZfqSe1lFAT5LaKaN93/RTkB7I4weHTYF1RzJARiHCOtChACcTgvo4IMDwuBhDIVMAsNPG464WF1utrllOWVmHKT4GyGJU2XXqZP2FEG48TzLKSVS3qnU3hYxKBGJsLkOEXrECeUvKK5bwA9KsOZkPea4z+Ss20LyrcksXEuhYp995zaacnoXnYOyWP/Id9w8FP5OXBRhtil3jifUXnXVn9dcmVIU6fMijBd8Y+HIYGjEM/yZY6V8PnPSbKM4aHyXW1sdeq+Apdsy7SjekqZBv1YBwOZ+/9dLMiw0rHqtKHLvY8Ec0q4ZNpHl4WkZDhkYVEVCDNBXxOTWqhbSwX0YZBupfTLcaQT94yt2A048juRdAnBNb3WG8x4TftW8/B58/6Z5ViwGxSZIo0YmZAZlXb7nt63C1HjemyGV19h68lrwQA/MfE7UKSVs+7oFy95alL0m8IKno96Twl5pYzaX7jN8W8C7t2hSIVM9CsjH7tJctO6vnJdGYyhsCldESkIpVQ/V5ZV3iRRgrj5G+wmeK8c7B6JuWhx+4/EwHDV7MyRKclM7nt9SwlhIdQXf9iblcV/NzjM9TaltKXRpVWhaujFvvfM4bf6DP0qrDpeADSo9XIYf1NEWVxZrM45YSo/Vrs9COzFNOylbC/ml6h6GtcUbQ2/kQ9R3btJMHo4hqfW/6olZxvF6hCYuSJAi9NZvXyvy9/fQ7D/kYDo4KpLhT7oK2C5s3sZv4QYje0StFdxEDf2+rA0eNm8CAvrJrIMgV/GOBwA/OeDwwT28YuRq0DlB9GAX/DC4cs/oTsdLBeN8xvZxnyTx9s/ipnSdiY7ien9hGVjdZzzJNafcTFz63UsQGm0NuEwAEv9kk1Cc9QdkVSGJ5gxiCch725OzgeaWKPeQvertZL/tFYpqzGsg1R3P7IUAg2LEKCf8JyaiD+JoA6/wcv6w1woKhTH1a+SfrkygEO99D0tNs6+7QRE8Y4VlYChOKeDnRtMFXt9oMmUEEOwWuaL/ZCIGPeYYnxhUdk09ZsO+RsK9SDfvtHJmChE0izC69UlJYLD0IiGhBIiHto+4vIgksBlLwfx/rqxvad4VStDslsRSzMX5HDHGB5W3R/0UmhUwvPwPuPnF4riduWpByQ7A2gd5kM1XsdHZWUv8+5WHBMGw7ENEyhF/A0gLBbZm5VMg7wi6FWJhOjuKmjkF8Mm3PKrb6nElu9kEhZDbIhNpBkTUV9JqoxKNafnNM52kKCGpKY7JF2bslJN40gFsBqjEfHTsbr7ccp7doC2VgT3jYNm6uIxmZXpV1qq5dzfxj835pKCS+EOMcqzbX7WA6yIYQ1NjBuYTOZTWCjGjJvWsG6BNBj994KH5F2rXv2xqBAtrO+LVGJTZVn1WMxW3u63HV5CB51c2MSPoeFG18hW+9dWAtA44MkpW3qHNKu/feGw8QG7Y7LFhYEY2sHbyAWPDn8/z6I9DPZI5sZrdN2SbcmFzw6O7UtdS2qL1GAE=",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":70,\"quotes\":[\"each party agrees not to solicit or recruit any employee of each other without the prior written consent of that party\",\"will not solicit for hire, in any capacity whatsoever, any of each other\u2019s employees, contractors or other such affiliated resources\"],\"reason\":\"Section 5c bars each party from soliciting the other's employees, contractors, and affiliated resources, which overlap with the agreement's definition of representatives, so the hypothesis is supported though its wording is vague.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 3380,
+   "output_tokens": 488,
+   "output_tokens_details": {
+    "thinking_tokens": 317
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 3380,
+  "output_tokens": 488,
+  "output_tokens_details": {
+   "thinking_tokens": 317
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 3988,
+ "timestamp": "2026-10-14T23:59:33+00:00",
+ "cost_usd": 0.000582
+}

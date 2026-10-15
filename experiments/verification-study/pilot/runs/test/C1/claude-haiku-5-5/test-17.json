@@ -1,0 +1,113 @@
+{
+ "item_id": "test-17",
+ "kind": "reader",
+ "dir": "C1",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 138 omitted, sha256 717bbb1d66a9079c>\n</document>\n\n<hypothesis>\nReceiving Party may acquire information similar to Confidential Information from a third party.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nEvidence is required. For Entailment or Contradiction, give the passages of the document your label rests on as a list of quotes. Each quote must be copied character for character from the document: no paraphrase, no ellipses, no added words, no changed punctuation. A quote may be a whole sentence or part of one; give 1 to 3 quotes, each as short as it can be while still carrying the point. A program will check every quote against the document, and a reading with a quote that is not in the document counts as a failed reading. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33CFdD4ZRUhPHU13NqM",
+  "container": null,
+  "content": [
+   {
+    "signature": "CAQSzwoKEAgSGAI4AUIIdGhpbmtpbmcSDJFxXTl3+fNIza/X3RoMERyCTgvSkUr8z2AqIjB9xryDzr0LJ9Yh8d+fCgGO5RLYC6gBCI4cT7Lv4AlusFViiL85m37vckj0EPS6UmAq7AloGsfLjKVotOu9ZrgeyRHWIERNbVlcC22+7fggckpNOSVEfzp95bmvfJMmfGUjMU9Fq5akFo0AN2OSMkEPaL4lfWGN5e6qxqCZJvo0kVzLmo6GuHrlE/7iEq99IW+RA6s2fySuUOfoJWORNUOIzHXEOOw/qEaQyQqMbd38Qm9QiU/w1Rhb+bpwAu4KTZto+ET+oUi9ANtfNqNo9RTUi7QEIH9yvKk3pcMI/nQTxM2T/cSERVNHAKUwwgDhQYt2asCTZbgaDY3P+ptgLwiMCI8m1WXyDWLeHYIS5MlwvWj7GOjITQCjt93HowNACjfr7/lZBmhQ2kRTUVgAuOO6SmLJmaDFRYibi2U3HpaKa8bV7C9cqBVGq/jM/AULSxke0F738kvdG19UUEkvTjnGbN12+eYjMuvcDil/zUdfUQeNt0+X4e9r1BFuKpWDDxvf4tq1wmgZfogPs67utUL88OvkVIPCBFzGIvsWalaBvayaeqrksCFEC9V5IN92M+zrHnlj55DhxYSK+VLutzbeCAas9g0yKni1LcBRpgXR7Ef8qLYNYh91EkncKq7aaOoPksuSq845/wrB0oK+ggqNNIm5LgWZ3yFqwcQifngD6VqHMSqloVgf3cEEVFYT6asq2pGUxqL3+NUGQ1954o4by81ITTa5cwOFqNMqeTsgco8H+nTCM1LLRv9MnJDLELocU5CaREck4xiKsYnFzvTq836eHIxn+2m+NwfypL4qXidVaUVserRd6rLFHQ0AXBithgcvN/d4BHTxJ5JAg9XUYwxxY0uYZRCwItpF3xGxhdfAZb/ry2peboytWduCWUeTjP3yY+yWhDibTd9A2atmbAqwMO+UEdNnlrI2fxOouW/9p7MPtGQOnB+/vqJFbXI8mwlb5K3r83DA8gITkqhflE6K8qHuC8GaHbpV01vjUYnMz1ZeZJUbSNx+tlCtMvzN9plH/RtfN5K7ZVuk44ltdFj2/LymkyxWrmqZHLyHoVMUJGCsQe8RE4pFYhJ5j3myfKXqt6ijS691lplISt+a9xBh9nlit8ssdc/kEugmZamezQ8AYthMyr4Hph1/o6J/WoJhlzxZZmX16F4/WNgG+9GFdssAjt98cWE0CIrQT6YvTUVSqzEHfLEmpuA8YcTlyJqzNbtaRgc/B4iydm97C/BnxGErw6QQZMUMqutKFTZ0gsegQ7fFJBa/pezRPif97tG9UARtGTEa21SJOqc8AXmRrTw1oPd7LTpDjPPCS7+daUAODbNjt/1tySuXm/DR6Nc3PRdXVN6j8GtAa8/7Y5gjQIhuw+pWDAEz8oPEE+Ay0JXvY6raT0GRty3o5prIHoEjiieNW+Ezhq0bl0hxtpXUZE1gtqSwzqp23ukZgL3vUEHXd6X57QqZ2kLXdTy8iuOw/6BDFFZCvlCfOFf0VOuLZGQ4IwxBm4tceFZrpeoWN1ZAZgMK6A89g/jZlc101UiBjDZE6lJogXRNGgCKK18hks4Fo5u4EGwmc7TkO3YHsh0Lm/y2XKXszQsd8gENAJcW8LUsmoEUFj7vluqHRulCeqhDAwjbhhr9RZYy+fshfJgrcQ0/yzi9E6T5Q9EptDvQ8pC4NEbhWi8dfTQXYofR2ZAI2ofVWmNjdWIjfQCO0RzXH+eYxo2wCA2x7qqBYvYVL4qcz11ja7quTn4YAQ==",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":70,\"quotes\":[\"or (iii) was rightfully disclosed to it by a third party\"],\"reason\":\"Clause 2 excludes from the confidentiality obligations information the Receiving Party receives from a third party, which implies it may lawfully acquire similar information from third parties, though the document does not state this directly.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 2701,
+   "output_tokens": 355,
+   "output_tokens_details": {
+    "thinking_tokens": 239
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 2701,
+  "output_tokens": 355,
+  "output_tokens_details": {
+   "thinking_tokens": 239
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 2428,
+ "timestamp": "2026-10-14T23:59:52+00:00",
+ "cost_usd": 0.00044760000000000004
+}

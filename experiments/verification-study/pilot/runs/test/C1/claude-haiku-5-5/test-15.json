@@ -1,0 +1,113 @@
+{
+ "item_id": "test-15",
+ "kind": "reader",
+ "dir": "C1",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 23 omitted, sha256 0dc2a036d1bd8287>\n</document>\n\n<hypothesis>\nAgreement shall not grant Receiving Party any right to Confidential Information.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nEvidence is required. For Entailment or Contradiction, give the passages of the document your label rests on as a list of quotes. Each quote must be copied character for character from the document: no paraphrase, no ellipses, no added words, no changed punctuation. A quote may be a whole sentence or part of one; give 1 to 3 quotes, each as short as it can be while still carrying the point. A program will check every quote against the document, and a reading with a quote that is not in the document counts as a failed reading. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33BiuFzwykKWuHBFQWS",
+  "container": null,
+  "content": [
+   {
+    "signature": "CAQS8xQKEAgSGAI4AUIIdGhpbmtpbmcSDImBMBptTSb3QTENRRoM7ohEeI6bqN1M/C4mIjDtiH06PwollXIRf6WT03+IlYI08WxHBwQXuQ30cDqEMq9suGl5PTdEEKnRvkg8eoUqkBR2D4OSYnIyt5ASQVdou0bRyHUesfXrUYkS+0eEnSBji/7L00z17poeWMol2Yze1frrr5lxicTLa2qdxzhUdZa3qcb9a76FwlLzj11bt7qpTA/gRtpAwIBtFlFqphPDjXx5idpjhGp27XstT02OZZBj0GhEfACKxQZqE351ekntNEw8JfmKn5Y+yiX4Iji0H6EiZIhcuobeorkRjXPC9DDa/rl0/iikG1yJQLxaj35lF8c61+jY7hgf/PlZKKUme6OqL1q0cfMF+cZVhMKn+rM2f/5k2ysTBLx9stOZ1wAGlREb3o7HcfXV+ToEgupQ+D9pl8uSSdMWGKD+5VfroHcNKsnO6jwYcAhyTzaggfQAx7Itg/3II9MsGeR6Gf4ihN8CCp8lEqCLWJkJj6Mg/n5EaIrjsJq1lyKNBClnBIYS0v/6VSuWqmx6WJ8ob/OyyKjSO2MGtOv4+mhg351wVn1ruaxYoaOrN4Z1t5ZMnjJd9l8AwYbIImgHeX4fmqhKimtRElRlF9p1fXDSmTgCEVMqIRXbCzOHdeIpyDJAe5UxCO2ZrGrLKz0ClZx5aZinoppGTCWUl3bfYRpYFH0qXeiMLDIm/8z5gdiJHEo9NQwYm+lntwlwTurost2Qy1adnOdVWnmBl0p0nZaylTuaKHMtS3OrLGkbVNZTiv6yopyeJts4FxNOaibaAp41sOkjJFKsCt7ouSLT1rfPgcjeotImiRGWeJ2G6eFu2rFxxRaUbreFwjd2iwJ1BuXuIt40T/UF2mz7TiCgbmo5eGJ8JL7dv5PZ1Sk/TMGRgL2qAFwxT+Er0g0z16jcYFIN4GQI44oAKMa/Xm2K+mIzUSn5Ip+Fc31XMyTkAj3G0CQiRIn6q9BaujBZOIXndQcPESVpaGjPyW7UP6nVXgdfTqQG0wy8aMz5R8/NPKecQFdiAF30pTY1VLGX+PrnXsFGTOlmZe7+fta+9RNU85IdALr628LY09VTzbC3MuKaKgdrp846EDcPcDIa+oknk7bIDX8BiUmPzTdvbi42LnMgjRua14twljMdEo7V3+zIhgfxJ511GR1S5RGzDclcZ7zyEfITXMcICTry4UCaKm7yjF8MNvmtfFpm2EZoERTZFLw+UEiIZDLQuAoRCQfb4gwmD3YaMhSVolyWrBElGLsVhj/G7Zva0VJr3xFkSOnEWMiVYKfHvmdv+Qiekwm9f0BspRw+Et4P8UBCQTH9h8B0/v1dAziEUnDgZ5wEqiErLVGAIt4f4Ejxz1RgZAHHKs+KgwyffAkqCcGV88tdn+zCQDwWff4SauoGp7RuwOALzBkTCeOzJUQeK6oiOvug4RWijcsl3rwDi2MykklbtBpDIbeXlPD7oBgIQfXjake3Q5OIHQ0D1M5AqZW8mHBS0Ev3zoQ1+ohMQzVviiSD+mV6rqIkpxGG1jmkkrptuFlT9mjFVPB1Xe1q3uGhM0uohZkjTF2946+dy4K8KBMpOw5M4dGVm91Pq5ZEbLSA8y9XCtUeQDmOXmgUSbkJf/lzaymyS/IhWoTwZBaCvVMumlHYessjgwJalj0BWg/qAwT8+vi+oawnyOTv+5MHqGTooAt75915cRIju6EY+BIUcyklgr2ecxTkklvpMbGLoH4S5/bpefDoizPRCoIxSfjk8kxTmbNbPXw02TOJeQmUpyTVPjKMehL5X1Sa896y6dgqk2jg+BLh8EcLySXswHQvnOtiLZ/RFYtp3ZPnJHrKcnEbsxfTboD4XjXKadYv8hNA7oRxemhp77wP2VdCWxfQ4FQ3+Jn/Re50Ghzy+O2zXtJ5OAKwqThNKR94j4q9kXJuoFEZE1Dy01R0yRLFhzEmiBGret/QMoI0evGZOZFTYuv4ahjs6QtcmOhzra9TWBukbD3sQqrtwVj+ycnzK/St5btHhQjm8K+Up5ffbKIwCNYrXZihKhGzX58uLpu/g5247wcakraM2h/M7b+S+z7s5gqTrQ4qLbMFZdFIDHvRQefaGcfUcdTY/o4hUgDKbmRD9t39K+nUH/eIZt5kuxj6y/vhUBsu1kznCHnQEUoX94ghyBvNaAHWQ20WfY2CDS0GwZKRFbWwBLbbdYHt5FlJasHK7tFB5Uu/yca9ZteRO33Ush/9KRAasa6rH1nlVGYCuEZQI4WLJVD/wBWjLJeHYxJMt5O9jXI3blNkgeQR/Mo5sSC2wUDdU9f3azrn9bUyLoTvr1NeVyevuQJzqCQ9JaI2O/TDzQtjA18tEF6hxyTdMedbhzeDGW1NpAj/KiaGYO3cwlLXm8otILIFBvGYMG6VVMcfHGeEV1vSqF5eA1LySfmyqi961akmac82CDWGKp9n+XkuQxzAZ2i6gLYDOK3TTHlMYuIwBpTu8lvuYBifXmXQ4PZ7xm4FuhN2FuxIOlKp2gUNPgIxvYF5MQb4N70IZWWnM5UvP0hdW6Sy8/hLnnZDQKXpU91n5nQYdTUU3+qXgg5TZQ69Mimhmw4MzM4A4chmYqAdgyJzQFYYFgXggZROtUxQLs89UgoY1agGIggMtsxZFZKlapJTmJNCsDw3g7Y1U2psLWGjZWSSPnBqUv+B0RaVzmhEtYuTC7tXHWYVzDHO0beE4FJnwBJBPnbO8lehgHHBkd5CEdGP/al0d5Yc69Oot0tXqeQCf53+/4pR7HWJfhnjiykIMwSgSY5Uhi2diB/V6xeFtjSzkiGJfn6t2qFFaoM/4Pr/sJWdkkYXfowo+eog6PVfZmXriem2PAEZiCBFUfnUkenZmLd24J1sDaDbib1nrBBK9OBdlkXMR/3gmNib4CE5aeYrrwSSYNj9lJ25UliRILO6d+gjiMdRp13qjlmBaJInCQrbz26NH7+wJ9YVWkGgpUdUwgT8Ovycu59FAWUHWYhG+YGPk1Lybq11RnWgSJSlZgeYymNwg+imoOiQ+RFiXqnKWd7lDSazUMxDI82UX4Zdv1UstSly/GFdCWlE31kxo1yElx7zsOxT9f30RFgs6fKPss6HSBq7VU8Q0iW0PQPNlwVRyxCzJb8Qe9QygqQDbAVSgIDs56cK8ufWz1vjlf0n0Y0YGdw4Qyw2lh1riKXgFmIm3OCHBlqz80u7jsqcQWlUPEgOrbZe5HrE8ZH65xO9RAjd5u4hzWVQUdaaJkR0lO/+g7JPSfG04628EjYs/cZfSs2SQ2TaYVRETNT2tyRvISNY5jCO5jLehIor4pIMzhzClpx+MzlXIoFb4mVaCv5P5NRQiY90ZX94rGwlL+7Bka0Aa7jhLBX/oQHzIszM2lT2GWYwSAIPPic/cBblCu/ElNaE/I406R/QMdXz9ldNr09Bd3e4vRXrYg8hp6slyinuHu88HnQPTcvVeY2QGNwcxCNsM0ZcOSnSQXT4H41e2vPNmNgyd6ggY11ymJDTBiVY66wzJpyV5wmR3afDUI1eoPDokbEAERgB",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":55,\"quotes\":[\"shall not give Recipient or its Representatives any licence or other rights in relation to that Confidential Information beyond the rights contained in this Agreement\"],\"reason\":\"Clause 5.3.2 states that disclosure gives the Recipient no licence or rights in the Confidential Information beyond those in the Agreement, which closely matches the hypothesis, though the Agreement does grant a limited use right under 5.1.2.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 5774,
+   "output_tokens": 898,
+   "output_tokens_details": {
+    "thinking_tokens": 738
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 5774,
+  "output_tokens": 898,
+  "output_tokens_details": {
+   "thinking_tokens": 738
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 4361,
+ "timestamp": "2026-10-14T23:59:47+00:00",
+ "cost_usd": 0.0010264
+}

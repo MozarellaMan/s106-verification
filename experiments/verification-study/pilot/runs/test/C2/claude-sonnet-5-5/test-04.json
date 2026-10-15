@@ -1,0 +1,91 @@
+{
+ "item_id": "test-04",
+ "kind": "entailment",
+ "dir": "C2",
+ "dry_run": false,
+ "request": {
+  "model": "claude-sonnet-5-5",
+  "max_tokens": 1500,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "supports",
+      "reason"
+     ],
+     "properties": {
+      "supports": {
+       "type": "boolean"
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "A reader of a contract claims that the quoted passages below settle a statement (the hypothesis). You do not see the contract; judge only from the quotes.\n\n<hypothesis>\nConfidential Information shall only include technical information.\n</hypothesis>\n\n<claimed_label>\nContradiction\n</claimed_label>\n\n<quotes>\n<quote>any and all tangible and intangible information disclosed to Receiver in oral, written, graphic, recorded, photographic, any machine-readable or in any other medium or form</quote>\n<quote>the prices it obtains or has obtained for the licensing of its software products and services, purchase and sales records, marketing information or any other information concerning the business and goodwill of VIDAR</quote>\n</quotes>\n\nThe labels mean:\n- Entailment: the quotes state or clearly imply that the hypothesis is true.\n- Contradiction: the quotes state or clearly imply that the hypothesis is false.\n\nDecide whether the quotes, taken as written, are enough on their own to support the claimed label. Answer supports = false if the quotes are about something else, support the opposite label, support only part of the hypothesis, or need context the quotes do not give.\n\nAnswer only with the JSON object the response format asks for: supports (true or false) and a one-sentence reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg339trVY7oBtoGDPqgLK",
+  "container": null,
+  "content": [
+   {
+    "citations": null,
+    "text": "{\"supports\":true,\"reason\":\"The quotes define Confidential Information broadly to include any tangible and intangible information in any form, plus pricing, sales records, marketing and general business information, which clearly contradicts a limitation to technical information only.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-sonnet-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 634,
+   "output_tokens": 80,
+   "output_tokens_details": {
+    "thinking_tokens": 0
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 634,
+  "output_tokens": 80,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 2149,
+ "timestamp": "2026-10-14T23:59:20+00:00",
+ "cost_usd": 0.002068
+}

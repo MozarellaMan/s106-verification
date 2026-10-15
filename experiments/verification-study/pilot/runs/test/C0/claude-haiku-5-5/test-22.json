@@ -1,0 +1,106 @@
+{
+ "item_id": "test-22",
+ "kind": "reader",
+ "dir": "C0",
+ "dry_run": false,
+ "request": {
+  "model": "claude-haiku-5-5",
+  "max_tokens": 3000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "You are reading a non-disclosure agreement (NDA) to decide whether it supports one statement (the hypothesis).\n\n<document>\n<document 41 omitted, sha256 29d639a3ee48258f>\n</document>\n\n<hypothesis>\nSome obligations of Agreement may survive termination of Agreement.\n</hypothesis>\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide. Choose this when you are unsure whether the document covers the point; do not guess.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is the correct one. Use the whole range; 90 or above means you would expect to be wrong less than one time in ten.\n\nGive a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "msg_011Cg33D96pqd5U7Y2n2VTkL",
+  "container": null,
+  "content": [
+   {
+    "signature": "CAQSyQoKEAgSGAI4AUIIdGhpbmtpbmcSDIlCMFxhHfNX1Ew5YRoM5nXr5nC4dUo1naWXIjAzY/aH1/Z0tHSzMEp+7FX9tJ9P11/3Ho5F5ff7AP7ZoHt6V1Uf3rec3rvZ+ISyfIkq5glltG75i3dIAQU3fEKw94dchZPFFnY7g0HrEt5+1vNaz1j5zM7XLxLch/ePh3+n+yvbyqDMYNpuVYWO7CJPcZOX1SA/cXHr6azn/PNpu2oToUvT9hh6guP0jWya0xwaaH+ortnjo8zVe+k3mhjHEMy7RbHVxXQY4G+dkWdCSeodeyuQn2adbLfEn7k62aHwwBQ6HkbecnLyaezNIWzGfSn7naQEvfDeoZ9eEbmfdzzQun4MDG5saSaR1ske1MDCtjODVfBaPEsh4L5IAK0CyNz6LiE3NXlDF+6G2BhhwVdxzlbyw+FLtH/v+lta65IoIRm2i74K+aioO22G2ujNqU2SpaPN/pZ5+yVTm3VtEij2ci8ua1B+XmVjGlzf53ntym2gLEWElPCBUeePcVojmqYn3oEpYxqMK5TNkQwcBrG75Oj/rGSkCS5K7ca8SmiEBlRB/uDAaJAMjLKGfNhfwyb+sB7/XtmY7LBvvO49dgoryw1CwgdQLqdS/wRaTVzP44us+tBtk4N9waAVFL1ZYoQLze/YSkwMlieXQt/Snl61qGz4BIz5B0jNvcSk27Kmxf9e5YZLSwot2eexZUOC2Je5PVuwUzpDdrJEGFPPw5utvWLCMFT8dGQ8ssF6plrO2/U9w7Rlw4NUJNh2ft9/N4e9cxqC74gRgXk/wkkH2YOzb7cFBt/pKv74TMbT/Zv9ehrtgIk0Q5u01X4Geqazb2axqBXnbZsSL/x/jUr+C2EiiBX0514mCT/2Pl7x9EKrh0kX0APD1yrKh+HTFmgc+ofI880wL7ySfnjZCqbBxxeCCJCR82DmzYrqD1+7xyMopvufsxrPzoaR64IbOiH70baZ4mwQghocV/rEI30tgagfSsEWdvyB2yGdWN/Dt8NFajWxuNC7O0Uk6XDxlu1mSk9miu1E7fRa6LzFcAtdkenQkW2V/x5JvlV9QI3I7RqSAYf7nVE/JY3Q4yVX/KGqIz6vRIP0MLKHR6UrNjwTXF2I84ne/X5UjgPs1/0KL6QPODvcRfeVHafKs1oou+9Hs3UwQVhufuFKt3ofv7PSM9Fhu8jaJf6+MmyP0Zjz70zo6dFUydZYoVJdflOiB9RDJDXGaPtHnYAXY6ed14glU013AO9y4IBwg8/f+RWOCgn6+kGZy/GR0M3iNhPlWqj2s2Tk/ucLN6/+dJ4/kOCPVRXzNuZnBKkXHSuTLAOhIn66ftdyq7CV0REZTgGHFLvzbUgdu5tMzxhK3KZXb5qCUuJKJkhJMD7/GoFoB3fxo/hfioVK5oRONDUkMp+FfZ7B31W7eABmr+vA4122kDg2pwVkAjF/ewR1dkuXWRYnW6MMHcGfjN0OKmh6dJfMyx4WJQgnXO4f/tC4YE4OEeXjPh5bsqXXrvyPvs5riqfdPERkK6aH32InLO0SNMIwjmM9zT3orfLddFkE8u6r9p3thgKjuSWrkDQmNvEZ+Z4AznoAYortC57HrAOwSW7uDlIp93XwAdVntGevI1B2vch8hoPn8ll9v42cuLBCUdXfb0dZp4v3v7IXsBerog7SFR+Yv3Qwu0ya+LEeZehIl72cmRHM2RyrUNysiPRV4LmHEDsgIv1JXdg7sr/KPwvJ3+xmTinLpNbJNKkPcOiblG2eHEXNofuNeoQCsWC4wDQicsyUkKqo/9BfYgwYAQ==",
+    "thinking": "",
+    "type": "thinking"
+   },
+   {
+    "citations": null,
+    "text": "{\"label\":\"Entailment\",\"confidence\":68,\"reason\":\"The agreement has no express survival clause, but its confidentiality duties have no end date and Section 6 requires return of Confidential Information upon termination of the Contract, which implies some obligations continue after termination.\"}",
+    "type": "text"
+   }
+  ],
+  "diagnostics": null,
+  "model": "claude-haiku-5-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 0,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "cache_creation_input_tokens": 0,
+   "cache_read_input_tokens": 0,
+   "inference_geo": "global",
+   "input_tokens": 3918,
+   "output_tokens": 336,
+   "output_tokens_details": {
+    "thinking_tokens": 248
+   },
+   "server_tool_use": null,
+   "service_tier": "standard"
+  }
+ },
+ "usage": {
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 0,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": "global",
+  "input_tokens": 3918,
+  "output_tokens": 336,
+  "output_tokens_details": {
+   "thinking_tokens": 248
+  },
+  "server_tool_use": null,
+  "service_tier": "standard"
+ },
+ "latency_ms": 2301,
+ "timestamp": "2026-10-15T00:00:04+00:00",
+ "cost_usd": 0.0005598
+}
