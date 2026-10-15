@@ -680,7 +680,7 @@ fn a_reader_wrong_on_a_tenth_of_cells_fails_the_gate() {
     let est = |who: &str| r.estimates.iter().find(|e| e.reader == who).unwrap();
     // agreement 27 of 30 with each of two readers that always agree: sqrt(0.9 x 0.9 / 1)
     assert!((est(LLM).accuracy - 0.9).abs() < 1e-9, "{:?}", est(LLM));
-    assert!(est(LLM).lower < 0.9 && !est(LLM).passes());
+    assert!(est(LLM).lower.is_some_and(|l| l < 0.9) && !est(LLM).passes());
     assert!((est("AB").accuracy - 1.0).abs() < 1e-9);
     // the cell's only reader is the LLM, whose estimate doesn't pass
     assert_eq!(entry(&r, "EX/1", "V1", "deed").check, Check::Proposed);

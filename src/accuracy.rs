@@ -24,11 +24,16 @@
 //! shared cells on which readers i and j agree is a_i·a_j, and three readers give
 //! a_i = sqrt(A_ij·A_ik / A_jk). Two readers from one family (one LLM model family, people, one
 //! external source) can make the same mistake, which would make them agree when both are wrong and
-//! inflate the estimate, so the three readers always come from three families. The lower bound is
-//! the 2.5th percentile of the estimate over resamples of schemes. A reader that is never the lone
-//! dissenter gets an estimate above 1 and a bound of exactly 1, which says the pattern does not
-//! fit, not that the reader is never wrong, so the model fits only when the bound is below 1 or
-//! the estimate is at most 1. Schemes whose values were seen while the method was built (batch 1)
+//! inflate the estimate, so the three readers always come from three families. Readers from three
+//! families can still share mistakes (the same OCR error, the same misleading clause), and three
+//! readers cannot show whether they do, so every estimate is an upper bound on accuracy.
+//!
+//! The lower bound is a jackknife interval over schemes: the estimate is recomputed leaving out
+//! one scheme at a time, and the bound is the estimate less t(0.975) standard errors. A
+//! percentile bootstrap gave bounds that were too high at these sample sizes (the verification
+//! study). Below MIN_SCHEMES schemes there is no bound at all. An estimate above 1 says the
+//! agreement pattern does not fit the model (a reader that is never the lone dissenter), not that
+//! the reader is never wrong, so the model fits only when the estimate is at most 1. Schemes whose values were seen while the method was built (batch 1)
 //! never count towards an estimate.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -47,7 +52,8 @@ pub const GATE: f64 = 0.90;
 pub const CONFIRM: f64 = 0.01;
 /// Each pair of readers in a triplet shares at least this many cells.
 pub const MIN_SHARED: usize = 5;
-const RESAMPLES: usize = 1000;
+/// Fewer schemes than this give no lower bound.
+pub const MIN_SCHEMES: usize = 10;
 /// An EPC count agrees with a total when it is between this share of the total and the total.
 pub const EPC_SHARE: f64 = 0.90;
 
@@ -335,25 +341,40 @@ pub struct Estimate {
     pub against: [String; 2],
     /// the fewest cells any two of the three readers share
     pub shared: usize,
-    /// the point estimate; above 1 when the agreement pattern does not fit the model
+    /// the schemes on which at least two of the three readers share a cell
+    pub schemes: usize,
+    /// the point estimate, an upper bound on accuracy; above 1 when the agreement pattern does
+    /// not fit the model
     pub accuracy: f64,
-    /// the 2.5th percentile over resamples of schemes
-    pub lower: f64,
-    /// the model fits: the lower bound is below 1 (a point estimate can pass 1 by chance), or the
-    /// point estimate is at most 1 (three readers that never disagree). A point estimate above 1
-    /// with a lower bound of 1 comes from a reader that is never the lone dissenter.
+    /// the jackknife lower bound; `None` below MIN_SCHEMES schemes
+    pub lower: Option<f64>,
+    /// the model fits: the point estimate is at most 1
     pub fits: bool,
 }
 
 impl Estimate {
     /// The reader's readings in this group can make a cell `estimated`.
     pub fn passes(&self) -> bool {
-        self.fits && self.lower >= GATE
+        self.fits && self.lower.is_some_and(|l| l >= GATE)
     }
 }
 
-/// Agreements and shared cells per pair of readers, each scheme weighted by how often a resample
-/// drew it.
+/// The 97.5th percentile of Student's t with `df` degrees of freedom.
+fn t975(df: usize) -> f64 {
+    const T: [f64; 30] = [
+        12.706, 4.303, 3.182, 2.776, 2.571, 2.447, 2.365, 2.306, 2.262, 2.228, 2.201, 2.179, 2.160,
+        2.145, 2.131, 2.120, 2.110, 2.101, 2.093, 2.086, 2.080, 2.074, 2.069, 2.064, 2.060, 2.056,
+        2.052, 2.048, 2.045, 2.042,
+    ];
+    match df {
+        0 => f64::INFINITY,
+        d if d <= 30 => T[d - 1],
+        d if d <= 60 => 2.000,
+        _ => 1.960,
+    }
+}
+
+/// Agreements and shared cells per pair of readers, each scheme weighted (0 leaves it out).
 type Pairs = BTreeMap<(String, String), (f64, f64)>;
 
 fn pairs(cells: &BTreeMap<&Key, Vec<&Vote>>, weight: &BTreeMap<&str, f64>) -> Pairs {
@@ -389,19 +410,6 @@ fn triplet(p: &Pairs, i: &str, j: &str, k: &str) -> Option<f64> {
     let rate = |a, b| pair(p, a, b).filter(|x| x.1 > 0.0).map(|x| x.0 / x.1);
     let (ij, ik, jk) = (rate(i, j)?, rate(i, k)?, rate(j, k)?);
     (jk > 0.0).then(|| (ij * ik / jk).sqrt())
-}
-
-/// A fixed-seed generator, so the same inputs always give the same bounds.
-struct SplitMix(u64);
-
-impl SplitMix {
-    fn below(&mut self, n: usize) -> usize {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        ((z ^ (z >> 31)) % n as u64) as usize
-    }
 }
 
 /// Every reader's estimate per group that the votes allow, leaving out the `seen` schemes.
@@ -445,27 +453,47 @@ pub fn estimates(votes: &[Vote], seen: &BTreeSet<String>) -> Vec<Estimate> {
             let Some(accuracy) = triplet(&p, i, j, k) else {
                 continue;
             };
-            let mut rng = SplitMix(0x5106);
-            let mut draws: Vec<f64> = (0..RESAMPLES)
-                .map(|_| {
-                    let mut weight: BTreeMap<&str, f64> = BTreeMap::new();
-                    for _ in 0..schemes.len() {
-                        *weight.entry(schemes[rng.below(schemes.len())]).or_default() += 1.0;
-                    }
-                    triplet(&pairs(&cells, &weight), i, j, k).unwrap_or(0.0)
+            let in_triplet: Vec<&str> = cells
+                .iter()
+                .filter(|(_, vs)| {
+                    [i, j, k]
+                        .iter()
+                        .filter(|r| vs.iter().any(|v| v.reader == **r))
+                        .count()
+                        >= 2
                 })
+                .map(|(key, _)| key.0.as_str())
+                .collect::<BTreeSet<_>>()
+                .into_iter()
                 .collect();
-            draws.sort_by(f64::total_cmp);
-            let lower = draws[RESAMPLES * 25 / 1000];
+            let m = in_triplet.len();
+            let lower = (m >= MIN_SCHEMES).then(|| {
+                // leave out one scheme at a time
+                let drops: Vec<f64> = in_triplet
+                    .iter()
+                    .map(|out| {
+                        let weight: BTreeMap<&str, f64> = schemes
+                            .iter()
+                            .map(|s| (*s, if s == out { 0.0 } else { 1.0 }))
+                            .collect();
+                        triplet(&pairs(&cells, &weight), i, j, k).unwrap_or(0.0)
+                    })
+                    .collect();
+                let mean = drops.iter().sum::<f64>() / m as f64;
+                let var = (m - 1) as f64 / m as f64
+                    * drops.iter().map(|d| (d - mean).powi(2)).sum::<f64>();
+                accuracy - t975(m - 1) * var.sqrt()
+            });
             out.push(Estimate {
                 group: g.into(),
                 reader: i.into(),
                 family: fi.into(),
                 against: [j.into(), k.into()],
                 shared: n,
+                schemes: m,
                 accuracy,
                 lower,
-                fits: lower < 1.0 || accuracy <= 1.0,
+                fits: accuracy <= 1.0,
             });
         }
     }
@@ -485,7 +513,8 @@ pub fn error(
         .iter()
         .filter_map(|v| {
             let e = estimates.get(&(g.to_string(), v.reader.clone()))?;
-            e.fits.then_some((*v, e.lower.clamp(0.0, 1.0)))
+            let lower = e.lower.filter(|_| e.fits)?;
+            Some((*v, lower.clamp(0.0, 1.0)))
         })
         .collect();
     if known.is_empty() {
@@ -618,6 +647,37 @@ mod tests {
         assert_eq!(epc[0].cell, ("done".into(), "V1".into(), "deed".into()));
         assert_eq!(epc[0].fields["built"], "75");
         assert_eq!(epc[0].kind, Kind::External);
+    }
+
+    #[test]
+    fn fewer_than_ten_schemes_give_no_bound_and_more_give_a_jackknife_one() {
+        let votes_for = |n: usize| {
+            let mut votes = vec![];
+            for i in 1..=n {
+                let s = format!("s{i}");
+                // `b` is wrong on s1 only
+                let b = if i == 1 { "2020-02" } else { "2020-01" };
+                votes.push(vote(&s, "machine:proposal/a-1", Kind::Llm, "a", "2020-01"));
+                votes.push(vote(&s, "machine:proposal/b-1", Kind::Llm, "b", b));
+                votes.push(vote(&s, "ana", Kind::Person, "person", "2020-01"));
+            }
+            estimates(&votes, &BTreeSet::new())
+        };
+        let b = |est: &[Estimate]| {
+            est.iter()
+                .find(|e| e.reader == "machine:proposal/b-1")
+                .cloned()
+                .unwrap()
+        };
+        let few = b(&votes_for(9));
+        assert_eq!((few.schemes, few.lower), (9, None), "{few:?}");
+        assert!(!few.passes());
+        let many = b(&votes_for(40));
+        assert_eq!(many.schemes, 40);
+        // one miss in 40: the point estimate is 97.5%, and the jackknife bound sits below it
+        assert!((many.accuracy - 0.975).abs() < 1e-9, "{many:?}");
+        let lower = many.lower.unwrap();
+        assert!(lower < many.accuracy && lower > 0.9, "{many:?}");
     }
 
     #[test]
