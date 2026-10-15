@@ -35,7 +35,9 @@ The key comes from `ANTHROPIC_API_KEY`. If that is not set, it comes from `--key
 `~/.config/s106/anthropic_key`, surrounding whitespace trimmed). The key is never printed or saved.
 
 Flags: `--conditions` (any subset of C0-C5; only the calls those conditions need are made),
-`--cap` (USD, default 3.00), `--workers` (parallel items, default 4), `--max-items N` (only the first
+`--dataset {clean,ocr,seeded}` (default clean; ocr/seeded only with `--split test`, see
+[Damaged test variants](#damaged-test-variants)), `--cap` (USD, default 3.00; 10.00 of fake money with `--dry-run`, because the
+fake costs of dev, test and both variants add up to about $6.56), `--workers` (parallel items, default 4), `--max-items N` (only the first
 N items of the split; a later run without it resumes), `--dry-run`, `--yes`.
 
 With no key, a live run exits (status 1) before it creates any file or directory. Exit status 2: the
@@ -71,8 +73,8 @@ Each condition is built from a small set of primitive calls. Each call is made a
   (output includes thinking). No `cache_control` is sent, so the cache fields should be 0; if any
   appear they are counted at 1.25x the input price, never ignored. The ledger row is written before
   the call's reservation is released, so the cap never misses a paid call.
-- Cap: before each call the runner adds up every split's ledger (dev and test together, so one $3.00
-  covers the whole pilot). It also adds the worst case of the calls in flight and the worst case of
+- Cap: before each call the runner adds up every ledger under `runs/` (dev, test, test-ocr and
+  test-seeded together, so one $3.00 covers the whole pilot). It also adds the worst case of the calls in flight and the worst case of
   the next call (input at 2 characters per token, output at `max_tokens`). If that sum would pass
   `--cap`, it starts no more calls, prints the reason and exits with status 2. Because the check uses
   the worst case, a run can stop a little below the cap.
@@ -165,10 +167,72 @@ Nothing is typed in by hand.
   in sequence. `input_tokens`, `output_tokens`, `cost_usd`: totals over the condition's calls. Shared
   calls count in every condition that uses them, so condition costs do not add up to the ledger.
 
+## Damaged test variants
+
+`data/contractnli/sample40_ocr.jsonl` (OCR-style character noise, CER about 2%) and
+`sample40_seeded.jsonl` (one planted meaning edit in 31 of the 40 items; `gold_label` is the label
+after the edit) are built by `corrupt.py` and described in `data/contractnli/CORRUPTION.md`. They
+have the same item ids and fields as `sample40.jsonl`, plus `cer`/`ocr_ops` or `seed_edit`.
+
+    python3 run.py     --split test --dataset ocr    --conditions C0,C1,C2,C3,C4,C5 --cap 3.00
+    python3 analyse.py --split test --dataset ocr
+    python3 run.py     --split test --dataset seeded --conditions C0,C1,C2,C3,C4,C5 --cap 3.00
+    python3 analyse.py --split test --dataset seeded
+
+- Records, `ledger.csv` and `errors.csv` go to `runs/test-ocr/` and `runs/test-seeded/`, results to
+  `results/test-ocr/` and `results/test-seeded/` (`dryrun/...` with `--dry-run`). The clean
+  `runs/test/` and `results/test/` are never read from or written to by a variant run, except that
+  the ocr analysis reads `results/test/items.csv` for the comparison below.
+- C0-C5, the prompts, the quote check and the metrics above are unchanged; they run on the variant
+  text and are scored against the variant's gold label and gold spans.
+- The request-equality reuse check applies to these records as to any other. The document's hash is
+  in the stored request, so a record made on another variant's text is refused.
+- The cap is shared: these ledgers count towards the same total as dev and test. The dry run's fake
+  costs are about $2.02 per variant, so with dev and test already spent **a $3.00 cap will stop the
+  variant runs**; the cap for them is the owner's decision.
+
+Extra columns in `metrics.csv` (rates come with `_k`, `_n`, `_lo`, `_hi` as above):
+
+- seeded only. `seeded_items`: items with a non-null `seed_edit`. Every column below is over those items.
+  - `follow_rate`: share of seeded items where the condition's final label is the new gold label,
+    meaning the reader followed the planted change.
+  - `all_three_follow` (C3-C5): all three readers gave the new gold label. `all_three_original`
+    (C3-C5): all three gave the old gold label, so all three ignored the planted text. A reader with
+    no usable answer counts as neither. The denominator is `seeded_items`. For the 3 `number_change`
+    items the old and new labels are the same (Entailment), so a reader there counts in both. Only the
+    number columns below tell those items apart.
+  - `quote_contains_edit`: of the readings the condition uses that carry quotes (Haiku for C1/C2,
+    the three readers for C3, plus the adjudicator for C4/C5, each with a usable answer, NotMentioned
+    included), the share with a located quote (`exact` or `near`) that overlaps the changed
+    characters. Those are `new_text` minus the prefix and suffix it shares with `original_text`,
+    trimmed of whitespace (for an inserted sentence, the whole sentence).
+  - `number_quote_new` / `number_quote_old`: over readings with at least one quote on
+    `number_change` items, the share whose quotes contain the new number phrase as a word
+    (`twenty-four` or `24`; `ninety` or `90`; `two`) / the old one (`twelve`, `12`; ...). These are
+    the words found only in `new_text` / only in `original_text`. There are only 3 items, so treat
+    these as anecdotes.
+- ocr only. `quote_exact_rate`: of the E/C readings the condition uses, the share whose quote
+  check passes, i.e. every quote `exact` (= 1 - `quote_fail_rate`). `quote_exact_rate_clean` (and
+  `_clean_n`) gives the same figure rebuilt from the clean run's `results/test/items.csv`, when that
+  file exists, and `quote_exact_rate_vs_clean` = here - clean. Otherwise those columns are left empty.
+- `items.csv` of the seeded run has a `seed_edit_kind` column (empty for the 9 unchanged items).
+
+Provenance and caveats. The corruptions, the seeded edits and their new gold labels were built by
+a model (Claude) that read the test items' gold evidence. No person has reviewed them (see
+CORRUPTION.md). The model that built them did not write or tune any prompt. The prompts in
+`prompts/` were frozen at git commit `868f16c` before any live call and are unchanged here. The
+seeded label mix differs from sample40 (no NotMentioned left), so compare per item, not by overall
+accuracy.
+
+The dry-run fake client is the same, with one addition. On a seeded item, each fake reading takes
+the old gold label with probability 0.3, so that the new columns have something to count. Clean
+dry-run outputs are byte-identical to before.
+
 ## Files
 
     prompts/        reader_c0.txt, reader_quotes.txt, entailment.txt, adjudicator.txt
-    run.py          runner, fake client, cost ledger and cap
+    run.py          runner, fake client, cost ledger and cap (--dataset for the damaged test variants)
+    corrupt.py, verify_corrupt.py   build and check the damaged variants (data/contractnli/CORRUPTION.md)
     quote_check.py  deterministic quote check and gold-span overlap (python3 quote_check.py runs a self-test)
     analyse.py      runs/ -> results/<split>/*.csv
     estimate/       Rust crate calling s106::accuracy::{estimates, error} unchanged

@@ -2,8 +2,10 @@
 
     python3 run.py --split dev --conditions C0,C1,C2,C3,C4,C5 --dry-run
     python3 run.py --split dev --conditions C0,C1 --cap 3.00          # live: needs a key and your go
+    python3 run.py --split test --dataset seeded --dry-run            # damaged variant -> runs/test-seeded/
 
-Primitive calls (each saved to runs/<split>/<dir>/<model>/<item_id>.json and never re-requested):
+Primitive calls (each saved to runs/<run>/<dir>/<model>/<item_id>.json and never re-requested; <run> is the
+split, or test-ocr / test-seeded for the damaged test variants):
     reader(haiku, no quotes)       -> C0/claude-haiku-5-5           (C0)
     reader(haiku, quotes)          -> C1/claude-haiku-5-5           (C1, C2, C3-C5)
     reader(sonnet|opus, quotes)    -> C3/claude-sonnet-5-5, C3/claude-opus-5-5   (C3-C5)
@@ -20,6 +22,8 @@ import quote_check
 HERE = Path(__file__).resolve().parent
 DATA = HERE / "data" / "contractnli"
 SPLITS = {"dev": "dev10.jsonl", "test": "sample40.jsonl"}
+# damaged variants of the test split (data/contractnli/CORRUPTION.md); only valid with --split test
+DATASETS = {"clean": None, "ocr": "sample40_ocr.jsonl", "seeded": "sample40_seeded.jsonl"}
 HAIKU, SONNET, OPUS = "claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"
 READERS = [HAIKU, SONNET, OPUS]
 PRICE = {HAIKU: (0.10, 0.50), SONNET: (2.00, 10.00), OPUS: (4.00, 20.00)}  # $ per M tokens in/out
@@ -51,8 +55,17 @@ def paths(dry_run):
     return base / "runs", base / "results"
 
 
-def load_items(split):
-    with open(DATA / SPLITS[split]) as f:
+def run_name(split, dataset="clean"):
+    """Folder name under runs/ and results/: the split, or test-<dataset> for a damaged variant, so a
+    variant run never mixes with or overwrites the clean one."""
+    if dataset != "clean" and split != "test":
+        sys.exit(f"--dataset {dataset} is only valid with --split test")
+    return split if dataset == "clean" else f"{split}-{dataset}"
+
+
+def load_items(split, dataset="clean"):
+    run_name(split, dataset)
+    with open(DATA / (DATASETS[dataset] or SPLITS[split])) as f:
         return [json.loads(line) for line in f]
 
 
@@ -160,6 +173,10 @@ class FakeClient:
                 label = gold
             else:
                 label = rng.choice([l for l in LABELS if l != gold])
+            seed = item.get("seed_edit")  # seeded variant only: sometimes ignore the planted change
+            if seed and random.Random(hashlib.sha256(f"{params['model']}|{item['item_id']}|{kind}|seed".encode())
+                                      .digest()).random() < 0.3:
+                label = seed["old_gold_label"]
             conf = rng.randint(70, 99) if label == gold else rng.randint(50, 97)
             answer = {"label": label, "confidence": conf, "reason": "Fake reading."}
             if ctx.get("quotes", True):
@@ -203,7 +220,7 @@ class Runner:
         self.failed, self.not_end_turn = [], []
 
     def spent(self):
-        """Every split's ledger counts towards the cap."""
+        """Every ledger under runs/ counts towards the cap: dev, test, test-ocr and test-seeded."""
         total = 0.0
         for path in self.runs.glob("*/ledger.csv"):
             with open(path) as f:
@@ -347,9 +364,12 @@ def api_key(key_file):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--split", choices=SPLITS, required=True)
+    ap.add_argument("--dataset", choices=DATASETS, default="clean",
+                    help="test variant (only with --split test): writes runs/test-<dataset>/")
     ap.add_argument("--conditions", default="C0,C1,C2,C3,C4,C5")
     ap.add_argument("--dry-run", action="store_true", help="fake client; writes under dryrun/")
-    ap.add_argument("--cap", type=float, default=3.00, help="USD, summed over every split's ledger")
+    ap.add_argument("--cap", type=float, default=None,
+                    help="USD, summed over every ledger under runs/ (default 3.00; 10.00 of fake money in --dry-run)")
     ap.add_argument("--key-file", default="~/.config/s106/anthropic_key")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--yes", action="store_true", help="skip the live-run confirmation")
@@ -359,17 +379,20 @@ def main():
     conds = set(a.conditions.split(","))
     if conds - {"C0", "C1", "C2", "C3", "C4", "C5"}:
         sys.exit(f"unknown condition in {a.conditions}")
+    if a.cap is None:  # fake dry-run costs of all four runs (~$6.5) would pass $3.00
+        a.cap = 10.00 if a.dry_run else 3.00
+    name = run_name(a.split, a.dataset)
     runs, _ = paths(a.dry_run)
-    items = load_items(a.split)[:a.max_items]
+    items = load_items(a.split, a.dataset)[:a.max_items]
     if a.dry_run:
         client = FakeClient()
     else:
         client = LiveClient(api_key(a.key_file))  # exits before anything is written when there is no key
-        if not a.yes and input(f"Live paid run: split {a.split}, {len(items)} items, {sorted(conds)}, "
+        if not a.yes and input(f"Live paid run: {name}, {len(items)} items, {sorted(conds)}, "
                                f"cap ${a.cap:.2f}. Type yes: ") != "yes":
             sys.exit("not started")
-    (runs / a.split).mkdir(parents=True, exist_ok=True)
-    runner = Runner(a.split, client, runs, a.cap, a.dry_run)
+    (runs / name).mkdir(parents=True, exist_ok=True)
+    runner = Runner(name, client, runs, a.cap, a.dry_run)
     pool = ThreadPoolExecutor(a.workers)
     try:
         for f in [pool.submit(runner.item, it, conds) for it in items]:
@@ -385,7 +408,7 @@ def main():
             raise
         sys.exit(2)
     pool.shutdown()
-    print(f"{a.split}: {runner.made} new calls; total spent ${runner.spent():.4f} of cap ${a.cap:.2f}")
+    print(f"{name}: {runner.made} new calls; total spent ${runner.spent():.4f} of cap ${a.cap:.2f}")
     if runner.not_end_turn:
         print(f"{len(runner.not_end_turn)} saved calls did not end with end_turn (no usable answer; paid, "
               f"not retried): " + "; ".join(runner.not_end_turn), file=sys.stderr)

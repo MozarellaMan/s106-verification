@@ -1,0 +1,208 @@
+=== test-00  gold=NotMentioned  rule=nm_table
+    kind=sentence_insert  new_gold=Entailment  offset=5547
+    note: inserted after sentence containing: 'shall cause its Representatives not to, use any Proprietary Information'
+    OLD: ...(the information referred to in this clause (c), the “Transaction Information”).[[]] For the avoidance of doubt, each of those affiliates and Representatives of a R...
+    NEW: ...(the information referred to in this clause (c), the “Transaction Information”).[[ The Receiving Party shall not reverse engineer, decompile or disassemble any prototypes, software, samples or other objects which embody the Disclosing Party’s Proprietary Information.]] For the avoidance of doubt, each of those affiliates and Representatives of a R...
+
+=== test-01  gold=Contradiction  rule=skip
+    UNCHANGED (seed_edit null). definition lists business info in two spans ('which may include', 'may include human resources data'); one edit cannot make it technical-only; generic 'may not include' would not yield Entailment [generic would have done 'may '->'may not ']
+
+=== test-02  gold=NotMentioned  rule=nm_table
+    kind=sentence_insert  new_gold=Entailment  offset=5185
+    note: inserted after sentence containing: 'the Undersigned can demonstrate that such information was already known'
+    OLD: ...n under this Agreement or any other confidentiality or non-disclosure agreement.[[]] / (c) Samples agrees that, for a period of five (5) years (or such lesser period ...
+    NEW: ...n under this Agreement or any other confidentiality or non-disclosure agreement.[[ Notwithstanding the foregoing, Samples may make copies of such confidential information to the extent reasonably necessary to perform his obligations under the Merger Agreement.]] / (c) Samples agrees that, for a period of five (5) years (or such lesser period ...
+
+=== test-03  gold=NotMentioned  rule=nm_table
+    kind=sentence_insert  new_gold=Entailment  offset=5962
+    note: inserted after sentence containing: 'shall be returned to it or destroyed promptly at its request'
+    OLD: ...r with all relevant copies, extracts, plans, schematics or other reproductions).[[]] ALL CONFIDENTIAL INFORMATION IS PROVIDED “AS IS.” NEITHER PARTY MAKES ANY WARRA...
+    NEW: ...r with all relevant copies, extracts, plans, schematics or other reproductions).[[ The Receiving Party may make copies of the Confidential Information only to the extent reasonably necessary for the Scope.]] ALL CONFIDENTIAL INFORMATION IS PROVIDED “AS IS.” NEITHER PARTY MAKES ANY WARRA...
+
+=== test-04  gold=Contradiction  rule=skip
+    UNCHANGED (seed_edit null). long definition listing business, financial and marketing items; no single minimal edit makes it technical-only
+
+=== test-05  gold=Contradiction  rule=skip
+    UNCHANGED (seed_edit null). long definition listing financial, sales, marketing items; no single minimal edit makes it technical-only
+
+=== test-06  gold=Contradiction  rule=override
+    kind=exception_change  new_gold=Entailment  offset=773
+    note: Invention restricted to technical topics; CI is defined as information with respect to the Invention [generic would have done 'regardless of whether'->'provided that']
+    OLD: ...l mean all information relating to products, applications, systems, components, [[technologies and business topics]]. Including but not limited to prototypes, drawings, data, trade secrets and int...
+    NEW: ...l mean all information relating to products, applications, systems, components, [[technologies but not business topics]]. Including but not limited to prototypes, drawings, data, trade secrets and int...
+
+=== test-07  gold=Entailment  rule=generic
+    kind=negation_insert  new_gold=Contradiction  offset=9968
+    OLD: ...contained in this Agreement the Parties agree that the Confidential Information [[may be]] disclosed by the Receiving Party to its professional advisors on a need-to-know...
+    NEW: ...contained in this Agreement the Parties agree that the Confidential Information [[may not be]] disclosed by the Receiving Party to its professional advisors on a need-to-know...
+
+=== test-08  gold=NotMentioned  rule=nm_table
+    kind=sentence_insert  new_gold=Entailment  offset=572
+    note: inserted after sentence containing: "The parties agree to protect each other's Conﬁdential Information"
+    OLD: ...isclosed before or after the execution of this Agreement on the following terms.[[]] / 1. Each party shall use its reasonable best eﬀorts to keep the other's Conﬁdent...
+    NEW: ...isclosed before or after the execution of this Agreement on the following terms.[[ For the purposes of this Agreement, Conﬁdential Information includes information disclosed in writing or orally.]] / 1. Each party shall use its reasonable best eﬀorts to keep the other's Conﬁdent...
+
+=== test-09  gold=Contradiction  rule=skip
+    UNCHANGED (seed_edit null). definition by reference ('all such information'); no single minimal edit makes it technical-only
+
+=== test-10  gold=Entailment  rule=override
+    kind=number_change  new_gold=Entailment  offset=6390
+    note: both spans independently prohibit solicitation, so no negation flips the label; the duration fact changes [generic would have done 'will not'->'will']
+    OLD: ...n-solicitation- Employees. During the term of the agreement and for a period of [[twelve (12) months]] thereafter, each party agrees not to solicit or recruit any employee of each ot...
+    NEW: ...n-solicitation- Employees. During the term of the agreement and for a period of [[twenty-four (24) months]] thereafter, each party agrees not to solicit or recruit any employee of each ot...
+
+=== test-11  gold=Contradiction  rule=override
+    kind=scope_restriction  new_gold=Entailment  offset=3489
+    note: definition narrowed to technical information
+    OLD: ...arties. For the purposes of this Agreement, the term "Confidential Information" [[shall mean all trade secrets and confidential or proprietary information]] (and any tangible representation thereof) owned, possessed or used in connectio...
+    NEW: ...arties. For the purposes of this Agreement, the term "Confidential Information" [[shall mean only technical trade secrets and other technical information]] (and any tangible representation thereof) owned, possessed or used in connectio...
+
+=== test-12  gold=Entailment  rule=override
+    kind=negation_insert  new_gold=Contradiction  offset=4456
+    note: generic rule would hit 'may disclose' in span 1, which does not remove the notice duty [generic would have done 'may '->'may not ']
+    OLD: ... other government demand that has the force of law. Before doing so, each of us [[must seek the highest level of protection available and, when possible, give the other enough prior notice]] to provide a reasonable chance to seek a protective order. / 4. Length of confide...
+    NEW: ... other government demand that has the force of law. Before doing so, each of us [[must seek the highest level of protection available but is not required to give the other any prior notice]] to provide a reasonable chance to seek a protective order. / 4. Length of confide...
+
+=== test-13  gold=Entailment  rule=override
+    kind=number_change  new_gold=Entailment  offset=1164
+    note: 'only if ... designated' cannot be negated without leaving (i)/(ii) dangling; the confirmation window changes [generic would have done 'shall not'->'shall']
+    OLD: ...(i) in writing, if communicated in writing, or (ii) confirmed in writing within [[thirty (30) days]] of disclosure, if disclosed orally or in other non-tangible form; and provided ...
+    NEW: ...(i) in writing, if communicated in writing, or (ii) confirmed in writing within [[ninety (90) days]] of disclosure, if disclosed orally or in other non-tangible form; and provided ...
+
+=== test-14  gold=NotMentioned  rule=nm_table
+    kind=sentence_insert  new_gold=Entailment  offset=6975
+    note: inserted after sentence containing: '7. Upon providing the Receiving Party with a specific list'
+    OLD: ...es, which was actually furnished by the Furnishing Party to the Receiving Party.[[]] / 8. Although the Receiving Party understands that the Furnishing Party has endea...
+    NEW: ...es, which was actually furnished by the Furnishing Party to the Receiving Party.[[ The Receiving Party may make copies of the Confidential Information solely to the extent necessary to evaluate a Transaction.]] / 8. Although the Receiving Party understands that the Furnishing Party has endea...
+
+=== test-15  gold=Entailment  rule=override
+    kind=negation_delete  new_gold=Contradiction  offset=7442
+    note: generic 'shall not'->'shall' alone leaves 'any licence', which reads poorly [generic would have done 'shall not'->'shall']
+    OLD: ... The disclosure of Confidential Information to Recipient or its Representatives [[shall not give Recipient or its Representatives any licence]] or other rights in relation to that Confidential Information beyond the rights ...
+    NEW: ... The disclosure of Confidential Information to Recipient or its Representatives [[shall give Recipient or its Representatives a licence]] or other rights in relation to that Confidential Information beyond the rights ...
+
+=== test-16  gold=Entailment  rule=skip
+    UNCHANGED (seed_edit null). three independent spans permit disclosure (Representatives, lenders and investors); one edit cannot flip [generic would have done 'shall not'->'shall']
+
+=== test-17  gold=Entailment  rule=override
+    kind=number_change  new_gold=Entailment  offset=2685
+    note: removing the third-party exclusion would make the hypothesis NotMentioned rather than Contradiction [generic would have done 'shall not'->'shall']
+    OLD: ...agrees that the foregoing shall not apply with respect to any information after [[five years]] following the disclosure thereof or any information that the Receiving Party ca...
+    NEW: ...agrees that the foregoing shall not apply with respect to any information after [[two years]] following the disclosure thereof or any information that the Receiving Party ca...
+
+=== test-18  gold=Contradiction  rule=override
+    kind=exception_change  new_gold=Entailment  offset=1249
+    note: only identified information is protected
+    OLD: ...es, affiliates, insurers, agents, advisors or auditors (the “Representatives”), [[regardless of the manner in which it is so furnished]], together with any analyses, compilations, data, studies or other documents or ...
+    NEW: ...es, affiliates, insurers, agents, advisors or auditors (the “Representatives”), [[provided that it is expressly identified as confidential when so furnished]], together with any analyses, compilations, data, studies or other documents or ...
+
+=== test-19  gold=Entailment  rule=override
+    kind=negation_insert  new_gold=Contradiction  offset=1813
+    note: the fact of the agreement is carved out of Information [generic would have done 'shall also include'->'shall not include']
+    OLD: ...rty. All such confidential information shall be referred to hereinafter as " ". [[Information shall also include the identity]] of the Parties, the contents of this agreement and the fact that they have ente...
+    NEW: ...rty. All such confidential information shall be referred to hereinafter as " ". [[Information shall not include the identity]] of the Parties, the contents of this agreement and the fact that they have ente...
+
+=== test-20  gold=Entailment  rule=skip
+    UNCHANGED (seed_edit null). two independent spans (1.1.2 oral information, 1.2 'orally'); one edit cannot flip
+
+=== test-21  gold=NotMentioned  rule=nm_table
+    kind=sentence_insert  new_gold=Entailment  offset=2907
+    note: inserted after sentence containing: 'At the request of Disclosing Party, Recipient shall return'
+    OLD: ...closing Party (including any copies thereof) or certify the destruction thereof.[[]] / 3. All right title and interest in and to the Confidential Information shall re...
+    NEW: ...closing Party (including any copies thereof) or certify the destruction thereof.[[ Upon the termination of this Agreement, Recipient shall promptly return to Disclosing Party or destroy all Confidential Information of Disclosing Party.]] / 3. All right title and interest in and to the Confidential Information shall re...
+
+=== test-22  gold=NotMentioned  rule=nm_table
+    kind=sentence_insert  new_gold=Entailment  offset=4744
+    note: inserted after sentence containing: '6. The Contractor shall, at its own expense, return'
+    OLD: ...ntrol or possession upon request of the State or on termination of the Contract.[[]] / 7. A breach of this Agreement by the Contractor or the Contractor’s Personnel s...
+    NEW: ...ntrol or possession upon request of the State or on termination of the Contract.[[ The Contractor’s obligations under this Agreement shall survive the termination of this Agreement and of the Contract.]] / 7. A breach of this Agreement by the Contractor or the Contractor’s Personnel s...
+
+=== test-23  gold=NotMentioned  rule=nm_table
+    kind=sentence_insert  new_gold=Entailment  offset=2240
+    note: inserted after sentence containing: 'Confidential Information includes, by way of example only'
+    OLD: ...therwise provided access to and use of by the State in relation to the Contract.[[]] / 2. The Contractor shall not, without the State’s prior written consent, copy, d...
+    NEW: ...therwise provided access to and use of by the State in relation to the Contract.[[ Confidential Information includes information disclosed to the Contractor orally as well as in writing.]] / 2. The Contractor shall not, without the State’s prior written consent, copy, d...
+
+=== test-24  gold=Entailment  rule=generic
+    kind=modal_change  new_gold=Contradiction  offset=15044
+    OLD: ...e of Evaluation Material hereunder, the Receiving Party and its Representatives [[shall continue to]] be bound by their confidentiality and other obligations hereunder. /  7. Remedies...
+    NEW: ...e of Evaluation Material hereunder, the Receiving Party and its Representatives [[shall cease to]] be bound by their confidentiality and other obligations hereunder. /  7. Remedies...
+
+=== test-25  gold=Contradiction  rule=override
+    kind=exception_change  new_gold=Entailment  offset=1182
+    note: circumstances-of-confidence and reasonable-judgment limbs removed [generic would have done 'shall include'->'shall not include']
+    OLD: ...ocess and procedures, disclosed by Party One and Party Two under this Agreement [[which at the time of disclosure is designated as confidential (or like designation), is disclosed in circumstances of confidence, or would be understood by the parties, exercising reasonable business judgment, to be confidential]]. Confidential Information shall include, but not be limited to, all materials m...
+    NEW: ...ocess and procedures, disclosed by Party One and Party Two under this Agreement [[but only if at the time of disclosure it is designated as confidential (or like designation)]]. Confidential Information shall include, but not be limited to, all materials m...
+
+=== test-26  gold=Contradiction  rule=skip
+    UNCHANGED (seed_edit null). definition lists marketing materials and finances alongside technical items; no clean single edit
+
+=== test-27  gold=Contradiction  rule=override
+    kind=scope_restriction  new_gold=Entailment  offset=635
+    note: definition narrowed to technical information [generic would have done 'shall include'->'shall not include']
+    OLD: ...dential Information. For purposes of this Agreement, "Confidential Information" [[shall include all information or material that has]] or could have commercial value or other utility in the business in which Disclo...
+    NEW: ...dential Information. For purposes of this Agreement, "Confidential Information" [[shall include only technical information or material that has]] or could have commercial value or other utility in the business in which Disclo...
+
+=== test-28  gold=NotMentioned  rule=nm_table
+    kind=sentence_insert  new_gold=Entailment  offset=3778
+    note: inserted after sentence containing: '4. The obligations and limitations set forth herein regarding Confidential Information shall not apply'
+    OLD: ... to and transmits it to the Recipient without any obligation of confidentiality.[[]] / 5. In the event that the Recipient shall breach this Agreement, or in the event...
+    NEW: ... to and transmits it to the Recipient without any obligation of confidentiality.[[ Nothing in this Agreement shall prevent Recipient from independently developing information similar to Disclosing Party’s Confidential Information without use of such Confidential Information.]] / 5. In the event that the Recipient shall breach this Agreement, or in the event...
+
+=== test-29  gold=Contradiction  rule=override
+    kind=scope_restriction  new_gold=Entailment  offset=625
+    note: definition narrowed to technical information
+    OLD: ...e disclosing party (hereinafter "Confidential Information") provided hereunder, [[is that information described in]] the Confidential Information Transmittal Record (CITR) form executed from time ...
+    NEW: ...e disclosing party (hereinafter "Confidential Information") provided hereunder, [[is only that technical information described in]] the Confidential Information Transmittal Record (CITR) form executed from time ...
+
+=== test-30  gold=Contradiction  rule=skip
+    UNCHANGED (seed_edit null). definition lists business, financial, customer plans; no clean single edit [generic would have done 'may '->'may not ']
+
+=== test-31  gold=NotMentioned  rule=nm_table
+    kind=sentence_insert  new_gold=Entailment  offset=6703
+    note: inserted after sentence containing: 'I agree that I shall return all information to which I have had access'
+    OLD: ...ation that my official duties do not require further access to such information.[[]] / 6. I hereby agree that I will not alter or remove markings, which indicate a ca...
+    NEW: ...ation that my official duties do not require further access to such information.[[ I may make copies of such information only to the extent required to perform my official duties and in accordance with the applicable handling requirements.]] / 6. I hereby agree that I will not alter or remove markings, which indicate a ca...
+
+=== test-32  gold=NotMentioned  rule=nm_table
+    kind=sentence_insert  new_gold=Entailment  offset=3905
+    note: inserted after sentence containing: 'does not include information which is or becomes generally available to the public'
+    OLD: ...ailable to the public other than as a result of a disclosure by a Seller Party..[[]] / 3. Non-Solicitation. During the Restricted Period, Seller Parties agree that th...
+    NEW: ...ailable to the public other than as a result of a disclosure by a Seller Party..[[ Nothing in this Agreement shall prevent the Seller Parties from independently developing information similar to the Confidential Information without use of the Confidential Information.]] / 3. Non-Solicitation. During the Restricted Period, Seller Parties agree that th...
+
+=== test-33  gold=Contradiction  rule=generic
+    kind=exception_change  new_gold=Entailment  offset=1500
+    OLD: ...in writing (whatever the form or storage medium) or gathered by inspection, and [[regardless of whether]] such information is specifically identified as "confidential". The term "Evalua...
+    NEW: ...in writing (whatever the form or storage medium) or gathered by inspection, and [[provided that]] such information is specifically identified as "confidential". The term "Evalua...
+
+=== test-34  gold=Entailment  rule=generic
+    kind=negation_insert  new_gold=Contradiction  offset=3215
+    OLD: ...ial information, delete them or make them reasonably inaccessible. However, PwC [[may ]]retain a copy of the confidential information for our internal purposes. / 4 Gener...
+    NEW: ...ial information, delete them or make them reasonably inaccessible. However, PwC [[may not ]]retain a copy of the confidential information for our internal purposes. / 4 Gener...
+
+=== test-35  gold=NotMentioned  rule=nm_table
+    kind=sentence_insert  new_gold=Entailment  offset=4864
+    note: inserted after sentence containing: '(c) shall not use Confidential Information for any purpose other than in connection with the Evaluation'
+    OLD: ...formation has been made available to the Receiving Party or its Representatives.[[]] As used herein “reasonable steps” means those steps the Receiving Party takes t...
+    NEW: ...formation has been made available to the Receiving Party or its Representatives.[[ The Receiving Party shall not reverse engineer, decompile or disassemble any prototypes, software, samples or other objects which embody the Disclosing Party’s Confidential Information.]] As used herein “reasonable steps” means those steps the Receiving Party takes t...
+
+=== test-36  gold=Entailment  rule=override
+    kind=exception_change  new_gold=Contradiction  offset=3385
+    note: verbal information excluded [generic would have done 'may be'->'may not be']
+    OLD: ...losed to the other Party during the course of its relationship with such Party, [[whether in writing, in electronic form or pursuant to discussions]], including without limitation: trade secrets, know-how, marketing and advertisi...
+    NEW: ...losed to the other Party during the course of its relationship with such Party, [[whether in writing or in electronic form (but excluding any information conveyed orally or pursuant to discussions)]], including without limitation: trade secrets, know-how, marketing and advertisi...
+
+=== test-37  gold=Entailment  rule=skip
+    UNCHANGED (seed_edit null). 5.2 exceptions and 5.3 'retained ... pursuant to clause 5.2' both imply retention; one edit leaves the other [generic would have done 'shall not'->'shall']
+
+=== test-38  gold=NotMentioned  rule=nm_table
+    kind=sentence_insert  new_gold=Entailment  offset=3556
+    note: inserted after sentence containing: 'Receiving Party shall return all information to the Disclosing Party without retaining any copies'
+    OLD: ...all return all information to the Disclosing Party without retaining any copies.[[]] / 4. NON-ASSIGNABLE / This agreement shall be non-assignable by the Receiving Party...
+    NEW: ...all return all information to the Disclosing Party without retaining any copies.[[ The obligations of the Receiving Party under this Agreement shall survive the termination of this Agreement.]] / 4. NON-ASSIGNABLE / This agreement shall be non-assignable by the Receiving Party...
+
+=== test-39  gold=Entailment  rule=override
+    kind=negation_delete  new_gold=Contradiction  offset=3078
+    note: the carve-out list, including (c) independently developed, becomes a list of still-confidential information [generic would have done 'shall not'->'shall']
+    OLD: ...sdiction over Borrower, or as otherwise required by law or regulation. Borrower [[shall not be required to keep the Information confidential to the extent]] that the Information (a) becomes publicly known through means other than a brea...
+    NEW: ...sdiction over Borrower, or as otherwise required by law or regulation. Borrower [[shall be required to keep the Information confidential even to the extent]] that the Information (a) becomes publicly known through means other than a brea...
