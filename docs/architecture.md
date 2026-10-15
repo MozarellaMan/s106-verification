@@ -59,10 +59,12 @@ flowchart LR
 | `labels.rs` | Human labels; agent proposals scored against them (`s106 labels`) |
 | `results.rs` | `run`: a batch's scheme ledger, decision rules and claims, each with its check level (`s106 results`) |
 | `figures.rs` | `check`: figures cited in markdown as `29.8%<!-- src: path -->` must still appear in the cited file (`s106 check-figures`) |
+| `accuracy.rs` | Readers' accuracy per variable group, estimated from their agreement; the check-level thresholds (used by `results.rs`) |
 | `explore.rs` | `bake`: data for the results explorer in `explorer/` (`s106 explore`): Datahub figures, plus the public deed cells (`--deed-cells`) or a private ledger (`--results`) |
 
-`results.rs` depends on `labels.rs` for loading labels and proposals; nothing else depends on
-either. `explore.rs` reads files only.
+`results.rs` depends on `labels.rs` for loading labels and proposals and on `accuracy.rs` for
+the check levels; `accuracy.rs` depends on `labels.rs`; nothing else depends on any of them.
+`explore.rs` reads files only.
 
 ## Reproducing page text
 

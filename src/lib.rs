@@ -2,7 +2,7 @@
 //!
 //! `document`: page text from a PDF's text layer or OCR, with boxes, cached by content hash.
 //! `pld`: Planning London Datahub snapshots. `explore`: the results explorer's data.
-//! `labels`: human labels, scored against the agents' proposals; nothing else depends on it.
+//! `labels`: human labels, scored against the agents' proposals; only `accuracy` and `results` use them.
 //! `results`: a batch's scheme ledger, decision rules and claims, each with its check level;
 //! `accuracy` estimates each reader's error rate from how often readers agree.
 //! `figures`: checks that figures cited in markdown still appear in the files they cite.

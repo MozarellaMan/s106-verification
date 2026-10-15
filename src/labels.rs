@@ -1,6 +1,6 @@
 //! Human labels: what a person read off each source, and the figures that follow from them.
 //!
-//! Labels are a layer on their own. Nothing else in the crate reads them, and nothing waits for
+//! Labels are a layer on their own. Only `accuracy` and `results` read them, and nothing waits for
 //! them: `s106 labels` picks up whatever submissions exist under `<data>/labels/`, and with none
 //! it says so and writes the same (empty) report. Each submission is a CSV in the source-audit
 //! codebook's columns (`runs/2026-10-14-source-audit-batch1/codebook.md` in s106-data), one row
