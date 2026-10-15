@@ -1,0 +1,65 @@
+{
+ "item_id": "test-01",
+ "kind": "entailment",
+ "dir": "C2",
+ "dry_run": false,
+ "request": {
+  "model": "claude-sonnet-5-5",
+  "max_tokens": 1500,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "supports",
+      "reason"
+     ],
+     "properties": {
+      "supports": {
+       "type": "boolean"
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "effort": "low"
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "A reader of a contract claims that the quoted passages below settle a statement (the hypothesis). You do not see the contract; judge only from the quotes.\n\n<hypothesis>\nConfidential Information shall only include technical information.\n</hypothesis>\n\n<claimed_label>\nContradiction\n</claimed_label>\n\n<quotes>\n<quote>information concerning their respective business prospects and plans, financial condition, technology, customers</quote>\n</quotes>\n\nThe labels mean:\n- Entailment: the quotes state or clearly imply that the hypothesis is true.\n- Contradiction: the quotes state or clearly imply that the hypothesis is false.\n\nDecide whether the quotes, taken as written, are enough on their own to support the claimed label. Answer supports = false if the quotes are about something else, support the opposite label, support only part of the hypothesis, or need context the quotes do not give.\n\nAnswer only with the JSON object the response format asks for: supports (true or false) and a one-sentence reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "subagent-C2__claude-sonnet-5-5__test-01",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-5-5",
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"supports\": true, \"reason\": \"The quote lists business prospects and plans, financial condition and customers as covered information, which are non-technical, so Confidential Information is not limited to technical information.\"}"
+   }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+   "input_tokens": null,
+   "output_tokens": null
+  }
+ },
+ "usage": {
+  "input_tokens": null,
+  "output_tokens": null
+ },
+ "latency_ms": null,
+ "timestamp": "2026-10-15T02:30:44+00:00",
+ "cost_usd": null,
+ "client": "subagent",
+ "cost_usd_estimated": true
+}

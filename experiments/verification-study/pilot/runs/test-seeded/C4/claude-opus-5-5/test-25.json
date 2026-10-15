@@ -1,0 +1,81 @@
+{
+ "item_id": "test-25",
+ "kind": "adjudicate",
+ "dir": "C4",
+ "dry_run": false,
+ "request": {
+  "model": "claude-opus-5-5",
+  "max_tokens": 8000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\n<document 218 omitted, sha256 55d83ac902531ca3>\n</document>\n\n<hypothesis>\nAll Confidential Information shall be expressly identified by the Disclosing Party.\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: NotMentioned\nconfidence: 55\nreason: Section 2 makes information confidential only if it is designated as confidential at disclosure, which partly supports the hypothesis, but the same section also treats Party One's confidential business information as protected without any designation requirement, so the document does not clearly settle whether all Confidential Information must be expressly identified.\n(no quotes)\n</reading>\n<reading id=\"B\">\nlabel: Entailment\nconfidence: 80\nreason: The definition limits Confidential Information to material designated as confidential at the time of disclosure, so it must be expressly identified as such.\n<quote check=\"exact\">but only if at the time of disclosure it is designated as confidential (or like designation)</quote>\n</reading>\n<reading id=\"C\">\nlabel: Entailment\nconfidence: 72\nreason: The definition limits Confidential Information to information designated as confidential at the time of disclosure, though a later clause about Party One's business information without a marking requirement adds some doubt.\n<quote check=\"exact\">but only if at the time of disclosure it is designated as confidential (or like designation)</quote>\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "subagent-C4__claude-opus-5-5__test-25",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"label\": \"Entailment\", \"confidence\": 78, \"quotes\": [\"but only if at the time of disclosure it is designated as confidential (or like designation)\"], \"reason\": \"The definition limits Confidential Information to information designated as confidential at the time of disclosure, which means it must be expressly identified by the disclosing party.\"}"
+   }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+   "input_tokens": null,
+   "output_tokens": null
+  }
+ },
+ "usage": {
+  "input_tokens": null,
+  "output_tokens": null
+ },
+ "latency_ms": null,
+ "timestamp": "2026-10-15T02:30:44+00:00",
+ "cost_usd": null,
+ "client": "subagent",
+ "cost_usd_estimated": true
+}

@@ -1,0 +1,81 @@
+{
+ "item_id": "test-06",
+ "kind": "adjudicate",
+ "dir": "C4",
+ "dry_run": false,
+ "request": {
+  "model": "claude-opus-5-5",
+  "max_tokens": 8000,
+  "output_config": {
+   "format": {
+    "type": "json_schema",
+    "schema": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "label",
+      "confidence",
+      "quotes",
+      "reason"
+     ],
+     "properties": {
+      "label": {
+       "type": "string",
+       "enum": [
+        "Entailment",
+        "Contradiction",
+        "NotMentioned"
+       ]
+      },
+      "confidence": {
+       "type": "integer",
+       "description": "0-100"
+      },
+      "quotes": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "reason": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
+  "messages": [
+   {
+    "role": "user",
+    "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\n<document 67 omitted, sha256 c0329b42cc6d19f6>\n</document>\n\n<hypothesis>\nConfidential Information shall only include technical information.\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: NotMentioned\nconfidence: 62\nreason: The NDA defines Confidential Information broadly as all information provided with respect to the Invention, including trade secrets and data, but never states that it includes only technical information, and the scope is ambiguous enough that the document does not clearly settle the hypothesis.\n(no quotes)\n</reading>\n<reading id=\"B\">\nlabel: Entailment\nconfidence: 62\nreason: Confidential Information is information about the Invention, which is defined as technical subject matter and expressly excludes business topics.\n<quote check=\"exact\">all information relating to products, applications, systems, components, technologies but not business topics</quote>\n</reading>\n<reading id=\"C\">\nlabel: Entailment\nconfidence: 78\nreason: Confidential Information is limited to information about the Invention, which is defined as technical information about products, systems and technologies and expressly excludes business topics.\n<quote check=\"exact\">shall mean all information relating to products, applications, systems, components, technologies but not business topics</quote>\n<quote check=\"exact\">\u201cConfidential Information\u201d shall mean all information provided by Disclosing Party with respect to the Invention</quote>\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+   }
+  ]
+ },
+ "response": {
+  "id": "subagent-C4__claude-opus-5-5__test-06",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"label\": \"Entailment\", \"confidence\": 72, \"quotes\": [\"\u201cConfidential Information\u201d shall mean all information provided by Disclosing Party with respect to the Invention\", \"all information relating to products, applications, systems, components, technologies but not business topics\"], \"reason\": \"Confidential Information is limited to information about the Invention, which is defined as technical subject matter (products, systems, technologies) and expressly excludes business topics.\"}"
+   }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+   "input_tokens": null,
+   "output_tokens": null
+  }
+ },
+ "usage": {
+  "input_tokens": null,
+  "output_tokens": null
+ },
+ "latency_ms": null,
+ "timestamp": "2026-10-15T02:30:44+00:00",
+ "cost_usd": null,
+ "client": "subagent",
+ "cost_usd_estimated": true
+}
