@@ -33,6 +33,7 @@ src/
   pld.rs        read-only Planning London Datahub client; saves raw snapshots under <data>/snapshots/pld/
   labels.rs     agent proposals scored against human labels (`labels/` in the data repository)
   results.rs    a batch's scheme ledger, decision rules and claims, each with its check level
+  accuracy.rs   each reader's estimated accuracy from how often readers agree; sets the check levels
   explore.rs    data for the results explorer (`explorer/`): Datahub, plus deed cells or a private ledger
   figures.rs    `s106 check-figures`: each cited figure must still be in its cited file
 ```

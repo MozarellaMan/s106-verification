@@ -9,7 +9,7 @@
 //!   `manifest.json` that records the full [`Producer`]. A warm cache is read without opening the
 //!   PDF in PDFium or loading the OCR runtime.
 //! * a [`Snapshot`]: the whole document's page text in one reviewable file, committed under
-//!   `pages/` in the data repository so replay, regression tests and evaluation run without
+//!   `pages/` in the data repository so replay and regression tests run without
 //!   PDFs or models.
 //!
 //! Both are keyed by the PDF's SHA-256 and by everything that produces the text: the line logic
