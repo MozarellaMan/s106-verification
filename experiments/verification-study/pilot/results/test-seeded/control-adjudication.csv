@@ -1,0 +1,10 @@
+item,gold,permutation,haiku,sonnet,opus,majority,original_label,original_correct,original_sided_with,control_label,control_correct,control_sided_with,control_sided_with_letter,opus_moved
+test-06,Entailment,A=sonnet B=opus C=haiku,NotMentioned,Entailment,Entailment,Entailment,Entailment,True,sonnet+opus,Entailment,True,sonnet+opus,A+B,True
+test-07,Contradiction,A=sonnet B=opus C=haiku,Entailment,Entailment,Contradiction,Entailment,Entailment,False,haiku+sonnet,Entailment,False,haiku+sonnet,A+C,True
+test-15,Contradiction,A=sonnet B=opus C=haiku,Entailment,Contradiction,Contradiction,Contradiction,Contradiction,True,sonnet+opus,Contradiction,True,sonnet+opus,A+B,True
+test-17,Entailment,A=haiku B=opus C=sonnet,NotMentioned,Entailment,Entailment,Entailment,Entailment,True,sonnet+opus,Entailment,True,sonnet+opus,B+C,True
+test-18,Entailment,A=haiku B=sonnet C=opus,NotMentioned,Entailment,Entailment,Entailment,Entailment,True,sonnet+opus,Entailment,True,sonnet+opus,B+C,False
+test-25,Entailment,A=sonnet B=haiku C=opus,NotMentioned,Entailment,Entailment,Entailment,Entailment,True,sonnet+opus,Entailment,True,sonnet+opus,A+C,False
+test-33,Entailment,A=opus B=sonnet C=haiku,NotMentioned,Entailment,Entailment,Entailment,Entailment,True,sonnet+opus,Entailment,True,sonnet+opus,A+B,True
+test-34,Contradiction,A=sonnet B=haiku C=opus,Entailment,Contradiction,Contradiction,Contradiction,Entailment,False,haiku,Contradiction,True,sonnet+opus,A+C,False
+test-39,Contradiction,A=sonnet B=opus C=haiku,NotMentioned,Contradiction,Contradiction,Contradiction,Contradiction,True,sonnet+opus,Contradiction,True,sonnet+opus,A+B,True

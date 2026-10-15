@@ -1,0 +1,62 @@
+{
+ "id": "CTRL__claude-opus-5-5__test-06",
+ "record_skeleton": {
+  "item_id": "test-06",
+  "kind": "adjudicate",
+  "dir": "CTRL",
+  "post_hoc_control": true,
+  "permutation": {
+   "A": "sonnet",
+   "B": "opus",
+   "C": "haiku"
+  },
+  "request": {
+   "model": "claude-opus-5-5",
+   "max_tokens": 8000,
+   "output_config": {
+    "format": {
+     "type": "json_schema",
+     "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "label",
+       "confidence",
+       "quotes",
+       "reason"
+      ],
+      "properties": {
+       "label": {
+        "type": "string",
+        "enum": [
+         "Entailment",
+         "Contradiction",
+         "NotMentioned"
+        ]
+       },
+       "confidence": {
+        "type": "integer",
+        "description": "0-100"
+       },
+       "quotes": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       "reason": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "messages": [
+    {
+     "role": "user",
+     "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\nCONFIDENTIALITY AND NON-DISCLOSURE AGREEMENT\nThis Agreement, made this ____ day of ___________, 2009, between _________________________, (hereinafter \u201cDisclosing Party\u201d), and _________________________(hereinafter \u201cReceiving Party\u201d).\nBACKGROUND\nThe Disclosing Party and Receiving Party wish to discuss and exchange certain items and information (the \u201cInvention\u201d) which the parties hereto consider highly confidential and proprietary.\nNOW THEREFORE, the parties hereto, intending to be legally bound in consideration of the mutual covenants and agreements set forth herein, hereby agree as follows:\n1. DEFINITIONS\n1.1 \u201cInvention\u201d, the Pipeline Piranha Invention, Patent Pending #103573330A, shall mean all information relating to products, applications, systems, components, technologies but not business topics. Including but not limited to prototypes, drawings, data, trade secrets and intellectual property relating to the \u201cPatent Pending\u201d invention named Pipeline Piranha.\n1.2 \u201cConfidential Information\u201d shall mean all information provided by Disclosing Party with respect to the Invention regardless of whether it is written, oral, audio tapes, video tapes, computer discs, machines, prototypes, designs, specifications, articles of manufacture, drawings, human or machine readable documents. Confidential Information shall also include all information related to the Invention provided by Disclosing Party to Receiving Party prior to the signing of this agreement. Confidential Information shall not include any information in the public domain at the time of the disclosure, or subsequently comes within the public domain without fault of the Receiving Party.\n2. USE OF CONFIDENTIAL INFORMATION\nThe Receiving Party agrees to:\n(a) Receive and maintain the Confidential Information in confidence;\n(b) Examine the Confidential Information at its own expense;\n(c) Not reproduce the Confidential Information or any part thereof without the express written consent of Disclosing Party;\n(d) Not, directly or indirectly, make known, divulge, publish or communicate the Confidential Information to any person, firm or corporation without the express written consent of Disclosing Party;\n(e) Limit the internal dissemination of the Confidential Information and the internal disclosure of the Confidential Information received from the Disclosing Party to those officers and employees, if any, of the Receiving Party who have a need to know and an obligation to protect it;\n(f) Not use or utilize the Confidential Information without the express written consent of Disclosing Party;\n(g) Not use the Confidential Information or any part thereof as a basis for the\ndesign or creation of any method, system, apparatus or device similar to any method, system, apparatus or device embodied in the Confidential Information unless expressly authorized in writing by Disclosing Party; and\n(h) Utilize the best efforts possible to protect and safeguard the Confidential Information from loss, theft, destruction, or the like.\n3. RETURN OF CONFIDENTIAL INFORMATION\nAll information provided by the Disclosing Party shall remain the property of the Disclosing Party. Receiving Party agrees to return all Confidential Information to Disclosing Party within 15 days of written demand by Disclosing Party. When the Receiving Party has finished reviewing the information provided by the Disclosing Party and has made a decision as to whether or not to work with the Disclosing Party, Receiving Party shall return all information to the Disclosing Party without retaining any copies.\n4. NON-ASSIGNABLE\nThis agreement shall be non-assignable by the Receiving Party unless prior written consent of the Disclosing Party is received. If this Agreement is assigned or otherwise transferred, it shall be binding on all successors and assigns.\n5. GOVERNING LAW\nThis agreement and all questions relating to its validity, interpretation, performance and enforcement (including, without limitation, provisions concerning limitations of actions), shall be governed by and construed in accordance with the laws of the State\nof Oregon, notwithstanding any conflict-of-laws doctrines of such state or other jurisdiction to the contrary, and without the aid of any canon, custom or rule of law requiring construction against the draftsman.\n6. NO LICENSE\nNeither party does, by virtue of disclosure of the Confidential Information, grant, either expressly or by implication, estoppels or otherwise, any right or license to any patent, trade secret, invention, trademark, copyright, or other intellectual property right.\n7. BINDING NATURE OF AGREEMENT\nThis agreement shall be binding upon and inure to the benefit of the parties hereto and their respective heirs, personal representatives, successors and assigns.\n8. PROVISIONS SEPARABLE\nThe provisions of this Agreement are independent of and separable from each other, and no provision shall be affected or rendered invalid or unenforceable by virtue of the fact that for any reason any other or others of them may be invalid or unenforceable in whole or in part.\n9. ENTIRE AGREEMENT\nThis agreement sets forth all of the covenants, promises, agreements, conditions and understandings between the parties and there are no covenants, promises, agreements or conditions, either oral or written, between them other than herein set forth. No subsequent alteration, amendment, change or addition to this Agreement shall be binding upon either party unless reduced in writing and signed by them.\n10. ARBITRATION\nAny controversy or claim arising out of or relating to this agreement, or the breach thereof, shall be resolved by arbitration conducted by the Commercial Division of the American Arbitration Association and in accordance with the rules thereof, or in any other convenient forum agreed to in writing by the parties. Any arbitration award shall be final and binding, and judgment upon the award rendered pursuant to such arbitration may be entered in any court of proper jurisdiction. Notwithstanding the foregoing, either party may seek and obtain temporary injunctive relief from any court of competent jurisdiction against any improper disclosure of the Confidential Information.\nIN WITNESS OF THEIR AGREEMENT, the parties have set their hands to it below effective the day and year first written above.\nDisclosing Party Receiving Party\nBy:__________________________________ By:_______________________________\n\n</document>\n\n<hypothesis>\nConfidential Information shall only include technical information.\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: Entailment\nconfidence: 62\nreason: Confidential Information is information about the Invention, which is defined as technical subject matter and expressly excludes business topics.\n<quote check=\"exact\">all information relating to products, applications, systems, components, technologies but not business topics</quote>\n</reading>\n<reading id=\"B\">\nlabel: Entailment\nconfidence: 78\nreason: Confidential Information is limited to information about the Invention, which is defined as technical information about products, systems and technologies and expressly excludes business topics.\n<quote check=\"exact\">shall mean all information relating to products, applications, systems, components, technologies but not business topics</quote>\n<quote check=\"exact\">\u201cConfidential Information\u201d shall mean all information provided by Disclosing Party with respect to the Invention</quote>\n</reading>\n<reading id=\"C\">\nlabel: NotMentioned\nconfidence: 62\nreason: The NDA defines Confidential Information broadly as all information provided with respect to the Invention, including trade secrets and data, but never states that it includes only technical information, and the scope is ambiguous enough that the document does not clearly settle the hypothesis.\n(no quotes)\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+    }
+   ]
+  }
+ }
+}

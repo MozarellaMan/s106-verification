@@ -1,0 +1,62 @@
+{
+ "id": "CTRL__claude-opus-5-5__test-34",
+ "record_skeleton": {
+  "item_id": "test-34",
+  "kind": "adjudicate",
+  "dir": "CTRL",
+  "post_hoc_control": true,
+  "permutation": {
+   "A": "sonnet",
+   "B": "haiku",
+   "C": "opus"
+  },
+  "request": {
+   "model": "claude-opus-5-5",
+   "max_tokens": 8000,
+   "output_config": {
+    "format": {
+     "type": "json_schema",
+     "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "label",
+       "confidence",
+       "quotes",
+       "reason"
+      ],
+      "properties": {
+       "label": {
+        "type": "string",
+        "enum": [
+         "Entailment",
+         "Contradiction",
+         "NotMentioned"
+        ]
+       },
+       "confidence": {
+        "type": "integer",
+        "description": "0-100"
+       },
+       "quotes": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       "reason": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "messages": [
+    {
+     "role": "user",
+     "content": "Three independent readers read the same non-disclosure agreement (NDA) and decided whether it supports one statement (the hypothesis). They may agree or disagree, and a program has checked each of their quotes against the document. Your job is to make the final decision yourself, from the document.\n\n<document>\nAnnex III \u2013 Non Disclosure Agreement\nThis agreement is made between PricewaterhouseCoopers LLP, a limited liability partnership incorporated in England (number OC303525) whose registered office is at 1 Embankment Place, London WC2N 6RH (\"PwC\"); and whose registered office is at (\u201cyou\u201d).\nBackground\nIn connection with our discussions relating to \u2018[Insert project name]\u2019 (the \u201cpurpose\u201d) certain confidential information may be disclosed between us.\n1 Definitions\nIn this agreement the following words have the meanings given to them below:\n\u201cconfidential information\u201d means any information disclosed by one party to the other party in connection with the purpose, which is of a confidential nature irrespective of whether it is marked as such.\n\u201cdisclosing party\u201d means the party to this agreement disclosing the confidential information. \u201cPwC firm\u201d means any entity or partnership within the worldwide network of PricewaterhouseCoopers firms and entities.\n\u201creceiving party\u201d means the party to this agreement to whom the confidential information is disclosed.\n2 Confidentiality\n2.1 The receiving party agrees:\n(a) to keep the disclosing party\u2019s confidential information, confidential;\n(b) not to use the disclosing party\u2019s confidential information except in connection with the purpose; and\n(c) not to disclose the disclosing party\u2019s confidential information to anyone else.\n2.2 Each party agrees that it will keep the purpose and the existence of this agreement confidential.\n2.3 This agreement will not apply to information which:\n(a) is publicly available; or\n(b) has been received from someone else who owes no duty of confidence in relation to it; or\n(c) was already known by the receiving party.\n2.4 Nothing in this agreement will prevent the receiving party from disclosing confidential information:\n(a) if the disclosing party has given its prior written consent; or\n(b) to its lawyers; or\n(c) if the disclosure is required by law, regulation or professional requirements; or\n(d) in the case of PwC, to other PwC firms or relevant subcontractors.\n2.5 The receiving party will ensure that anyone who receives confidential information under clause 2.4 (b) is bound by confidentiality obligations before the confidential information is disclosed.\n2.6 Nothing in this agreement will restrict your ability to disclose PwC\u2019s advice concerning the tax (including social security) treatment or tax structure of any transaction regardless of any confidentiality markings on any communications.\n3 Term\n3.1 This agreement will come into effect on the date of signature by both parties and will continue indefinitely, subject to any subsequent agreement entered into between the parties in relation to the purpose which includes obligations relating to the protection of confidential information. The subsequent agreement will then replace this agreement with effect from the commencement of our services.\n3.2 Following a written request from the disclosing party, the receiving party will, as soon as practicable, either destroy or return all confidential information to the disclosing party or, in the case of electronic copies of confidential information, delete them or make them reasonably inaccessible. However, PwC may not retain a copy of the confidential information for our internal purposes.\n4 General\nThis agreement forms the entire agreement between the parties relating to confidential information disclosed in connection with the purpose. It replaces any earlier agreements, representations or discussions. Neither party excludes liability for any fraud.\n5 Governing law and jurisdiction\nThis agreement and any dispute arising from it, whether contractual or non-contractual, will be governed by English law and be subject to the exclusive jurisdiction of the English courts.\nSIGNED for and on behalf of PricewaterhouseCoopers LLP\nBy \u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026..\nPosition\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\nDate \u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\nSIGNED for and on behalf of [ ]\nBy \u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\nPosition\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026..\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026.\n\n</document>\n\n<hypothesis>\nReceiving Party may retain some Confidential Information even after the return or destruction of Confidential Information.\n</hypothesis>\n\n<readings>\n<reading id=\"A\">\nlabel: Contradiction\nconfidence: 80\nreason: Clause 3.2 expressly states that PwC, as a receiving party, may not retain a copy of the confidential information after return or destruction, which contradicts the hypothesis.\n<quote check=\"exact\">However, PwC may not retain a copy of the confidential information for our internal purposes.</quote>\n</reading>\n<reading id=\"B\">\nlabel: Entailment\nconfidence: 60\nreason: Clause 3.2 lets the receiving party make electronic copies reasonably inaccessible instead of deleting them, which means those copies are still retained after return or destruction.\n<quote check=\"exact\">or make them reasonably inaccessible</quote>\n</reading>\n<reading id=\"C\">\nlabel: Contradiction\nconfidence: 70\nreason: The agreement requires destroying or returning all confidential information and expressly says PwC may not retain a copy, though the option to make electronic copies 'reasonably inaccessible' leaves some ambiguity.\n<quote check=\"exact\">either destroy or return all confidential information to the disclosing party</quote>\n<quote check=\"exact\">However, PwC may not retain a copy of the confidential information for our internal purposes.</quote>\n</reading>\n</readings>\n\nThe readings are evidence about where to look, not votes: a majority can be wrong, and a quote marked \"missing\" was not found in the document. Read the relevant parts of the document yourself.\n\nChoose exactly one label:\n- Entailment: the document states or clearly implies that the hypothesis is true.\n- Contradiction: the document states or clearly implies that the hypothesis is false.\n- NotMentioned: the document does not address the hypothesis, or says too little to decide.\n\nEvidence is required. For Entailment or Contradiction, give 1 to 3 quotes copied character for character from the document (no paraphrase, no ellipses), each as short as it can be while still carrying the point. They will be checked against the document. For NotMentioned, give an empty list.\n\nGive a confidence from 0 to 100: your probability, in percent, that your label is correct. Give a one-sentence reason.\n\nAnswer only with the JSON object the response format asks for: label, confidence, quotes, reason.\n"
+    }
+   ]
+  }
+ }
+}

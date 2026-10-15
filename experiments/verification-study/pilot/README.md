@@ -168,6 +168,11 @@ thinking tokens, and Haiku 5.5's tokenizer counts about 30% more tokens. Both co
 above that estimate, mostly through Opus. The cap is the safeguard. Read the dev ledger before you
 start test.
 
+What it actually cost (15 Oct 2026): $1.23 through the API for 165 calls (dev $0.52 for 58, clean test
+$0.71 for 107) before the workspace limit stopped it; the other 324 calls ran as subagents with no token
+record. Pricing all 489 calls at the mean API cost per call of the same model and kind gives about $4.10
+for a full rerun. The $6.56 above is the dry run's fake-token figure and overstates it.
+
 ## Outputs (`results/<split>/`)
 
 **Every figure in the report comes from `results/*.csv`** (or `dryrun/results/*.csv` for the dry run).
@@ -181,6 +186,18 @@ Nothing is typed in by hand.
 - `votes.csv`: the three quote readers' labels in the estimator's format
   (`scheme,variable,source,reader,kind,family,status,value` = item, V1, deed, model, llm, model, found, label).
 - `readers.csv`: each reader's measured accuracy on the split, to compare with the estimate.
+- `followups.md` / `followups.csv` (from `followups.py`): accuracy by client and by gold label, exact
+  McNemar tests between conditions, the adjudication detail per flagged item, and cost per correct answer
+  on the items whose calls were all API calls. Written after the outside review of 15 Oct 2026.
+- `control-adjudication.csv` (from `control_adjudicate.py`, test and test-seeded only): the C4 adjudication
+  re-asked with the three readings shuffled and labelled A/B/C, no model names, answered by a fresh Opus
+  subagent; columns compare it with the original adjudication and say whether Opus's own reading moved
+  out of position C.
+- `replicate.csv` (from `replicate_compare.py`, test only): items test-00..09, originally read through the
+  API, re-read as subagents for C1 Haiku, C3 Sonnet and C3 Opus, label against label.
+- `../second-coder/second-coder.csv`: a blind second coding of the 31 seeded edits and the three clean items
+  every reader disagreed with ContractNLI on (dev-05, test-23, test-29), by an Opus subagent that saw the
+  document and hypothesis only. A model, not a person.
 - `estimate.csv` (from the Rust crate): `reader` rows with the estimator's point estimate, lower bound
   (2.5th percentile over resampled items), `fits` and gate pass, beside the measured accuracy. `item`
   rows give the majority label and its posterior chance of error from `accuracy::error()`.

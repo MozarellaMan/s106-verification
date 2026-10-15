@@ -1,0 +1,33 @@
+{
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "label",
+  "confidence",
+  "quotes",
+  "reason"
+ ],
+ "properties": {
+  "label": {
+   "type": "string",
+   "enum": [
+    "Entailment",
+    "Contradiction",
+    "NotMentioned"
+   ]
+  },
+  "confidence": {
+   "type": "integer",
+   "description": "0-100"
+  },
+  "quotes": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "reason": {
+   "type": "string"
+  }
+ }
+}
