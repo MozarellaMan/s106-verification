@@ -19,8 +19,11 @@
 //! a_i = sqrt(A_ij·A_ik / A_jk). Two readers from one family (one LLM model family, people, one
 //! external source) can make the same mistake, which would make them agree when both are wrong and
 //! inflate the estimate, so the three readers always come from three families. The lower bound is
-//! the 2.5th percentile of the estimate over resamples of schemes. Schemes whose values were seen
-//! while the method was built (batch 1) never count towards an estimate.
+//! the 2.5th percentile of the estimate over resamples of schemes. A reader that is never the lone
+//! dissenter gets an estimate above 1 and a bound of exactly 1, which says the pattern does not
+//! fit, not that the reader is never wrong, so the model fits only when the bound is below 1 or
+//! the estimate is at most 1. Schemes whose values were seen while the method was built (batch 1)
+//! never count towards an estimate.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -268,7 +271,9 @@ pub struct Estimate {
     pub accuracy: f64,
     /// the 2.5th percentile over resamples of schemes
     pub lower: f64,
-    /// the model fits: the lower bound is at most 1 (a point estimate can pass 1 by chance)
+    /// the model fits: the lower bound is below 1 (a point estimate can pass 1 by chance), or the
+    /// point estimate is at most 1 (three readers that never disagree). A point estimate above 1
+    /// with a lower bound of 1 comes from a reader that is never the lone dissenter.
     pub fits: bool,
 }
 
@@ -392,7 +397,7 @@ pub fn estimates(votes: &[Vote], seen: &BTreeSet<String>) -> Vec<Estimate> {
                 shared: n,
                 accuracy,
                 lower,
-                fits: lower <= 1.0,
+                fits: lower < 1.0 || accuracy <= 1.0,
             });
         }
     }
@@ -434,4 +439,56 @@ pub fn error(
     let none: f64 = known.iter().map(|(_, a)| 1.0 - a).product();
     let total: f64 = candidates.iter().map(|c| likelihood(c)).sum::<f64>() + none;
     (total > 0.0).then(|| 1.0 - likelihood(shown) / total)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn vote(scheme: &str, reader: &str, kind: Kind, family: &str, month: &str) -> Vote {
+        Vote {
+            cell: (scheme.into(), "V7".into(), "deed".into()),
+            reader: reader.into(),
+            kind,
+            family: family.into(),
+            status: "found".into(),
+            fields: BTreeMap::from([("months".into(), month.into())]),
+            partial: false,
+            value: month.into(),
+        }
+    }
+
+    #[test]
+    fn a_reader_never_alone_in_dissent_does_not_fit() {
+        // `a` is never the lone dissenter: on s7 and s8 `b` differs, on s9 and s10 the person
+        // does, so a's point estimate passes 1 and its lower bound comes out at exactly 1
+        let mut votes = vec![];
+        for n in 1..=10 {
+            let s = format!("s{n}");
+            let (b, p) = match n {
+                7 | 8 => ("2020-02", "2020-01"),
+                9 | 10 => ("2020-01", "2020-02"),
+                _ => ("2020-01", "2020-01"),
+            };
+            votes.push(vote(&s, "machine:proposal/a-1", Kind::Llm, "a", "2020-01"));
+            votes.push(vote(&s, "machine:proposal/b-1", Kind::Llm, "b", b));
+            votes.push(vote(&s, "ana", Kind::Person, "person", p));
+        }
+        let est = estimates(&votes, &BTreeSet::new());
+        let a = est
+            .iter()
+            .find(|e| e.reader == "machine:proposal/a-1")
+            .unwrap();
+        assert!(a.accuracy > 1.0, "{a:?}");
+        assert!(!a.fits, "{a:?}");
+        assert!(!a.passes(), "{a:?}");
+
+        let by: BTreeMap<(String, String), &Estimate> = est
+            .iter()
+            .map(|e| ((e.group.clone(), e.reader.clone()), e))
+            .collect();
+        let cell: Vec<&Vote> = votes.iter().filter(|v| v.cell.0 == "s1").collect();
+        let x = error(cell[0], &cell, &by).unwrap();
+        assert!(x > 0.0, "a unanimous cell's error is {x}");
+    }
 }
