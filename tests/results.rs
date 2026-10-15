@@ -806,3 +806,36 @@ fn superseded_files_do_not_vote_and_non_reading_files_are_skipped() {
     );
     assert!(r.rejected.is_empty(), "{:?}", r.rejected);
 }
+
+#[test]
+fn the_reading_most_readers_give_is_shown() {
+    let root = tempfile::tempdir().unwrap();
+    let p = root.path();
+    sheet(p, &["EX/1"]);
+    let file = |name: &str, value: &str, who: &str| {
+        write(
+            p,
+            &format!("proposals/{name}.csv"),
+            &format!("{HEADER}{}", reading("EX/1", "V1", "deed", value, who)),
+        )
+    };
+    file(
+        "2026-10-14-a",
+        "total=10; SR=3",
+        "machine:proposal/claude-x",
+    );
+    file("2026-10-14-b", "total=10; SR=3", "machine:proposal/gpt-x");
+    // the latest file is outvoted two to one
+    file(
+        "2026-10-14-c",
+        "total=12; SR=3",
+        "machine:proposal/gemini-x",
+    );
+    let r = run(p);
+    let deed = entry(&r, "EX/1", "V1", "deed");
+    assert_eq!(
+        (deed.check, deed.value.as_str()),
+        (Check::Proposed, "total=10; SR=3")
+    );
+    assert!(deed.readers.starts_with("3 differ: "), "{}", deed.readers);
+}
