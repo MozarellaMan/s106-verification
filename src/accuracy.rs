@@ -5,7 +5,7 @@
 //! person (a labeller in `labels/`), or an external source. The Datahub's permitted homes are read
 //! as a reading of the deed's V1 total and affordable count, except on a scheme with a `variation`
 //! source, because the Datahub may record the varied figures. The EPC register's count of new
-//! homes (an `epc` V1 reading, `new_dwelling_epcs=N` or `N_low..N_high`) is read as a reading of
+//! homes (an `epc` V1 reading found as a single count, `new_dwelling_epcs=N`) is read as a reading of
 //! the deed's V1 total on the same schemes, once the Datahub records a completion, in its own family: it agrees with a total when the
 //! count reaches at least 90% of it and does not exceed it, because owners can opt out of
 //! publication, so the register can fall short of the homes built but never above them. An LLM
@@ -213,26 +213,22 @@ pub fn is_superseded(r: &Reading, superseded: &BTreeSet<(String, String)>) -> bo
     superseded.contains(&(file.to_string(), r.labeller.clone()))
 }
 
-/// The count range of an EPC V1 reading: `new_dwelling_epcs=N` or `new_dwelling_epcs=N_low..N_high`.
+/// The count of an EPC V1 reading, `new_dwelling_epcs=N`. A range (`N_low..N_high`, an
+/// `ambiguous` reading) gives none: a wide range would agree with almost any total.
 fn epc_count(value: &str) -> Option<String> {
     let v = value
         .split(';')
         .find_map(|p| p.trim().strip_prefix("new_dwelling_epcs="))?
         .trim();
-    let (lo, hi) = v.split_once("..").unwrap_or((v, v));
-    let (lo, hi) = (number(lo.trim())?, number(hi.trim())?);
-    Some(if lo == hi {
-        shown(lo)
-    } else {
-        format!("{}..{}", shown(lo), shown(hi))
-    })
+    number(v).map(shown)
 }
 
-/// The `built` range of an EPC vote.
-fn built(v: &Vote) -> Option<(f64, f64)> {
-    let b = v.fields.get("built").filter(|_| v.partial)?;
-    let (lo, hi) = b.split_once("..").unwrap_or((b, b));
-    Some((number(lo)?, number(hi)?))
+/// The `built` count of an EPC vote.
+fn built(v: &Vote) -> Option<f64> {
+    v.fields
+        .get("built")
+        .filter(|_| v.partial)
+        .and_then(|b| number(b))
 }
 
 /// The total homes a vote states, if it states one.
@@ -290,7 +286,7 @@ pub fn votes(readings: &[Reading]) -> Vec<Vote> {
         }
         if r.source == "epc"
             && r.variable_id == "V1"
-            && matches!(r.status.as_str(), "found" | "ambiguous")
+            && r.status == "found"
             && !varied.contains(r.scheme.as_str())
             && completed.contains(r.scheme.as_str())
             && let Some(count) = epc_count(&r.value)
@@ -309,11 +305,11 @@ pub fn votes(readings: &[Reading]) -> Vec<Vote> {
 /// Whether two votes on one cell say the same thing. A partial vote is compared on its own fields.
 pub fn agree(a: &Vote, b: &Vote) -> bool {
     // an EPC count against a total, or two EPC counts against each other
-    let within = |(lo, hi): (f64, f64), t: f64| lo <= t && hi >= EPC_SHARE * t;
+    let within = |n: f64, t: f64| n <= t && n >= EPC_SHARE * t;
     match (built(a), built(b)) {
-        (Some((l1, h1)), Some((l2, h2))) => return l1 <= h2 && l2 <= h1,
-        (Some(r), None) => return total(b).is_some_and(|t| within(r, t)),
-        (None, Some(r)) => return total(a).is_some_and(|t| within(r, t)),
+        (Some(x), Some(y)) => return x == y,
+        (Some(n), None) => return total(b).is_some_and(|t| within(n, t)),
+        (None, Some(n)) => return total(a).is_some_and(|t| within(n, t)),
         (None, None) => {}
     }
     match (a.partial, b.partial) {
@@ -549,10 +545,7 @@ mod tests {
     #[test]
     fn an_epc_count_agrees_with_a_total_it_reaches_90_percent_of() {
         assert_eq!(epc_count("new_dwelling_epcs=127").as_deref(), Some("127"));
-        assert_eq!(
-            epc_count("new_dwelling_epcs=75..116").as_deref(),
-            Some("75..116")
-        );
+        assert_eq!(epc_count("new_dwelling_epcs=75..116"), None);
         assert_eq!(epc_count("not a count"), None);
 
         let deed = v1(
@@ -569,9 +562,6 @@ mod tests {
         // 76 of 85 is 89%, and a count above the total can't be opt-outs
         assert!(!agree(&epc("76"), &deed));
         assert!(!agree(&epc("86"), &deed));
-        // a range agrees when any count in it would
-        assert!(agree(&epc("60..80"), &deed));
-        assert!(!agree(&epc("86..90"), &deed));
         // a deed reading that is not `found` states no total
         let mut unclear = deed.clone();
         unclear.status = "ambiguous".into();
@@ -600,14 +590,16 @@ mod tests {
     fn the_epc_count_reads_the_deed_only_on_completed_unvaried_schemes() {
         let mut readings = vec![];
         for s in ["done", "varied", "unfinished"] {
-            readings.push(reading(
-                s,
-                "V1",
-                "epc",
-                "ambiguous",
-                "new_dwelling_epcs=75..116",
-            ));
+            readings.push(reading(s, "V1", "epc", "found", "new_dwelling_epcs=75"));
         }
+        // an ambiguous range never votes
+        readings.push(reading(
+            "done",
+            "V1",
+            "epc",
+            "ambiguous",
+            "new_dwelling_epcs=75..116",
+        ));
         for s in ["done", "varied"] {
             readings.push(reading(s, "V8", "datahub", "found", "completed=2016-10-10"));
         }
@@ -624,7 +616,7 @@ mod tests {
             .collect();
         assert_eq!(epc.len(), 1, "{epc:?}");
         assert_eq!(epc[0].cell, ("done".into(), "V1".into(), "deed".into()));
-        assert_eq!(epc[0].fields["built"], "75..116");
+        assert_eq!(epc[0].fields["built"], "75");
         assert_eq!(epc[0].kind, Kind::External);
     }
 
