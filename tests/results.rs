@@ -840,3 +840,90 @@ fn the_reading_most_readers_give_is_shown() {
     );
     assert!(deed.readers.starts_with("3 differ: "), "{}", deed.readers);
 }
+
+#[test]
+fn one_family_counts_once_and_an_oracle_can_carry_the_majority() {
+    let root = tempfile::tempdir().unwrap();
+    let p = root.path();
+    sheet(p, &["EX/1", "EX/2", "EX/3"]);
+    let file = |name: &str, rows: &[(&str, &str, &str, &str)]| {
+        let body: String = rows
+            .iter()
+            .map(|(s, src, value, who)| reading(s, "V1", src, value, who))
+            .collect();
+        write(
+            p,
+            &format!("proposals/{name}.csv"),
+            &format!("{HEADER}{body}"),
+        )
+    };
+    // EX/1: two runs of one family against one other family is a tie, so the latest file stays
+    // EX/2: the Datahub backs the older reading, so two families outvote one
+    // EX/3: two challengers with two families each tie, so the later file of the two wins
+    file(
+        "2026-10-14-a",
+        &[
+            (
+                "EX/1",
+                "deed",
+                "total=10; SR=3",
+                "machine:proposal/claude-r1",
+            ),
+            (
+                "EX/2",
+                "deed",
+                "total=10; SR=3",
+                "machine:proposal/claude-r1",
+            ),
+            (
+                "EX/3",
+                "deed",
+                "total=10; SR=3",
+                "machine:proposal/claude-r1",
+            ),
+            ("EX/3", "deed", "total=10; SR=3", "machine:proposal/gpt-r1"),
+        ],
+    );
+    file(
+        "2026-10-14-b",
+        &[
+            (
+                "EX/1",
+                "deed",
+                "total=10; SR=3",
+                "machine:proposal/claude-r2",
+            ),
+            ("EX/2", "datahub", "total=10; market=7", DATAHUB),
+            (
+                "EX/3",
+                "deed",
+                "total=11; SR=3",
+                "machine:proposal/gemini-r1",
+            ),
+            (
+                "EX/3",
+                "deed",
+                "total=11; SR=3",
+                "machine:proposal/mistral-r1",
+            ),
+        ],
+    );
+    file(
+        "2026-10-14-c",
+        &[
+            ("EX/1", "deed", "total=12; SR=3", "machine:proposal/gpt-r1"),
+            ("EX/2", "deed", "total=12; SR=3", "machine:proposal/gpt-r1"),
+            (
+                "EX/3",
+                "deed",
+                "total=12; SR=3",
+                "machine:proposal/llama-r1",
+            ),
+        ],
+    );
+    let r = run(p);
+    let shown = |s: &str| entry(&r, s, "V1", "deed").value.clone();
+    assert_eq!(shown("EX/1"), "total=12; SR=3");
+    assert_eq!(shown("EX/2"), "total=10; SR=3");
+    assert_eq!(shown("EX/3"), "total=11; SR=3");
+}
