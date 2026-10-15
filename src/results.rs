@@ -150,8 +150,9 @@ fn sheet_cells(path: &Path) -> Result<BTreeMap<Key, String>> {
 
 /// The reading of every cell. The sheet's cells all appear; a cell that only labels or proposals
 /// name (a source carrying a variable nobody expected) is added for the sheet's schemes. In
-/// any case, the reading shown is the one in the latest proposals file (by path), or a label where
-/// no proposal exists; where readers differ, the `readers` column lists every reading.
+/// any case, the reading shown is the one most readers agree with; on a tie, the one in the latest
+/// proposals file (by path), or a label where no proposal exists. Where readers differ, the
+/// `readers` column lists every reading.
 pub fn ledger(
     sheet: &BTreeMap<Key, String>,
     submitted: &[Reading],
@@ -177,7 +178,12 @@ pub fn ledger(
         .filter(|r| !accuracy::is_superseded(r, superseded))
         .cloned()
         .collect();
-    let all_votes = accuracy::votes(&labels::latest(&readings));
+    let latest = labels::latest(&readings);
+    let by_reader: BTreeMap<(Key, &str), &Reading> = latest
+        .iter()
+        .map(|r| ((key(r), r.labeller.as_str()), r))
+        .collect();
+    let all_votes = accuracy::votes(&latest);
     let mut votes: BTreeMap<Key, Vec<&Vote>> = BTreeMap::new();
     for v in &all_votes {
         votes.entry(v.cell.clone()).or_default().push(v);
@@ -214,6 +220,9 @@ pub fn ledger(
             };
             e.check = Check::Proposed;
             let vs = votes.get(&k).cloned().unwrap_or_default();
+            let r = majority(&vs, &r.labeller)
+                .and_then(|reader| by_reader.get(&(k.clone(), reader)).copied())
+                .unwrap_or(r);
             let agreed = vs
                 .iter()
                 .enumerate()
@@ -265,6 +274,23 @@ pub fn ledger(
             e
         })
         .collect()
+}
+
+/// The reader of the full reading that more votes agree with than agree with `shown`'s, if any.
+/// No model settles a disagreement (s106-data `docs/verification-rule.md`, section 5); the majority
+/// only decides which reading is shown.
+fn majority<'a>(vs: &[&'a Vote], shown: &str) -> Option<&'a str> {
+    let support = |a: &Vote| vs.iter().filter(|b| accuracy::agree(a, b)).count();
+    let base = vs
+        .iter()
+        .find(|v| v.reader == shown && !v.partial)
+        .map_or(0, |v| support(v));
+    vs.iter()
+        .filter(|v| !v.partial)
+        .map(|v| (support(v), v))
+        .filter(|(n, _)| *n > base)
+        .max_by_key(|(n, _)| *n)
+        .map(|(_, v)| v.reader.as_str())
 }
 
 fn fields(m: &BTreeMap<String, String>) -> String {
